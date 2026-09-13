@@ -332,3 +332,20 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/).
 
 ### Pruebas
 - Lint: limpio ✅ | Push GitHub ✅
+
+---
+
+## [v0.20.0] — 2026-09-13 — Escaleras sólidas + hueco de techo + colisión correcta
+
+### Corregido
+- **Escaleras transitables (se podía pasar a través)**: las escaleras tenían `isStair` que las excluía completamente de la colisión horizontal
+  - Solución: las escaleras ahora bloquean horizontalmente cuando el jugador está bien debajo del escalón (`feetY < oTop - 0.7`), pero permiten subir cuando está cerca del tope (`feetY >= oTop - 0.7`)
+  - Resultado: no puedes pasar a través de las escaleras lateralmente, pero sí caminar hacia arriba
+- **Techo sobre escaleras bloqueaba el paso**: la colisión de techo se activaba incluso cuando el jugador estaba subiendo escaleras
+  - Solución: detección de `nearStairs` — si el jugador está dentro de 2 unidades de cualquier escalera, la colisión de techo se desactiva
+  - Solo los `roof` bloquean desde abajo (las escaleras ya no bloquean el techo)
+- **Hueco de escalera muy pequeño**: el hueco de 4×4 no daba suficiente espacio al jugador
+  - Solución: aumentado a 6×6 (suficiente para escaleras de 3.5 de ancho + margen del jugador)
+
+### Pruebas
+- Lint: limpio ✅ | Server sincronizado ✅ | Push GitHub ✅
