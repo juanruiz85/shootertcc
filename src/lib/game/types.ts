@@ -9,7 +9,7 @@ export type PlayerState = 'alive' | 'dead'
 export type Vec3 = [number, number, number]
 export type GameMode = '1v1' | '2v2' | 'team' | 'ffa' | 'coop' | 'mixed'
 export type Team = 'blue' | 'red' | 'none'
-export type ItemType = 'ammo' | 'heal' | 'shield'
+export type ItemType = 'ammo' | 'heal' | 'shield' | 'weapon'
 
 export type PlayerPublic = {
   id: string
@@ -44,6 +44,7 @@ export type ItemPublic = {
   id: string
   type: ItemType
   pos: Vec3
+  weaponId?: string
 }
 
 export type RoomSummary = {

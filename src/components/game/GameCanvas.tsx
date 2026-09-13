@@ -80,29 +80,120 @@ function updateBar(b: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D
 /* ---------- weapon mesh (held by remote players + viewmodel) ---------- */
 function buildWeaponMesh(weaponId: string): THREE.Group {
   const g = new THREE.Group()
-  const dark = doodleMat(0x2c2c2c)
-  const wood = doodleMat(0x7a5230)
-  const metal = doodleMat(0x555555)
+  const dark   = doodleMat(0x2c2c2c)
+  const wood   = doodleMat(0x7a5230)
+  const metal  = doodleMat(0x555555)
+  const steel  = doodleMat(0x444444)
+  const black  = doodleMat(0x1a1a1a)
+  const brass  = doodleMat(0xb8860b)
+  const grip   = doodleMat(0x3a2a1a)
+  const glass  = new THREE.MeshLambertMaterial({ color: 0x223344, transparent: true, opacity: 0.55, flatShading: true })
+
   if (weaponId === 'pistol') {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.18, 0.34), dark); body.position.set(0, 0, 0.05); addEdges(body); g.add(body)
-    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.2), metal); barrel.position.set(0, 0.04, -0.18); addEdges(barrel); g.add(barrel)
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.12), wood); grip.position.set(0, -0.16, 0.1); grip.rotation.x = 0.3; addEdges(grip); g.add(grip)
+    // slide (top), barrel (front), grip (down-back), trigger guard, sights
+    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.38), steel); slide.position.set(0, 0.05, 0.02); addEdges(slide); g.add(slide)
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.34), dark); frame.position.set(0, -0.04, 0.04); addEdges(frame); g.add(frame)
+    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.1), metal); barrel.position.set(0, 0.06, -0.22); addEdges(barrel); g.add(barrel)
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.24, 0.13), wood); grip.position.set(0, -0.18, 0.12); grip.rotation.x = 0.32; addEdges(grip); g.add(grip)
+    // trigger guard (thin loop)
+    const guard = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.015, 6, 10, Math.PI), metal); guard.position.set(0, -0.1, 0.04); guard.rotation.x = -Math.PI/2; g.add(guard)
+    // sights — rear notch + front blade
+    const rear = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.03, 0.02), black); rear.position.set(0, 0.13, 0.16); g.add(rear)
+    const front = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.04, 0.02), black); front.position.set(0, 0.14, -0.18); g.add(front)
   } else if (weaponId === 'smg') {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.42), dark); body.position.set(0, 0, 0.02); addEdges(body); g.add(body)
-    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.22), metal); barrel.position.set(0, 0.02, -0.28); addEdges(barrel); g.add(barrel)
-    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.1), wood); mag.position.set(0, -0.16, 0.05); addEdges(mag); g.add(mag)
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.1), wood); grip.position.set(0, -0.14, 0.16); grip.rotation.x = 0.25; addEdges(grip); g.add(grip)
+    // body, barrel, curved magazine, stock, foregrip, sights
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.44), dark); body.position.set(0, 0, 0.02); addEdges(body); g.add(body)
+    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.24), metal); barrel.position.set(0, 0.02, -0.3); addEdges(barrel); g.add(barrel)
+    const barrelTip = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.06, 8), steel); barrelTip.rotation.x = Math.PI/2; barrelTip.position.set(0, 0.02, -0.42); g.add(barrelTip)
+    // curved magazine
+    const magTop = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.1), wood); magTop.position.set(0, -0.16, 0.04); addEdges(magTop); g.add(magTop)
+    const magBot = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.1), wood); magBot.position.set(0, -0.28, 0.12); magBot.rotation.x = -0.35; addEdges(magBot); g.add(magBot)
+    // stock (folding wire stock)
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.22), dark); stock.position.set(0, 0, 0.28); addEdges(stock); g.add(stock)
+    const stockEnd = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.04), grip); stockEnd.position.set(0, -0.02, 0.4); addEdges(stockEnd); g.add(stockEnd)
+    // foregrip
+    const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.08), grip); foregrip.position.set(0, -0.14, -0.18); foregrip.rotation.x = 0.15; addEdges(foregrip); g.add(foregrip)
+    // rear pistol grip
+    const pgrip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.1), grip); pgrip.position.set(0, -0.14, 0.16); pgrip.rotation.x = 0.25; addEdges(pgrip); g.add(pgrip)
+    // sights
+    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.04), black); sight.position.set(0, 0.12, 0.05); g.add(sight)
   } else if (weaponId === 'rifle') {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.7), dark); body.position.set(0, 0, 0.05); addEdges(body); g.add(body)
-    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.4), metal); barrel.position.set(0, 0.03, -0.35); addEdges(barrel); g.add(barrel)
-    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.22), wood); stock.position.set(0, -0.02, 0.4); addEdges(stock); g.add(stock)
-    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.22, 0.1), wood); mag.position.set(0, -0.18, 0.05); addEdges(mag); g.add(mag)
-    const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.18, 8), metal); scope.rotation.z = Math.PI/2; scope.position.set(0, 0.13, 0.05); g.add(scope)
+    // body, long barrel, stock, magazine, scope, handguard
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.5), dark); body.position.set(0, 0, 0.05); addEdges(body); g.add(body)
+    // handguard (over barrel)
+    const hg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.32), grip); hg.position.set(0, 0, -0.18); addEdges(hg); g.add(hg)
+    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.42), metal); barrel.position.set(0, 0.01, -0.4); addEdges(barrel); g.add(barrel)
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.26), wood); stock.position.set(0, -0.02, 0.4); addEdges(stock); g.add(stock)
+    const stockPad = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.18, 0.04), grip); stockPad.position.set(0, -0.02, 0.53); addEdges(stockPad); g.add(stockPad)
+    // magazine (curved banana)
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.22, 0.1), wood); mag.position.set(0, -0.18, 0.0); mag.rotation.x = 0.15; addEdges(mag); g.add(mag)
+    // scope on top
+    const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.22, 10), metal); scope.rotation.z = Math.PI/2; scope.position.set(0, 0.14, 0.05); g.add(scope)
+    const scopeEnd = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 10), black); scopeEnd.rotation.z = Math.PI/2; scopeEnd.position.set(0, 0.14, -0.06); g.add(scopeEnd)
+    const scopeMount = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.06), dark); scopeMount.position.set(0, 0.09, 0.05); g.add(scopeMount)
+    // rear grip
+    const rgrip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.1), grip); rgrip.position.set(0, -0.14, 0.2); rgrip.rotation.x = 0.25; addEdges(rgrip); g.add(rgrip)
   } else if (weaponId === 'shotgun') {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.6), wood); body.position.set(0, 0, 0.05); addEdges(body); g.add(body)
-    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.4), metal); barrel.position.set(0, 0.03, -0.28); addEdges(barrel); g.add(barrel)
-    const pump = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 0.18), wood); pump.position.set(0, -0.1, -0.12); addEdges(pump); g.add(pump)
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.1), wood); grip.position.set(0, -0.14, 0.2); grip.rotation.x = 0.25; addEdges(grip); g.add(grip)
+    // body, double barrel, pump, stock, trigger
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.55), wood); body.position.set(0, 0, 0.05); addEdges(body); g.add(body)
+    // double barrel
+    const b1 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 10), steel); b1.rotation.x = Math.PI/2; b1.position.set(-0.05, 0.04, -0.12); g.add(b1)
+    const b2 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 10), steel); b2.rotation.x = Math.PI/2; b2.position.set(0.05, 0.04, -0.12); g.add(b2)
+    // pump (under barrel)
+    const pump = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.2), grip); pump.position.set(0, -0.08, -0.14); addEdges(pump); g.add(pump)
+    // stock
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.24), wood); stock.position.set(0, -0.04, 0.4); addEdges(stock); g.add(stock)
+    const stockPad = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.18, 0.04), grip); stockPad.position.set(0, -0.04, 0.53); addEdges(stockPad); g.add(stockPad)
+    // rear grip
+    const rgrip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.1), grip); rgrip.position.set(0, -0.16, 0.18); rgrip.rotation.x = 0.25; addEdges(rgrip); g.add(rgrip)
+    // trigger guard
+    const guard = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.015, 6, 10, Math.PI), metal); guard.position.set(0, -0.1, 0.08); guard.rotation.x = -Math.PI/2; g.add(guard)
+  } else if (weaponId === 'sniper') {
+    // long body, very long barrel, large scope, bipod, stock
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.13, 0.78), dark); body.position.set(0, 0, 0.05); addEdges(body); g.add(body)
+    // very long thin barrel
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.95, 10), steel); barrel.rotation.x = Math.PI/2; barrel.position.set(0, 0.02, -0.55); g.add(barrel)
+    const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.08, 10), black); muzzle.rotation.x = Math.PI/2; muzzle.position.set(0, 0.02, -1.0); g.add(muzzle)
+    // handguard over barrel
+    const hg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.4), grip); hg.position.set(0, -0.02, -0.35); addEdges(hg); g.add(hg)
+    // large scope on top
+    const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.34, 12), metal); scope.rotation.z = Math.PI/2; scope.position.set(0, 0.16, 0.05); g.add(scope)
+    const scopeEye = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.02, 12), glass); scopeEye.rotation.z = Math.PI/2; scopeEye.position.set(0, 0.16, 0.22); g.add(scopeEye)
+    const scopeLens = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.02, 12), glass); scopeLens.rotation.z = Math.PI/2; scopeLens.position.set(0, 0.16, -0.12); g.add(scopeLens)
+    // scope mounts
+    for (const sz of [-0.1, 0.1]) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.04), dark); m.position.set(0, 0.1, sz); g.add(m)
+    }
+    // bipod (two angled legs near muzzle)
+    for (const sx of [-0.08, 0.08]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.22, 0.025), steel); leg.position.set(sx, -0.2, -0.6); leg.rotation.z = sx * 0.6; g.add(leg)
+    }
+    // stock (with cheek rest)
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.32), wood); stock.position.set(0, -0.02, 0.48); addEdges(stock); g.add(stock)
+    const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.18), grip); cheek.position.set(0, 0.1, 0.48); addEdges(cheek); g.add(cheek)
+    const stockPad = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.2, 0.04), grip); stockPad.position.set(0, -0.02, 0.65); addEdges(stockPad); g.add(stockPad)
+    // trigger + grip
+    const rgrip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.1), grip); rgrip.position.set(0, -0.16, 0.2); rgrip.rotation.x = 0.25; addEdges(rgrip); g.add(rgrip)
+    const guard = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.015, 6, 10, Math.PI), metal); guard.position.set(0, -0.12, 0.08); guard.rotation.x = -Math.PI/2; g.add(guard)
+  } else if (weaponId === 'rocket') {
+    // tube body, warhead, grip, trigger
+    // main tube
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.95, 14), dark); tube.rotation.x = Math.PI/2; tube.position.set(0, 0, -0.15); addEdges(tube); g.add(tube)
+    // rear cap (open back)
+    const rearCap = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.06, 14), black); rearCap.rotation.x = Math.PI/2; rearCap.position.set(0, 0, 0.32); g.add(rearCap)
+    // front cone (warhead nose cone sticking out)
+    const warhead = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.28, 14), brass); warhead.rotation.x = -Math.PI/2; warhead.position.set(0, 0, -0.7); g.add(warhead)
+    const warheadBase = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.08, 14), steel); warheadBase.rotation.x = Math.PI/2; warheadBase.position.set(0, 0, -0.6); g.add(warheadBase)
+    // grip (pistol grip below)
+    const gripMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.1), grip); gripMesh.position.set(0, -0.22, 0.05); gripMesh.rotation.x = 0.25; addEdges(gripMesh); g.add(gripMesh)
+    // trigger guard
+    const guard = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.015, 6, 10, Math.PI), metal); guard.position.set(0, -0.16, 0.12); guard.rotation.x = -Math.PI/2; g.add(guard)
+    // front foregrip
+    const fgrip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.08), grip); fgrip.position.set(0, -0.18, -0.25); fgrip.rotation.x = 0.15; addEdges(fgrip); g.add(fgrip)
+    // sight on top
+    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.08), black); sight.position.set(0, 0.14, 0.0); g.add(sight)
+    // shoulder rest at rear
+    const rest = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.05), grip); rest.position.set(0, -0.04, 0.36); addEdges(rest); g.add(rest)
   }
   return g
 }
@@ -218,7 +309,7 @@ function buildMobAvatar(): { group: THREE.Group; face: THREE.Group; bodyMat: THR
 }
 
 /* ---------- item avatar ---------- */
-function buildItemAvatar(type: string): THREE.Group {
+function buildItemAvatar(type: string, weaponId?: string): THREE.Group {
   const g = new THREE.Group()
   if (type === 'ammo') {
     // cartucho de balas: caja amarilla con balas
@@ -237,6 +328,23 @@ function buildItemAvatar(type: string): THREE.Group {
     const can = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.5, 12), doodleMat(0x1abc9c)); can.position.y = 0.5; addEdges(can); g.add(can)
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.06, 12), doodleMat(0x16a085)); cap.position.y = 0.78; g.add(cap)
     const label = new THREE.Mesh(new THREE.CylinderGeometry(0.181, 0.181, 0.2, 12), doodleMat(0xffffff)); label.position.y = 0.5; g.add(label)
+  } else if (type === 'weapon') {
+    // floating gun pickup — build the actual weapon mesh, scaled, with a glowing aura
+    const wid = weaponId && WEAPONS[weaponId] ? weaponId : 'sniper'
+    const gun = buildWeaponMesh(wid)
+    gun.scale.set(1.2, 1.2, 1.2)
+    gun.rotation.y = Math.PI / 2 // sideways so it's recognisable from above
+    gun.position.y = 0.55
+    g.add(gun)
+    // glowing aura ring under the weapon (purple — rare)
+    const ringGeo = new THREE.RingGeometry(0.32, 0.5, 20)
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x9b59b6, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
+    const ring = new THREE.Mesh(ringGeo, ringMat)
+    ring.rotation.x = -Math.PI / 2
+    ring.position.y = 0.04
+    g.add(ring)
+    // small floating base box so it reads as a pickup
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 0.4), doodleMat(0x9b59b6)); base.position.y = 0.05; addEdges(base); g.add(base)
   }
   return g
 }
@@ -589,11 +697,19 @@ export default function GameCanvas() {
       viewmodelGroup.remove(viewmodelWeapon)
       viewmodelWeapon.traverse((o: any) => { if (o.geometry) o.geometry.dispose?.(); if (o.material) o.material.dispose?.() })
       viewmodelWeapon = buildWeaponMesh(weaponId)
-      const s = weaponId === 'shotgun' ? 1.35 : weaponId === 'rifle' ? 1.15 : weaponId === 'smg' ? 0.9 : 1
+      // per-weapon viewmodel scale + position adjustments so the gun sits nicely in the corner
+      const s = weaponId === 'shotgun' ? 1.35
+        : weaponId === 'rifle' ? 1.15
+        : weaponId === 'smg' ? 0.9
+        : weaponId === 'sniper' ? 0.95
+        : weaponId === 'rocket' ? 0.9
+        : 1
       viewmodelWeapon.scale.set(s, s, s)
-      viewmodelWeapon.position.set(0.28, -0.26, -0.55)
+      // sniper/rocket are long — pull them back a bit so they don't clip through the camera
+      const zOff = weaponId === 'sniper' ? -0.4 : weaponId === 'rocket' ? -0.35 : -0.55
+      viewmodelWeapon.position.set(0.28, -0.26, zOff)
       viewmodelGroup.add(viewmodelWeapon)
-      muzzleFlash.position.set(0.28, -0.24, -0.95)
+      muzzleFlash.position.set(0.28, -0.24, weaponId === 'sniper' ? -1.05 : weaponId === 'rocket' ? -0.95 : -0.95)
     }
 
     // ---------- local player ----------
@@ -609,9 +725,31 @@ export default function GameCanvas() {
       lastShot: 0, respawnAt: 0, bobT: 0,
       streak: 0,
       stamina: 100, sprinting: false,
+      aiming: false, // right-click scope/zoom toggle
     }
     const moveState = { f: false, b: false, l: false, r: false, sprint: false }
     const mouse = { down: false }
+
+    // Effective spread for the current weapon, factoring in aim (right-click)
+    // Sniper/rifle get a big spread reduction when aiming; other weapons unchanged.
+    function effectiveSpread(): number {
+      const w = getWeapon(local.weapon)
+      if (!local.aiming) return w.spread
+      if (local.weapon === 'sniper') return w.spread * 0.15 // near-perfect accuracy
+      if (local.weapon === 'rifle') return w.spread * 0.4
+      return w.spread
+    }
+    // FOV target based on aim + sprint state
+    function targetFov(): number {
+      if (local.aiming) {
+        if (local.weapon === 'sniper') return 30 // strong zoom (scope overlay shown)
+        if (local.weapon === 'rifle') return 50  // mild zoom (ADS)
+        if (local.weapon === 'rocket') return 65 // slight zoom to aim rocket
+        return 70 // other weapons: barely zoom when "aiming"
+      }
+      if (local.sprinting) return 85
+      return 75
+    }
 
     const remotes = new Map<string, RemotePlayer>()
     const mobs = new Map<string, Mob>()
@@ -658,9 +796,9 @@ export default function GameCanvas() {
       mobs.set(m.id, { id: m.id, group: built.group, face: built.face, bodyMat: built.bodyMat, targetPos: new THREE.Vector3(m.pos[0],0,m.pos[2]), pos: new THREE.Vector3(m.pos[0],0,m.pos[2]), alive: m.state === 'alive', hitFlashUntil: 0, bob: Math.random()*6 })
       mobs.get(m.id)!.group.visible = m.state === 'alive'
     }
-    function spawnItem(it: { id: string; type: string; pos: Vec3 }) {
+    function spawnItem(it: { id: string; type: string; pos: Vec3; weaponId?: string }) {
       if (items.has(it.id)) return
-      const g = buildItemAvatar(it.type)
+      const g = buildItemAvatar(it.type, it.weaponId)
       g.position.set(it.pos[0], 0, it.pos[2])
       scene.add(g)
       items.set(it.id, { id: it.id, type: it.type, group: g, pos: new THREE.Vector3(it.pos[0],0,it.pos[2]), spin: Math.random()*6 })
@@ -690,11 +828,12 @@ export default function GameCanvas() {
       viewmodelGroup.position.z = 0.06
       const origin = new THREE.Vector3(); camera.getWorldPosition(origin)
       const baseDir = new THREE.Vector3(); camera.getWorldDirection(baseDir)
+      const spread = effectiveSpread()
       for (let i = 0; i < w.pellets; i++) {
         const dir = baseDir.clone()
-        dir.x += (Math.random()-0.5) * w.spread * 2
-        dir.y += (Math.random()-0.5) * w.spread * 2
-        dir.z += (Math.random()-0.5) * w.spread * 2
+        dir.x += (Math.random()-0.5) * spread * 2
+        dir.y += (Math.random()-0.5) * spread * 2
+        dir.z += (Math.random()-0.5) * spread * 2
         dir.normalize()
         raycastAndReport(origin, dir, w)
         spawnTracer(origin, dir, w.range, INK)
@@ -785,6 +924,8 @@ export default function GameCanvas() {
       if (!WEAPONS[id] || id === local.weapon) return
       local.weapon = id; const w = getWeapon(id)
       local.reloading = false; local.ammo = w.magazine
+      // switching weapon cancels aim — new weapon may not support scope
+      if (local.aiming) { local.aiming = false; setStore({ aiming: false }) }
       setViewmodel(id)
       sfx.switchWeapon()
       setStore({ weapon: id, ammo: local.ammo, magazine: w.magazine, reloading: false })
@@ -805,6 +946,8 @@ export default function GameCanvas() {
         case 'Digit2': switchWeapon('smg'); break
         case 'Digit3': switchWeapon('rifle'); break
         case 'Digit4': switchWeapon('shotgun'); break
+        case 'Digit5': switchWeapon('sniper'); break
+        case 'Digit6': switchWeapon('rocket'); break
         case 'Tab': e.preventDefault(); setStore({ showScoreboard: true }); break
         case 'Escape': setStore({ paused: true }); break
       }
@@ -819,8 +962,27 @@ export default function GameCanvas() {
         case 'Tab': setStore({ showScoreboard: false }); break
       }
     }
-    const onMouseDown = (e: MouseEvent) => { if (e.button !== 0 || !isLocked) return; mouse.down = true; const w = getWeapon(local.weapon); if (!w.auto) shoot() }
-    const onMouseUp = (e: MouseEvent) => { if (e.button === 0) mouse.down = false }
+    const onMouseDown = (e: MouseEvent) => {
+      if (!isLocked) return
+      if (e.button === 0) { mouse.down = true; const w = getWeapon(local.weapon); if (!w.auto) shoot() }
+      else if (e.button === 2) { toggleAim() }
+    }
+    const onMouseUp = (e: MouseEvent) => {
+      if (e.button === 0) mouse.down = false
+      // right-click release does NOT cancel aim (hold-style would be e.button === 2 here)
+    }
+    // Prevent the browser context menu from appearing on right-click anywhere in the document
+    const onContextMenu = (e: MouseEvent) => { e.preventDefault() }
+    function toggleAim() {
+      // only allow aiming while alive; sprint cancels aim
+      if (!local.alive) return
+      local.aiming = !local.aiming
+      if (local.aiming) moveState.sprint = false // can't sprint while aiming
+      setStore({ aiming: local.aiming })
+      // immediately nudge camera so the FOV transition starts without waiting for next frame
+      camera.fov += (targetFov() - camera.fov) * 0.4
+      camera.updateProjectionMatrix()
+    }
     const onMouseMove = (e: MouseEvent) => {
       if (!isLocked) return
       local.yaw -= e.movementX * MOUSE_SENS; local.pitch -= e.movementY * MOUSE_SENS
@@ -836,12 +998,17 @@ export default function GameCanvas() {
     const onPointerLockChange = () => {
       isLocked = document.pointerLockElement === renderer.domElement
       setStore({ pointerLocked: isLocked, paused: isLocked ? false : useGameStore.getState().paused })
-      if (!isLocked) { moveState.f = moveState.b = moveState.l = moveState.r = false; mouse.down = false }
+      if (!isLocked) {
+        moveState.f = moveState.b = moveState.l = moveState.r = false; mouse.down = false
+        // losing pointer lock cancels aim so the scope overlay doesn't get stuck on screen
+        if (local.aiming) { local.aiming = false; setStore({ aiming: false }) }
+      }
     }
     const onResize = () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight) }
     document.addEventListener('keydown', onKeyDown); document.addEventListener('keyup', onKeyUp)
     document.addEventListener('mousedown', onMouseDown); document.addEventListener('mouseup', onMouseUp)
     document.addEventListener('mousemove', onMouseMove); document.addEventListener('wheel', onWheel, { passive: true })
+    document.addEventListener('contextmenu', onContextMenu)
     document.addEventListener('pointerlockchange', onPointerLockChange)
     window.addEventListener('resize', onResize)
     renderer.domElement.addEventListener('click', onCanvasClick)
@@ -950,7 +1117,9 @@ export default function GameCanvas() {
         const meId = useGameStore.getState().myId
         if (d.victimId === meId) {
           local.alive = false; local.health = 0; local.streak = 0
-          setStore({ alive: false, health: 0, respawnIn: 3, streak: 0 })
+          // dying cancels aim/scope
+          if (local.aiming) { local.aiming = false }
+          setStore({ alive: false, health: 0, respawnIn: 3, streak: 0, aiming: false })
           local.respawnAt = performance.now() + 3000
           sfx.death()
         } else {
@@ -1017,8 +1186,28 @@ export default function GameCanvas() {
       onItemPicked: (d) => {
         const meId = useGameStore.getState().myId
         if (d.by === meId) {
-          const names: Record<string,string> = { ammo: 'Cartucho', heal: 'Cruz', shield: 'Bebida' }
-          setStore({ pickupToast: { type: d.type, name: names[d.type] ?? d.type, at: performance.now() } })
+          const names: Record<string,string> = { ammo: 'Cartucho', heal: 'Cruz', shield: 'Bebida', weapon: 'Arma especial' }
+          const displayName = d.type === 'weapon' && d.weaponId && WEAPONS[d.weaponId] ? WEAPONS[d.weaponId].name : (names[d.type] ?? d.type)
+          setStore({ pickupToast: { type: d.type, name: displayName, at: performance.now() } })
+          // if the pickup granted a weapon, the server will send an ammo event —
+          // update local.weapon from the pickup payload if provided
+          if (d.type === 'weapon' && d.weaponId && WEAPONS[d.weaponId]) {
+            local.weapon = d.weaponId
+            local.ammo = WEAPONS[d.weaponId].magazine
+            local.reloading = false
+            setViewmodel(d.weaponId)
+            setStore({ weapon: d.weaponId, ammo: local.ammo, magazine: WEAPONS[d.weaponId].magazine, reloading: false })
+            sfx.switchWeapon()
+          } else if (d.type === 'ammo' && d.weaponId && WEAPONS[d.weaponId]) {
+            // 'ammo' pickup also grants a random weapon server-side; if the server
+            // told us which one, sync the viewmodel
+            local.weapon = d.weaponId
+            local.ammo = WEAPONS[d.weaponId].magazine
+            local.reloading = false
+            setViewmodel(d.weaponId)
+            setStore({ weapon: d.weaponId, ammo: local.ammo, magazine: WEAPONS[d.weaponId].magazine, reloading: false })
+            sfx.switchWeapon()
+          }
           sfx.pickup()
         }
         removeItem(d.id)
@@ -1156,10 +1345,18 @@ export default function GameCanvas() {
           (animate as any)._lastStamina = now
           setStore({ stamina: Math.round(local.stamina), sprinting: local.sprinting })
         }
-        // FOV widening when sprinting
-        const targetFov = local.sprinting ? 85 : 75
-        camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 8)
+        // FOV — driven by targetFov() (covers aim + sprint)
+        const tf = targetFov()
+        camera.fov += (tf - camera.fov) * Math.min(1, dt * 8)
         camera.updateProjectionMatrix()
+      } else {
+        // not alive / not locked — gracefully restore FOV
+        const tf = 75
+        if (Math.abs(camera.fov - tf) > 0.05) {
+          camera.fov += (tf - camera.fov) * Math.min(1, dt * 6)
+          camera.updateProjectionMatrix()
+        }
+        if (local.aiming) { local.aiming = false; setStore({ aiming: false }) }
       }
 
       // gravity + ground / box-top collision
@@ -1354,6 +1551,7 @@ export default function GameCanvas() {
       document.removeEventListener('keydown', onKeyDown); document.removeEventListener('keyup', onKeyUp)
       document.removeEventListener('mousedown', onMouseDown); document.removeEventListener('mouseup', onMouseUp)
       document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('wheel', onWheel)
+      document.removeEventListener('contextmenu', onContextMenu)
       document.removeEventListener('pointerlockchange', onPointerLockChange)
       window.removeEventListener('resize', onResize)
       renderer.domElement.removeEventListener('click', onCanvasClick)

@@ -29,6 +29,7 @@ export type HudState = {
   magazine: number
   reloading: boolean
   reloadProgress: number
+  aiming: boolean
   alive: boolean
   respawnIn: number
   stamina: number
@@ -101,6 +102,7 @@ const initial = {
   magazine: 12,
   reloading: false,
   reloadProgress: 0,
+  aiming: false,
   alive: true,
   respawnIn: 0,
   stamina: 100,

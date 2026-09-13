@@ -10,15 +10,24 @@ import { Button } from '@/components/ui/button'
 function CrosshairHUD() {
   const weapon = useGameStore((s) => s.weapon)
   const hitMarker = useGameStore((s) => s.hitMarker)
+  const aiming = useGameStore((s) => s.aiming)
   useGameStore((s) => s.myPosSnapshot)
   const w = getWeapon(weapon)
-  const gap = 6 + w.spread * 120
+  // when aiming with sniper/rifle, the crosshair tightens (matches effectiveSpread in GameCanvas)
+  let spread = w.spread
+  if (aiming) {
+    if (weapon === 'sniper') spread = w.spread * 0.15
+    else if (weapon === 'rifle') spread = w.spread * 0.4
+  }
+  const gap = 6 + spread * 120
   const len = 8
   const recentHit = hitMarker && performance.now() - hitMarker < 300
   const color = recentHit ? '#e74c3c' : 'rgba(253,251,247,0.9)'
   const lineStyle: React.CSSProperties = {
     position: 'absolute', background: color, boxShadow: '0 0 0 1.5px #1a1a1a',
   }
+  // when scoped in with the sniper, the ScopeOverlay shows its own crosshair — hide the regular one
+  if (aiming && weapon === 'sniper') return null
   return (
     <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center">
       <div className="relative" style={{ width: 0, height: 0, transition: 'all 0.1s' }}>
@@ -201,9 +210,12 @@ function BottomBars() {
         <div className="flex gap-1 mt-2">
           {WEAPON_ORDER.map((id, i) => {
             const active = id === weapon
+            const isRare = id === 'sniper' || id === 'rocket'
+            const label = id === 'sniper' ? 'Snp' : id === 'rocket' ? 'Rck' : id === 'shotgun' ? 'Shg' : id === 'rifle' ? 'Rfl' : id === 'smg' ? 'Smg' : 'Pst'
             return (
-              <div key={id} className={`flex-1 px-1.5 py-0.5 rounded border-2 text-center text-[10px] font-bold ${active ? 'bg-black text-[#fdfbf7] border-black' : 'bg-white text-black/50 border-black/30'}`}>
+              <div key={id} className={`flex-1 px-1 py-0.5 rounded border-2 text-center text-[9px] font-bold leading-tight ${active ? 'bg-black text-[#fdfbf7] border-black' : isRare ? 'bg-white text-[#9b59b6] border-[#9b59b6]/60' : 'bg-white text-black/50 border-black/30'}`} title={WEAPONS[id]?.name ?? id}>
                 <span className="font-mono">{i + 1}</span>
+                <span className="block font-doodle" style={{ fontSize: 9, lineHeight: '10px' }}>{label}</span>
               </div>
             )
           })}
@@ -241,8 +253,8 @@ function Minimap() {
           {/* items */}
           {items.map((it) => {
             const p = toMap(it.pos[0], it.pos[2])
-            const c = it.type === 'ammo' ? '#f1c40f' : it.type === 'heal' ? '#e74c3c' : '#1abc9c'
-            return <div key={it.id} className="absolute w-1.5 h-1.5 rounded-full border border-black" style={{ left: p.x-3, top: p.y-3, background: c }} />
+            const c = it.type === 'ammo' ? '#f1c40f' : it.type === 'heal' ? '#e74c3c' : it.type === 'weapon' ? '#9b59b6' : '#1abc9c'
+            return <div key={it.id} className={`absolute rounded-full border border-black ${it.type === 'weapon' ? 'w-2 h-2' : 'w-1.5 h-1.5'}`} style={{ left: p.x-3, top: p.y-3, background: c, boxShadow: it.type === 'weapon' ? '0 0 4px #9b59b6' : undefined }} />
           })}
           {/* mobs */}
           {mobs.filter((m) => m.state === 'alive').map((m) => {
@@ -323,7 +335,7 @@ function PickupToast() {
   if (!toast) return null
   const age = performance.now() - toast.at
   if (age > 2500) return null
-  const colors: Record<string,string> = { ammo: '#f1c40f', heal: '#e74c3c', shield: '#1abc9c' }
+  const colors: Record<string,string> = { ammo: '#f1c40f', heal: '#e74c3c', shield: '#1abc9c', weapon: '#9b59b6' }
   return (
     <div className="pointer-events-none fixed bottom-32 left-1/2 -translate-x-1/2 z-40">
       <div key={toast.at} className="doodle-card-flat px-4 py-2 flex items-center gap-2" style={{ animation: 'hit-pop 0.4s ease-out' }}>
@@ -528,7 +540,8 @@ function PauseOverlay({ onLeave }: { onLeave: () => void }) {
         <div className="doodle-card p-6 text-center pointer-events-none" style={{ animation: 'hit-pop 0.3s ease-out' }}>
           <Crosshair className="w-10 h-10 mx-auto mb-2" />
           <p className="font-doodle text-2xl font-black">Haz clic para jugar</p>
-          <p className="text-sm text-black/60 mt-1">WASD mover · Ratón mirar · Click disparar</p>
+          <p className="text-sm text-black/60 mt-1">WASD mover · Ratón mirar · Click disparar · Click derecho apuntar</p>
+          <p className="text-xs text-black/40 mt-1">1-6 cambiar arma · R recargar · Shift correr</p>
         </div>
       </button>
     )
@@ -714,11 +727,63 @@ function VignetteOverlay() {
   )
 }
 
+/* ============================ Sniper scope overlay (right-click aim) ============================ */
+function ScopeOverlay() {
+  const aiming = useGameStore((s) => s.aiming)
+  const weapon = useGameStore((s) => s.weapon)
+  const alive = useGameStore((s) => s.alive)
+  // only the sniper gets the full scope vignette + crosshair
+  if (!aiming || !alive || weapon !== 'sniper') return null
+  return (
+    <div className="pointer-events-none fixed inset-0 z-40">
+      {/* dark vignette: opaque at edges, transparent at center circle */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(circle at center, rgba(0,0,0,0) 28vh, rgba(0,0,0,0.55) 30vh, rgba(0,0,0,0.97) 42vh)',
+        }}
+      />
+      {/* black scope ring outline */}
+      <div
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-[6px] border-black"
+        style={{ width: '57vh', height: '57vh', boxShadow: '0 0 0 2px rgba(255,255,255,0.15) inset, 0 0 24px rgba(0,0,0,0.6)' }}
+      />
+      {/* thin inner glass ring */}
+      <div
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/40"
+        style={{ width: '54vh', height: '54vh' }}
+      />
+      {/* crosshair: thick black + thin red center */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ width: '54vh', height: '54vh' }}>
+        {/* horizontal line */}
+        <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[3px] bg-black/85" />
+        {/* vertical line */}
+        <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[3px] bg-black/85" />
+        {/* mil-dot ticks along horizontal */}
+        {[-0.4, -0.2, 0.2, 0.4].map((f) => (
+          <div key={`h${f}`} className="absolute top-1/2 -translate-y-1/2 h-2 w-[2px] bg-black/80" style={{ left: `calc(50% + ${f * 100}%)` }} />
+        ))}
+        {[-0.4, -0.2, 0.2, 0.4].map((f) => (
+          <div key={`v${f}`} className="absolute left-1/2 -translate-x-1/2 w-2 h-[2px] bg-black/80" style={{ top: `calc(50% + ${f * 100}%)` }} />
+        ))}
+        {/* center red dot */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[5px] h-[5px] rounded-full bg-[#e74c3c]" />
+        {/* range estimate markings (bottom) */}
+        <div className="absolute left-1/2 -translate-x-1/2 text-[10px] font-mono text-black/70 font-bold" style={{ bottom: '8%' }}>
+          10 · 20 · 30 · 40 · 50
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ============================ Hud root ============================ */
 export default function Hud({ onLeave }: { onLeave: () => void }) {
   return (
     <>
       <VignetteOverlay />
+      <ScopeOverlay />
       <CrosshairHUD />
       <HitMarker />
       <DamageFlash />

@@ -1645,3 +1645,128 @@ The server's existing helper functions (`ob`, `buildCar`, `buildTree`, `buildHou
 
 ### Agent Context
 Work record written to `/home/z/my-project/agent-ctx/f-server-game-server.md`.
+
+---
+
+## Task ID: i-weapons — New weapons (sniper, rocket), right-click aim, rare drops
+
+**Agent:** main (weapons + aiming)
+**Date:** 2026-09-13
+**Status:** ✅ Completed
+
+### Summary
+
+Added two new weapons (sniper + rocket launcher) and a right-click aim/scope
+mechanic, plus rare weapon drops from mobs and from players who die on a
+streak. Each weapon got a more distinctive 3D mesh; the HUD now shows 6
+weapon slots; sniper zooms to FOV 30 and shows a full-screen scope overlay
+(dark vignette + crosshair + mil-dot ticks + red center dot).
+
+### Files changed
+
+1. `src/lib/game/types.ts` — `ItemType` includes `'weapon'`; `ItemPublic`
+   has optional `weaponId?: string`.
+2. `src/lib/game/constants.ts` — added `sniper` and `rocket` to `WEAPONS`
+   (exact stats from spec); appended both to `WEAPON_ORDER`; updated local
+   `ItemType`; added `weapon` entry to `ITEMS`
+   (`name: 'Arma especial', color: '#9b59b6'`); exported `RARE_WEAPONS` and
+   `AMMO_PICKUP_POOL` helper arrays.
+3. `src/lib/game/store.ts` — added `aiming: boolean` field + initial value.
+4. `src/lib/socket.ts` — `onItemPicked` payload carries optional `weaponId`.
+5. `src/components/game/GameCanvas.tsx`:
+   - Rewrote `buildWeaponMesh` for all 6 weapons — each is now more detailed
+     and distinct (slide, frame, barrel, grip, trigger guard, sights for
+     pistol; body, barrel, curved magazine, stock, foregrip for SMG; body,
+     handguard, long barrel, stock, magazine, scope for rifle; double
+     barrel, pump, stock for shotgun; very long barrel, large scope, bipod,
+     cheek-rest for sniper; tube, warhead, grips for rocket).
+   - Extended `buildItemAvatar(type, weaponId?)` with a `'weapon'` branch
+     that builds the actual weapon mesh (1.2× scale, sideways), floating on
+     a purple glowing aura ring + base box.
+   - Added `local.aiming` flag, `effectiveSpread()` (sniper ×0.15, rifle
+     ×0.4 when aiming), `targetFov()` (sniper → 30, rifle → 50, rocket → 65,
+     sprint → 85, default 75) helpers.
+   - `shoot()` uses `effectiveSpread()`; `onMouseDown` handles `button === 2`
+     → `toggleAim()`; `onContextMenu` calls `preventDefault()`.
+   - Aim is cancelled on weapon switch, pointer-lock loss, and death.
+   - Added `Digit5` (sniper) and `Digit6` (rocket) keybinds; `setViewmodel`
+     has per-weapon scale + Z-offset so long guns don't clip the camera.
+   - `spawnItem` + `onItemPicked` pass through `weaponId`; `onItemPicked`
+     syncs `local.weapon` + viewmodel from `d.weaponId` for `'weapon'` and
+     `'ammo'` pickups.
+6. `src/components/game/Hud.tsx`:
+   - New `ScopeOverlay` (z-40) shown only when `aiming && alive && weapon
+     === 'sniper'`: dark radial vignette + black scope ring + thin glass
+     ring + black crosshair lines + mil-dot ticks + red center dot + range
+     markings.
+   - `CrosshairHUD` tightens its gap when aiming (matches `effectiveSpread`)
+     and is hidden when scoped in with the sniper.
+   - `PickupToast` includes `weapon` color (`#9b59b6`).
+   - `Minimap` item dot color includes `weapon` (`#9b59b6`), larger + glow.
+   - Weapon slot strip shows all 6 weapons with 3-letter labels; rare
+     weapons have a purple border.
+   - Pause overlay's controls hint mentions right-click aim + 1-6 weapon
+     keys.
+7. `mini-services/game-server/index.ts`:
+   - Added `sniper` and `rocket` to server `WEAPONS` (identical to client).
+   - `Item` interface widened to `'ammo'|'heal'|'shield'|'weapon'` with
+     `weaponId?: string`.
+   - `spawnItem(r, type, pos?, weaponId?)` signature widened; `weaponId`
+     included in every `items:state` + `room:joined` payload (6 places).
+   - New `maybeDropRareWeapon(r, pos)`: 2% rocket, +3% sniper (5% total).
+     Called from `killMob` (PvE modes only, in addition to the regular
+     drop).
+   - `killPlayer` captures `streakAtDeath` + `weaponAtDeath` BEFORE
+     resetting them; if `streakAtDeath >= 5` and weapon ≠ pistol, spawns a
+     `'weapon'` item with that `weaponId` at the victim's position (any
+     mode).
+   - `item:pickup` handler: `'ammo'` rolls from `AMMO_PICKUP_POOL`
+     (`['smg','rifle','shotgun']` — NOT sniper/rocket); `'weapon'` switches
+     to `it.weaponId` (defaults to `'sniper'`); `grantedWeapon` included in
+     the `item:picked` emit; also broadcasts `player:state` to other
+     players so they see the new gun.
+
+### Spec compliance
+
+- ✅ All 4 original weapons redesigned with extra parts (slide/barrel/grip/
+  trigger guard/sights, body/curved mag/stock/foregrip, body/handguard/
+  scope/stock/mag, double barrel/pump/stock).
+- ✅ Sniper mesh: long body + very long thin barrel + large scope with
+  glass eye/lens + bipod + cheek-rest stock.
+- ✅ Rocket mesh: tube + cone warhead + pistol grip + foregrip + shoulder
+  rest + sight.
+- ✅ `constants.ts` has sniper + rocket with exact spec stats
+  (`damage 80/120, fireRate 1500/2500, magazine 5/1, reload 3000/5000,
+   spread 0.001/0.02, range 150/60`).
+- ✅ `WEAPON_ORDER` = `['pistol','smg','rifle','shotgun','sniper','rocket']`.
+- ✅ Right-click (`button === 2`) toggles aim; `contextmenu` prevented.
+- ✅ Aiming sniper → FOV 30 + scope overlay; aim rifle → FOV 50; aim rocket
+  → FOV 65; not aiming → FOV 75 (eased).
+- ✅ Only sniper + rifle get reduced spread when aiming.
+- ✅ 5% rare drop from mob kills (3% sniper + 2% rocket), in addition to
+  the regular ammo/heal/shield drop.
+- ✅ Player dies with streak ≥ 5 → drops their current weapon (skipping
+  pistol) as a `'weapon'` item.
+- ✅ `'ammo'` pool excludes sniper/rocket (per "Important" note); sniper
+  is only obtainable from mob drops or player death drops.
+- ✅ New `'weapon'` item type grants a specific weapon via `weaponId`.
+- ✅ `ITEMS` dict has `weapon` entry; `ItemType` includes `'weapon'`.
+- ✅ `buildItemAvatar` builds a distinctive floating-gun pickup for
+  `'weapon'` type.
+- ✅ Rocket launcher is very rare (2% drop chance).
+- ✅ Sniper scope overlay = dark vignette + crosshair lines (mil-dot ticks
+  + red center dot for extra flavor).
+- ✅ HUD weapon slot strip shows all 6 weapons.
+
+### Verification
+
+- `bun run lint` → exit 0, no errors/warnings.
+- `bun build mini-services/game-server/index.ts --target bun` → bundles OK
+  (61 modules, 0.54 MB), no syntax errors.
+- Next.js dev server (`dev.log`): clean `GET / 200` responses continue.
+- Game-server (port 3003): running, `socket.io/?EIO=4&transport=polling`
+  returns HTTP 200.
+
+### Agent context
+
+- Full work record: `/home/z/my-project/agent-ctx/i-weapons-game-client-and-server.md`

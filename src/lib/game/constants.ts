@@ -12,13 +12,20 @@ export const SKINS: Skin[] = [
 ]
 
 export const WEAPONS: Record<string, Weapon> = {
-  pistol:  { id: 'pistol',  name: 'Pistola',  damage: 18, fireRate: 330, magazine: 12, reload: 1200, spread: 0.012, auto: false, range: 80, pellets: 1 },
-  smg:     { id: 'smg',     name: 'SMG',      damage: 12, fireRate: 90,  magazine: 30, reload: 1500, spread: 0.035, auto: true,  range: 60, pellets: 1 },
-  rifle:   { id: 'rifle',   name: 'Rifle',    damage: 26, fireRate: 170, magazine: 20, reload: 1800, spread: 0.018, auto: true,  range: 95, pellets: 1 },
-  shotgun: { id: 'shotgun', name: 'Escopeta', damage: 11, fireRate: 720, magazine: 6,  reload: 2100, spread: 0.13,  auto: false, range: 32, pellets: 7 },
+  pistol:  { id: 'pistol',  name: 'Pistola',        damage: 18,  fireRate: 330,  magazine: 12, reload: 1200, spread: 0.012, auto: false, range: 80,  pellets: 1 },
+  smg:     { id: 'smg',     name: 'SMG',            damage: 12,  fireRate: 90,   magazine: 30, reload: 1500, spread: 0.035, auto: true,  range: 60,  pellets: 1 },
+  rifle:   { id: 'rifle',   name: 'Rifle',          damage: 26,  fireRate: 170,  magazine: 20, reload: 1800, spread: 0.018, auto: true,  range: 95,  pellets: 1 },
+  shotgun: { id: 'shotgun', name: 'Escopeta',       damage: 11,  fireRate: 720,  magazine: 6,  reload: 2100, spread: 0.13,  auto: false, range: 32,  pellets: 7 },
+  sniper:  { id: 'sniper',  name: 'Francotirador',  damage: 80,  fireRate: 1500, magazine: 5,  reload: 3000, spread: 0.001, auto: false, range: 150, pellets: 1 },
+  rocket:  { id: 'rocket',  name: 'Lanzacohetes',   damage: 120, fireRate: 2500, magazine: 1,  reload: 5000, spread: 0.02,  auto: false, range: 60,  pellets: 1 },
 }
 
-export const WEAPON_ORDER = ['pistol', 'smg', 'rifle', 'shotgun']
+export const WEAPON_ORDER = ['pistol', 'smg', 'rifle', 'shotgun', 'sniper', 'rocket']
+
+// weapons obtainable only from rare drops (not from 'ammo' pickups)
+export const RARE_WEAPONS = ['sniper', 'rocket']
+// weapons that can be granted by an 'ammo' pickup (random switch)
+export const AMMO_PICKUP_POOL = ['smg', 'rifle', 'shotgun']
 
 export const ARENA_SIZE = 160
 export const PLAYER_MAX_HP = 100
@@ -35,12 +42,13 @@ export const TEAMS: Record<Team, { id: Team; name: string; color: string; accent
 }
 
 /* ============================ ITEMS ============================ */
-export type ItemType = 'ammo' | 'heal' | 'shield'
+export type ItemType = 'ammo' | 'heal' | 'shield' | 'weapon'
 export interface ItemDef { id: ItemType; name: string; color: string; icon: string }
 export const ITEMS: Record<ItemType, ItemDef> = {
-  ammo:   { id: 'ammo',   name: 'Cartucho',  color: '#f1c40f', icon: 'ammo' },
-  heal:   { id: 'heal',   name: 'Cruz',      color: '#e74c3c', icon: 'heal' },
-  shield: { id: 'shield', name: 'Bebida',    color: '#1abc9c', icon: 'shield' },
+  ammo:   { id: 'ammo',   name: 'Cartucho',     color: '#f1c40f', icon: 'ammo' },
+  heal:   { id: 'heal',   name: 'Cruz',         color: '#e74c3c', icon: 'heal' },
+  shield: { id: 'shield', name: 'Bebida',       color: '#1abc9c', icon: 'shield' },
+  weapon: { id: 'weapon', name: 'Arma especial', color: '#9b59b6', icon: 'weapon' },
 }
 
 /* ============================ KILLSTREAKS ============================ */
@@ -645,7 +653,7 @@ export const MAPS: GameMap[] = [
 
       // ════════ HELPERS ════════
       // Build a solid floor platform with a hole at (hx, hz) for stairwell
-      const holeSize = 6 // 6×6 hole — wide enough for stairs + player clearance
+      const holeSize = 8 // 8×8 hole — covers full staircase length + clearance
       const hs = holeSize / 2
       const buildFloor = (y: number, hx: number, hz: number) => {
         const z1 = hz - hs, z2 = hz + hs, x1 = hx - hs, x2 = hx + hs
@@ -662,7 +670,7 @@ export const MAPS: GameMap[] = [
 
       // Build stairs going UP from floor baseY, starting at (sx, sz), direction dir
       // 7 steps × 0.57 = 3.99 ≈ 4.0 (floor height)
-      const stepH = 0.57, stepD = 0.7, stepW = 3.5
+      const stepH = 0.57, stepD = 0.7, stepW = 4.0
       const buildStaircase = (sx: number, sz: number, dir: 'N'|'S'|'E'|'W', baseY: number) => {
         for (let s = 0; s < 7; s++) {
           let x = sx, z = sz
@@ -675,11 +683,6 @@ export const MAPS: GameMap[] = [
       }
 
       // Stair positions per floor (different corners)
-      // Floor 0→1: NW corner, going N. Hole on floor 1 at top of stairs
-      // Floor 1→2: NE corner, going N. Hole on floor 2 at top
-      // Floor 2→3: SE corner, going S. Hole on floor 3 at top
-      // Floor 3→4: SW corner, going S. Hole on floor 4 at top
-      // Floor 4→5: center-N, going N. Hole on floor 5 at top
       const stairs = [
         { sx: -14, sz: -14, dir: 'N' as const }, // 0→1
         { sx: 14, sz: -14, dir: 'N' as const },  // 1→2
@@ -687,14 +690,14 @@ export const MAPS: GameMap[] = [
         { sx: -14, sz: 14, dir: 'S' as const },  // 3→4
         { sx: -14, sz: -14, dir: 'N' as const }, // 4→5
       ]
-      // Hole positions on each floor (where stairs from below emerge)
-      // Top of stairs going N from (sx,sz): position = (sx, sz + 6*stepD) ≈ (sx, sz+4.2)
-      // Top of stairs going S from (sx,sz): position = (sx, sz - 6*stepD) ≈ (sx, sz-4.2)
+      // Hole position = CENTER of the staircase (midpoint between first and last step)
+      // Stairs span 7 steps × 0.7 depth = 4.9 units. Center is at step 3 (index 3) = 3*0.7 = 2.1 from start
       const getHolePos = (s: typeof stairs[0]) => {
-        if (s.dir === 'N') return { hx: s.sx, hz: s.sz + 6 * stepD }
-        if (s.dir === 'S') return { hx: s.sx, hz: s.sz - 6 * stepD }
-        if (s.dir === 'E') return { hx: s.sx - 6 * stepD, hz: s.sz }
-        return { hx: s.sx + 6 * stepD, hz: s.sz }
+        const midOffset = 3 * stepD // center of 7-step staircase
+        if (s.dir === 'N') return { hx: s.sx, hz: s.sz + midOffset }
+        if (s.dir === 'S') return { hx: s.sx, hz: s.sz - midOffset }
+        if (s.dir === 'E') return { hx: s.sx - midOffset, hz: s.sz }
+        return { hx: s.sx + midOffset, hz: s.sz }
       }
 
       // ════════ EXTERIOR WALLS ════════

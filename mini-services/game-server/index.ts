@@ -41,11 +41,18 @@ const WEAPONS: Record<string, {
   id: string; name: string; damage: number; fireRate: number; magazine: number
   reload: number; spread: number; auto: boolean; range: number; pellets: number
 }> = {
-  pistol:  { id: 'pistol',  name: 'Pistola',  damage: 18, fireRate: 330, magazine: 12, reload: 1200, spread: 0.012, auto: false, range: 80, pellets: 1 },
-  smg:     { id: 'smg',     name: 'SMG',      damage: 12, fireRate: 90,  magazine: 30, reload: 1500, spread: 0.035, auto: true,  range: 60, pellets: 1 },
-  rifle:   { id: 'rifle',   name: 'Rifle',    damage: 26, fireRate: 170, magazine: 20, reload: 1800, spread: 0.018, auto: true,  range: 95, pellets: 1 },
-  shotgun: { id: 'shotgun', name: 'Escopeta', damage: 11, fireRate: 720, magazine: 6,  reload: 2100, spread: 0.13,  auto: false, range: 32, pellets: 7 },
+  pistol:  { id: 'pistol',  name: 'Pistola',        damage: 18,  fireRate: 330,  magazine: 12, reload: 1200, spread: 0.012, auto: false, range: 80,  pellets: 1 },
+  smg:     { id: 'smg',     name: 'SMG',            damage: 12,  fireRate: 90,   magazine: 30, reload: 1500, spread: 0.035, auto: true,  range: 60,  pellets: 1 },
+  rifle:   { id: 'rifle',   name: 'Rifle',          damage: 26,  fireRate: 170,  magazine: 20, reload: 1800, spread: 0.018, auto: true,  range: 95,  pellets: 1 },
+  shotgun: { id: 'shotgun', name: 'Escopeta',       damage: 11,  fireRate: 720,  magazine: 6,  reload: 2100, spread: 0.13,  auto: false, range: 32,  pellets: 7 },
+  sniper:  { id: 'sniper',  name: 'Francotirador',  damage: 80,  fireRate: 1500, magazine: 5,  reload: 3000, spread: 0.001, auto: false, range: 150, pellets: 1 },
+  rocket:  { id: 'rocket',  name: 'Lanzacohetes',   damage: 120, fireRate: 2500, magazine: 1,  reload: 5000, spread: 0.02,  auto: false, range: 60,  pellets: 1 },
 }
+
+// weapons obtainable only from rare drops (not from 'ammo' pickups)
+const RARE_WEAPONS = ['sniper', 'rocket']
+// weapons granted by an 'ammo' pickup (random switch)
+const AMMO_PICKUP_POOL = ['smg', 'rifle', 'shotgun']
 
 // ----------------------- Maps (mirror of client constants) -----------------------
 type MapObstacle = { x: number; z: number; w: number; h: number; d: number; climbable: boolean; color: number; kind: 'box'|'cyl'|'ramp'|'wall'|'stair'|'water'|'roof'; rotation?: number; noCollide?: boolean; y?: number }
@@ -507,7 +514,7 @@ const MAPS: GameMap[] = [
 
       // ════════ HELPERS ════════
       // Build a solid floor platform with a hole at (hx, hz) for stairwell
-      const holeSize = 6 // 6×6 hole — wide enough for stairs + player clearance
+      const holeSize = 8 // 8×8 hole — covers full staircase length + clearance
       const hs = holeSize / 2
       const buildFloor = (y: number, hx: number, hz: number) => {
         const z1 = hz - hs, z2 = hz + hs, x1 = hx - hs, x2 = hx + hs
@@ -524,7 +531,7 @@ const MAPS: GameMap[] = [
 
       // Build stairs going UP from floor baseY, starting at (sx, sz), direction dir
       // 7 steps × 0.57 = 3.99 ≈ 4.0 (floor height)
-      const stepH = 0.57, stepD = 0.7, stepW = 3.5
+      const stepH = 0.57, stepD = 0.7, stepW = 4.0
       const buildStaircase = (sx: number, sz: number, dir: 'N'|'S'|'E'|'W', baseY: number) => {
         for (let s = 0; s < 7; s++) {
           let x = sx, z = sz
@@ -553,10 +560,11 @@ const MAPS: GameMap[] = [
       // Top of stairs going N from (sx,sz): position = (sx, sz + 6*stepD) ≈ (sx, sz+4.2)
       // Top of stairs going S from (sx,sz): position = (sx, sz - 6*stepD) ≈ (sx, sz-4.2)
       const getHolePos = (s: typeof stairs[0]) => {
-        if (s.dir === 'N') return { hx: s.sx, hz: s.sz + 6 * stepD }
-        if (s.dir === 'S') return { hx: s.sx, hz: s.sz - 6 * stepD }
-        if (s.dir === 'E') return { hx: s.sx - 6 * stepD, hz: s.sz }
-        return { hx: s.sx + 6 * stepD, hz: s.sz }
+        const midOffset = 3 * stepD
+        if (s.dir === 'N') return { hx: s.sx, hz: s.sz + midOffset }
+        if (s.dir === 'S') return { hx: s.sx, hz: s.sz - midOffset }
+        if (s.dir === 'E') return { hx: s.sx - midOffset, hz: s.sz }
+        return { hx: s.sx + midOffset, hz: s.sz }
       }
 
       // ════════ EXTERIOR WALLS ════════
@@ -968,9 +976,10 @@ interface Mob {
 
 interface Item {
   id: string
-  type: 'ammo' | 'heal' | 'shield'
+  type: 'ammo' | 'heal' | 'shield' | 'weapon'
   pos: [number, number, number]
   born: number
+  weaponId?: string  // for type='weapon': which weapon this pickup grants
 }
 
 interface Room {
@@ -1190,7 +1199,7 @@ function startPvERound(r: Room, level: number) {
       me: playerPublic(p),
       players: roomRoster(r),
       mobs: r.mobs.map(m => ({ id: m.id, pos: m.pos, state: m.state, health: m.health })),
-      items: r.items.map(it => ({ id: it.id, type: it.type, pos: it.pos })),
+      items: r.items.map(it => ({ id: it.id, type: it.type, pos: it.pos, weaponId: it.weaponId })),
     })
   }
 }
@@ -1262,15 +1271,15 @@ function checkPvPRoundEnd(r: Room) {
 }
 
 // ----------------------- Items -----------------------
-function spawnItem(r: Room, type: 'ammo'|'heal'|'shield', pos?: [number,number,number]) {
+function spawnItem(r: Room, type: 'ammo'|'heal'|'shield'|'weapon', pos?: [number,number,number], weaponId?: string) {
   const map = getMap(r.mapId)
   const p: [number, number, number] = pos ?? (() => {
     const s = map.spawns[Math.floor(Math.random() * map.spawns.length)]
     return [s[0] + (Math.random()-0.5)*10, 1, s[1] + (Math.random()-0.5)*10]
   })()
-  const it: Item = { id: genId('item_'), type, pos: p, born: Date.now() }
+  const it: Item = { id: genId('item_'), type, pos: p, born: Date.now(), weaponId: type === 'weapon' ? weaponId : undefined }
   r.items.push(it)
-  io.to(r.id).emit('items:state', { items: r.items.map(i => ({ id: i.id, type: i.type, pos: i.pos })) })
+  io.to(r.id).emit('items:state', { items: r.items.map(i => ({ id: i.id, type: i.type, pos: i.pos, weaponId: i.weaponId })) })
 }
 
 function dropItemOnMobKill(r: Room, pos: [number,number,number]) {
@@ -1280,6 +1289,16 @@ function dropItemOnMobKill(r: Room, pos: [number,number,number]) {
   else if (roll < 0.8) type = 'heal'
   else type = 'shield'
   spawnItem(r, type, [pos[0], 1, pos[2]])
+}
+
+// Rare weapon drop from mobs: 5% total — split 3% sniper, 2% rocket
+function maybeDropRareWeapon(r: Room, pos: [number,number,number]) {
+  const roll = Math.random()
+  if (roll < 0.02) {
+    spawnItem(r, 'weapon', [pos[0], 1, pos[2]], 'rocket')
+  } else if (roll < 0.05) {
+    spawnItem(r, 'weapon', [pos[0], 1, pos[2]], 'sniper')
+  }
 }
 
 // ----------------------- socket.io -----------------------
@@ -1411,12 +1430,24 @@ io.on('connection', (socket) => {
     if (dist2D(p.pos, it.pos) > 2.2) return
     // apply effect
     let applied = false
+    let grantedWeapon: string | undefined = undefined
     if (it.type === 'ammo') {
-      // give a weapon + ammo: pick a random weapon the player doesn't currently hold, or just refill
-      const pool = ['smg','rifle','shotgun']
+      // give a random non-rifle-pool weapon + ammo (smg/rifle/shotgun)
+      // rare weapons (sniper/rocket) are NOT obtainable from ammo pickups
+      const pool = AMMO_PICKUP_POOL
       const w = pool[Math.floor(Math.random()*pool.length)]
       p.weapon = w
       p.ammo = WEAPONS[w].magazine
+      p.reloading = false
+      grantedWeapon = w
+      applied = true
+    } else if (it.type === 'weapon') {
+      // gives a specific weapon (set at drop time — e.g. sniper, rocket, or a player's dropped weapon)
+      const wid = it.weaponId && WEAPONS[it.weaponId] ? it.weaponId : 'sniper'
+      p.weapon = wid
+      p.ammo = WEAPONS[wid].magazine
+      p.reloading = false
+      grantedWeapon = wid
       applied = true
     } else if (it.type === 'heal') {
       if (p.health < PLAYER_MAX_HP) {
@@ -1431,10 +1462,12 @@ io.on('connection', (socket) => {
     }
     if (applied) {
       room.items.splice(idx, 1)
-      io.to(room.id).emit('items:state', { items: room.items.map(i => ({ id: i.id, type: i.type, pos: i.pos })) })
-      io.to(room.id).emit('item:picked', { id: it.id, by: p.id, type: it.type })
+      io.to(room.id).emit('items:state', { items: room.items.map(i => ({ id: i.id, type: i.type, pos: i.pos, weaponId: i.weaponId })) })
+      io.to(room.id).emit('item:picked', { id: it.id, by: p.id, type: it.type, weaponId: it.type === 'ammo' ? grantedWeapon : it.weaponId })
       socket.emit('player:ammo', { weapon: p.weapon, ammo: p.ammo })
       socket.emit('player:reloadDone', { weapon: p.weapon, ammo: p.ammo })
+      // broadcast updated weapon + ammo to other players in the room (so they see the new gun)
+      socket.to(room.id).emit('player:state', { id: p.id, pos: p.pos, yaw: p.yaw, pitch: p.pitch, weapon: p.weapon, ammo: p.ammo, state: p.state, shield: p.shield })
     }
   })
 
@@ -1458,7 +1491,7 @@ io.on('connection', (socket) => {
       me: playerPublic(me),
       players: roomRoster(room),
       mobs: room.mobs.map(m => ({ id: m.id, pos: m.pos, state: m.state, health: m.health })),
-      items: room.items.map(i => ({ id: i.id, type: i.type, pos: i.pos })),
+      items: room.items.map(i => ({ id: i.id, type: i.type, pos: i.pos, weaponId: i.weaponId })),
     })
   })
 
@@ -1500,7 +1533,7 @@ function joinRoom(socket: any, room: Room, name: string, skin: string) {
     me: playerPublic(player),
     players: roomRoster(room),
     mobs: room.mobs.map(m => ({ id: m.id, pos: m.pos, state: m.state, health: m.health })),
-    items: room.items.map(i => ({ id: i.id, type: i.type, pos: i.pos })),
+    items: room.items.map(i => ({ id: i.id, type: i.type, pos: i.pos, weaponId: i.weaponId })),
   })
   socket.to(room.id).emit('room:playerJoined', playerPublic(player))
   room.emptySince = null
@@ -1529,6 +1562,10 @@ function leaveRoom(socket: any) {
 }
 
 function killPlayer(room: Room, victim: Player, killerId: string, weapon: string, headshot: boolean) {
+  // capture streak BEFORE resetting it — used for the "die on a streak >= 5" weapon drop
+  const streakAtDeath = victim.streak
+  // also capture the victim's weapon before respawn resets it to pistol
+  const weaponAtDeath = victim.weapon
   victim.state = 'dead'
   victim.health = 0
   victim.deaths += 1
@@ -1551,6 +1588,11 @@ function killPlayer(room: Room, victim: Player, killerId: string, weapon: string
     }
     // PvP modes: drop a random item on death
     if (isPvPMode(room.mode) && Math.random() < 0.6) dropItemOnMobKill(room, victim.pos)
+  }
+  // When a player dies on a streak >= 5, they drop their current weapon as an item
+  // (works in any mode — the dropped weapon is a 'weapon' pickup anyone can grab)
+  if (streakAtDeath >= 5 && weaponAtDeath && weaponAtDeath !== 'pistol' && WEAPONS[weaponAtDeath]) {
+    spawnItem(room, 'weapon', [victim.pos[0], 1, victim.pos[2]], weaponAtDeath)
   }
   io.to(room.id).emit('player:killed', { victimId: victim.id, killerId, weapon, headshot })
   killFeed(room, victim.name, killer?.name ?? null, weapon, headshot, 'player')
@@ -1629,8 +1671,10 @@ function killMob(room: Room, mob: Mob, killerId: string, weapon: string, headsho
   }
   io.to(room.id).emit('mob:killed', { id: mob.id, killerId, weapon, headshot })
   killFeed(room, 'Doodle Mob', killer?.name ?? null, weapon, headshot, 'mob')
-  // item drop
+  // regular item drop (always — ammo/heal/shield)
   dropItemOnMobKill(room, mob.pos)
+  // 5% rare weapon drop (3% sniper + 2% rocket) — only in PvE modes where mobs spawn
+  if (isPvEMode(room.mode)) maybeDropRareWeapon(room, mob.pos)
   checkPvERoundEnd(room)
   // schedule respawn
   setTimeout(() => {
@@ -1775,7 +1819,7 @@ setInterval(() => {
       return true
     })
     if (itemsChanged) {
-      io.to(room.id).emit('items:state', { items: room.items.map(i => ({ id: i.id, type: i.type, pos: i.pos })) })
+      io.to(room.id).emit('items:state', { items: room.items.map(i => ({ id: i.id, type: i.type, pos: i.pos, weaponId: i.weaponId })) })
     }
 
     // periodic item spawns (PvE: every ~12s, PvP: every ~16s)
