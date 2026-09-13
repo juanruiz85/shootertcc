@@ -728,152 +728,133 @@ const MAPS: GameMap[] = [
     spawns: [[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]],
   },
   {
-    id: 'bosque', name: 'Bosque', theme: 'Bosque denso con río y lago', ground: 0x4a7a3a, fog: 0x6a9a5a, accent: 0x3a5a2a,
+    id: 'bosque', name: 'Bosque', theme: 'Bosque con río y árboles escalables', ground: 0x3a6a2a, fog: 0x5a8a4a, accent: 0x2a4a1a,
     waterLevel: 0.3,
-    obstacles: [
-      // ============ WATER FEATURES ============
-      // Large lake (NW corner) — 20×30
-      ob(-40, -40, 20, 0.3, 30, false, 0x2980b9, 'water', 0, true),
-      // River crossing the map north-south (x=0, z∈[-40,40])
-      ob(0, 0, 6, 0.3, 80, false, 0x2980b9, 'water', 0, true),
-      // Small pond (SE corner)
-      ob(45, 45, 10, 0.3, 10, false, 0x2980b9, 'water', 0, true),
+    obstacles: ((): MapObstacle[] => {
+      const r: MapObstacle[] = []
+      const cTrunk = 0x5d3a1a, cLeaf = 0x2d6a2d, cLeaf2 = 0x3a7a3a, cRock = 0x888888, cRockD = 0x666666, cWater = 0x2a6aaa, cWood = 0x7a5230, cBush = 0x1a5a1a
 
-      // ============ BRIDGES over river ============
-      // Wooden bridge at z=0 (crossing river east-west)
-      ob(0, 0, 8, 0.5, 3, true, 0x7a5230, 'box'),
-      // Bridge at z=20
-      ob(0, 20, 8, 0.5, 3, true, 0x7a5230, 'box'),
-      // Bridge at z=-20
-      ob(0, -20, 8, 0.5, 3, true, 0x7a5230, 'box'),
-      // Bridge railings (low walls, no collide) — north & south edges of each bridge
-      ob(0, -1.5, 8, 0.6, 0.2, false, 0x5d4037, 'wall', 0, true, 0.5),
-      ob(0, 1.5, 8, 0.6, 0.2, false, 0x5d4037, 'wall', 0, true, 0.5),
-      ob(0, 18.5, 8, 0.6, 0.2, false, 0x5d4037, 'wall', 0, true, 0.5),
-      ob(0, 21.5, 8, 0.6, 0.2, false, 0x5d4037, 'wall', 0, true, 0.5),
-      ob(0, -21.5, 8, 0.6, 0.2, false, 0x5d4037, 'wall', 0, true, 0.5),
-      ob(0, -18.5, 8, 0.6, 0.2, false, 0x5d4037, 'wall', 0, true, 0.5),
+      // ════════ RÍO QUE ATRAVIESA TODO EL MAPA (diagonal NE→SW) ════════
+      // River as a series of water segments going diagonally across the map
+      for (let i = -5; i <= 5; i++) {
+        r.push(ob(i * 12, i * 12, 7, 0.3, 7, false, cWater, 'water', Math.PI/4, true))
+      }
 
-      // ============ TREES (27 total, clustered + scattered) ============
-      // NE cluster (dense)
-      ...buildTree(38, -25, 1.8), ...buildTree(25, -38, 1.3),
-      ...buildTree(45, -35, 2.0), ...buildTree(50, -45, 2.2),
-      ...buildTree(33, -45, 1.5),
-      // SE cluster
-      ...buildTree(38, 25, 1.8), ...buildTree(25, 38, 1.3),
-      ...buildTree(45, 35, 2.0), ...buildTree(33, 45, 1.5),
-      // SW cluster
-      ...buildTree(-38, 25, 1.8), ...buildTree(-25, 38, 1.3),
-      ...buildTree(-45, 35, 2.0), ...buildTree(-50, 45, 2.2),
-      ...buildTree(-33, 45, 1.5),
-      // NW cluster (near lake, avoiding water)
-      ...buildTree(-25, -25, 1.5), ...buildTree(-20, -30, 1.2),
-      ...buildTree(-15, -45, 1.5),
-      // Scattered edges
-      ...buildTree(0, -50, 2.0), ...buildTree(0, 50, 2.0),
-      ...buildTree(-50, 0, 1.5), ...buildTree(50, 0, 1.5),
-      ...buildTree(-55, -25, 1.3), ...buildTree(55, 25, 1.3),
-      ...buildTree(15, -45, 1.5), ...buildTree(-15, 45, 1.5),
-      ...buildTree(50, -20, 1.4), ...buildTree(-50, 20, 1.4),
+      // ════════ PUENTES sobre el río ════════
+      // Bridge 1 (centro)
+      r.push(ob(0, 0, 10, 0.5, 3, true, cWood, 'box', Math.PI/4))
+      // Bridge 2 (NE)
+      r.push(ob(24, 24, 10, 0.5, 3, true, cWood, 'box', Math.PI/4))
+      // Bridge 3 (SW)
+      r.push(ob(-24, -24, 10, 0.5, 3, true, cWood, 'box', Math.PI/4))
+      // Bridge railings
+      r.push(ob(0, 0, 10, 0.6, 0.15, false, 0x4a3210, 'wall', Math.PI/4, true, 0.5))
+      r.push(ob(24, 24, 10, 0.6, 0.15, false, 0x4a3210, 'wall', Math.PI/4, true, 0.5))
+      r.push(ob(-24, -24, 10, 0.6, 0.15, false, 0x4a3210, 'wall', Math.PI/4, true, 0.5))
 
-      // ============ BOULDERS (large rocks, 8 total) ============
-      ob(-35, -10, 3, 2.5, 3, true, 0x95a5a6, 'box'),
-      ob(35, 10, 3, 2.5, 3, true, 0x7f8c8d, 'box'),
-      ob(-20, 20, 3, 2.5, 3, true, 0x95a5a6, 'box'),
-      ob(20, -20, 3, 2.5, 3, true, 0x7f8c8d, 'box'),
-      ob(-45, 15, 3, 2.5, 3, true, 0x95a5a6, 'box'),
-      ob(45, -15, 3, 2.5, 3, true, 0x7f8c8d, 'box'),
-      ob(15, 45, 3, 2.5, 3, true, 0x95a5a6, 'box'),
-      ob(-10, -50, 3, 2.5, 3, true, 0x7f8c8d, 'box'),
+      // ════════ ÁRBOLES GRANDES ESCALABLES (tronco grueso + ramas + copa) ════════
+      // Cada árbol grande tiene: tronco (escalable), ramas bajas (cajas para saltar), copa
+      const buildBigTree = (x: number, z: number, scale: number = 1) => {
+        const tH = 5 * scale, tR = 0.6 * scale
+        // Tronco principal (escalable)
+        r.push(ob(x, z, tR * 2, tH, tR * 2, true, cTrunk, 'cyl'))
+        // Ramas bajas (cajas escalables a diferentes alturas para saltar)
+        r.push(ob(x + 1.5 * scale, z, 2 * scale, 0.4, 0.5, true, cTrunk, 'box', 0, false, tH * 0.4))
+        r.push(ob(x - 1.5 * scale, z, 2 * scale, 0.4, 0.5, true, cTrunk, 'box', 0, false, tH * 0.5))
+        r.push(ob(x, z + 1.5 * scale, 0.5, 0.4, 2 * scale, true, cTrunk, 'box', 0, false, tH * 0.6))
+        // Copa (foliage en lo alto)
+        r.push(ob(x, z, 4 * scale, 2.5 * scale, 4 * scale, true, cLeaf, 'box', 0, false, tH))
+        r.push(ob(x, z, 3 * scale, 2 * scale, 3 * scale, true, cLeaf2, 'box', 0, false, tH + 1.5 * scale))
+      }
+      // 8 árboles grandes en posiciones alejadas del río
+      buildBigTree(-35, -35, 1.3)  // SW
+      buildBigTree(35, -35, 1.2)   // SE
+      buildBigTree(-35, 35, 1.4)   // NW
+      buildBigTree(35, 35, 1.1)    // NE
+      buildBigTree(-50, 0, 1.2)    // W
+      buildBigTree(50, 0, 1.3)     // E
+      buildBigTree(0, -50, 1.4)    // N
+      buildBigTree(0, 50, 1.2)     // S
 
-      // ============ SMALL ROCKS (climbing stones, 12 total) ============
-      ob(-33, -8, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'),
-      ob(33, 8, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
-      ob(-18, 18, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'),
-      ob(18, -18, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
-      ob(-43, 13, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'),
-      ob(43, -13, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
-      ob(13, 43, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'),
-      ob(-8, -48, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
-      ob(25, 5, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'),
-      ob(-25, -5, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
-      ob(8, 25, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'),
-      ob(-8, -25, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+      // ════════ ÁRBOLES PEQUEÑOS (no escalables, solo decoración/cobertura) ════════
+      const buildSmallTree = (x: number, z: number) => {
+        r.push(ob(x, z, 0.3, 3, 0.3, false, cTrunk, 'cyl'))
+        r.push(ob(x, z, 2, 1.5, 2, false, cLeaf, 'box', 0, false, 2.5))
+      }
+      // 12 árboles pequeños esparcidos (lejos del río diagonal)
+      buildSmallTree(-20, -40); buildSmallTree(-40, -20); buildSmallTree(-15, -50)
+      buildSmallTree(20, -40); buildSmallTree(40, -20); buildSmallTree(15, -50)
+      buildSmallTree(-20, 40); buildSmallTree(-40, 20); buildSmallTree(-15, 50)
+      buildSmallTree(20, 40); buildSmallTree(40, 20); buildSmallTree(15, 50)
 
-      // ============ FALLEN LOGS (5 total, climbable low cover) ============
-      ob(-30, 5, 5, 1, 1, true, 0x7a5230, 'box'),
-      ob(30, -5, 5, 1, 1, true, 0x7a5230, 'box'),
-      ob(10, 35, 5, 1, 1, true, 0x7a5230, 'box'),
-      ob(-10, -35, 5, 1, 1, true, 0x7a5230, 'box'),
-      ob(40, 0, 5, 1, 1, true, 0x5d4037, 'box'),
+      // ════════ PIEDRAS GRANDES (forma de rocas, escalables) ════════
+      // Cada piedra es un cilindro achatado (más ancho que alto)
+      const buildRock = (x: number, z: number, size: number = 1) => {
+        r.push(ob(x, z, 3 * size, 2 * size, 3 * size, true, cRock, 'cyl'))
+        r.push(ob(x + 1 * size, z + 0.5 * size, 1.5 * size, 1.2 * size, 1.5 * size, true, cRockD, 'cyl', 0, false, 1 * size))
+      }
+      buildRock(-30, 10, 1.2)
+      buildRock(30, -10, 1.0)
+      buildRock(-10, 30, 1.1)
+      buildRock(10, -30, 1.3)
+      buildRock(-45, -10, 0.9)
+      buildRock(45, 10, 1.1)
+      buildRock(-25, 45, 1.0)
+      buildRock(25, -45, 1.2)
 
-      // ============ BUSHES (10 total, low non-climbable) ============
-      ob(-28, 28, 2, 0.8, 2, false, 0x27ae60, 'box'),
-      ob(28, -28, 2, 0.8, 2, false, 0x27ae60, 'box'),
-      ob(-28, -28, 2, 0.8, 2, false, 0x1e8449, 'box'),
-      ob(28, 28, 2, 0.8, 2, false, 0x1e8449, 'box'),
-      ob(10, 10, 2, 0.8, 2, false, 0x27ae60, 'box'),
-      ob(-10, -10, 2, 0.8, 2, false, 0x1e8449, 'box'),
-      ob(10, -10, 2, 0.8, 2, false, 0x27ae60, 'box'),
-      ob(-10, 10, 2, 0.8, 2, false, 0x1e8449, 'box'),
-      ob(48, -25, 2, 0.8, 2, false, 0x27ae60, 'box'),
-      ob(-48, 25, 2, 0.8, 2, false, 0x1e8449, 'box'),
+      // ════════ PIEDRAS PEQUEÑAS (para saltar y cobertura) ════════
+      for (const [px, pz] of [[-15, -15], [15, 15], [-15, 15], [15, -15], [-25, 5], [25, -5], [5, 25], [-5, -25], [-35, 20], [35, -20], [20, 35], [-20, -35]] as const) {
+        r.push(ob(px, pz, 1.2, 1, 1.2, true, cRock, 'cyl'))
+      }
 
-      // ============ TREE STUMPS (5 total, climbable) ============
-      ob(-25, -20, 1.5, 1, 1.5, true, 0x7a5230, 'box'),
-      ob(25, 20, 1.5, 1, 1.5, true, 0x7a5230, 'box'),
-      ob(-20, 25, 1.5, 1, 1.5, true, 0x5d4037, 'box'),
-      ob(20, -25, 1.5, 1, 1.5, true, 0x5d4037, 'box'),
-      ob(5, -35, 1.5, 1, 1.5, true, 0x7a5230, 'box'),
+      // ════════ MATORRALES (para esconderse, no escalables, baja altura) ════════
+      // Grupos de matorrales densos donde el jugador puede agacharse/esconderse
+      const buildBushCluster = (cx: number, cz: number) => {
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2
+          const bx = cx + Math.cos(a) * 2, bz = cz + Math.sin(a) * 2
+          r.push(ob(bx, bz, 2.5, 1.2, 2.5, false, cBush, 'box'))
+        }
+        r.push(ob(cx, cz, 3, 1.5, 3, false, cBush, 'box')) // centro más alto
+      }
+      buildBushCluster(-30, 0)
+      buildBushCluster(30, 0)
+      buildBushCluster(0, -30)
+      buildBushCluster(0, 30)
+      buildBushCluster(-40, 40)
+      buildBushCluster(40, -40)
 
-      // ============ WOODEN CABIN (enterable, NE area) ============
-      ...buildHouse(30, -30, 8, 8, 4, 0x8b4513, 0xc0392b, 'S'),
-      // Cabin details: bed + table inside
-      ob(28, -33, 1.5, 0.5, 2, true, 0x5d4037, 'box'),     // bed
-      ob(33, -28, 2, 0.6, 1, true, 0xe8d5b7, 'box'),       // table
+      // ════════ TRONCOS CAÍDOS (escalables, cobertura baja) ════════
+      r.push(ob(-20, 10, 5, 1, 1, true, cTrunk, 'box', 0.3))
+      r.push(ob(20, -10, 5, 1, 1, true, cTrunk, 'box', -0.2))
+      r.push(ob(-10, -20, 1, 1, 5, true, cTrunk, 'box', 0.1))
+      r.push(ob(10, 20, 1, 1, 5, true, cTrunk, 'box', -0.3))
+      r.push(ob(40, 30, 5, 1, 1, true, 0x4a3210, 'box', 0.2))
+      r.push(ob(-40, -30, 5, 1, 1, true, 0x4a3210, 'box', -0.1))
 
-      // ============ WATCHTOWER (3-floor, SW area) ============
-      ...buildTower(-30, 30, 6, 6, 3, 0x8b4513, 0x2c3e50),
+      // ════════ CABAÑA (entrable, NE) ════════
+      r.push(...buildHouse(45, -45, 8, 8, 4, 0x8b4513, 0xc0392b, 'S'))
+      r.push(ob(43, -48, 1.5, 0.5, 2, true, 0x4a3210, 'box')) // bed
+      r.push(ob(48, -43, 2, 0.6, 1, true, 0xe8d5b7, 'box'))   // table
 
-      // ============ ROPE BRIDGES between trees (high up) ============
-      ob(42.5, 32.5, 12, 0.2, 1, true, 0x7a5230, 'roof', 0, false, 5),    // SE rope bridge
-      ob(-42.5, 32.5, 12, 0.2, 1, true, 0x7a5230, 'roof', 0, false, 5),   // SW rope bridge
-      // Rope bridge posts (anchors)
-      ob(36, 32.5, 0.3, 6, 0.3, false, 0x5d4037, 'box'),
-      ob(48, 32.5, 0.3, 6, 0.3, false, 0x5d4037, 'box'),
-      ob(-36, 32.5, 0.3, 6, 0.3, false, 0x5d4037, 'box'),
-      ob(-48, 32.5, 0.3, 6, 0.3, false, 0x5d4037, 'box'),
+      // ════════ TORRE DE VIGILANCIA (SW, 3 pisos) ════════
+      r.push(...buildTower(-45, 45, 6, 6, 3, 0x8b4513, 0x2c3e50))
 
-      // ============ CAMPFIRE (circle of rocks + central fire) ============
-      ob(15, -15, 1, 0.5, 1, true, 0xe67e22, 'box'),        // fire (orange)
-      ob(15, -15, 0.6, 0.3, 0.6, true, 0xf1c40f, 'box', 0, false, 0.5),  // flame top (yellow)
-      ob(13, -15, 0.6, 0.5, 0.6, true, 0x95a5a6, 'box'),    // rock 1 (west)
-      ob(17, -15, 0.6, 0.5, 0.6, true, 0x7f8c8d, 'box'),    // rock 2 (east)
-      ob(15, -13, 0.6, 0.5, 0.6, true, 0x95a5a6, 'box'),    // rock 3 (south)
-      ob(15, -17, 0.6, 0.5, 0.6, true, 0x7f8c8d, 'box'),    // rock 4 (north)
-      ob(15, -15, 2, 0.3, 0.4, true, 0x7a5230, 'box'),      // log under fire
+      // ════════ FOGATA ════════
+      r.push(ob(-15, 15, 1, 0.5, 1, true, 0xe67e22, 'box')) // fire
+      r.push(ob(-15, 15, 0.6, 0.3, 0.6, true, 0xf1c40f, 'box', 0, false, 0.5)) // flame
+      r.push(ob(-17, 15, 0.6, 0.5, 0.6, true, cRock, 'box')) // rocks around fire
+      r.push(ob(-13, 15, 0.6, 0.5, 0.6, true, cRockD, 'box'))
+      r.push(ob(-15, 13, 0.6, 0.5, 0.6, true, cRock, 'box'))
+      r.push(ob(-15, 17, 0.6, 0.5, 0.6, true, cRockD, 'box'))
 
-      // ============ MUSHROOMS (small red domes, scattered) ============
-      ob(12, 12, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
-      ob(-12, -12, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
-      ob(22, 8, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
-      ob(-22, -8, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
-      ob(8, 22, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
-      ob(-8, -22, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
-      ob(35, 0, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
-      ob(-35, 0, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
+      // ════════ HONGOS (decoración) ════════
+      for (const [mx, mz] of [[-12, 8], [12, -8], [8, 12], [-8, -12], [22, 0], [-22, 0]] as const) {
+        r.push(ob(mx, mz, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'))
+      }
 
-      // ============ WOODEN SIGNPOSTS ============
-      ob(-5, 30, 0.2, 2, 0.2, false, 0x7a5230, 'box'),                      // post
-      ob(-5, 30, 1.5, 0.8, 0.1, false, 0xe8d5b7, 'box', 0, false, 1.5),     // sign board
-      ob(5, -30, 0.2, 2, 0.2, false, 0x7a5230, 'box'),
-      ob(5, -30, 1.5, 0.8, 0.1, false, 0xe8d5b7, 'box', 0, false, 1.5),
-      ob(20, 0, 0.2, 2, 0.2, false, 0x7a5230, 'box'),
-      ob(20, 0, 1.5, 0.8, 0.1, false, 0xe8d5b7, 'box', 0, false, 1.5),
-
-      // ============ FALLEN TREE (climbable, near river) ============
-      ob(0, 35, 0.8, 1, 6, true, 0x5d4037, 'box'),
-    ],
+      return r
+    })(),
     spawns: [[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]],
   },
   { id: 'paisaje', name: 'Paisaje', theme: 'Río y montañas', ground: 0x5a8a4a, fog: 0x7aa85a, accent: 0x4a6a3a, waterLevel: 0.3,

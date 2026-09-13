@@ -1859,3 +1859,55 @@ roof, exterior props) were touched.
 ### Agent context
 
 - Full work record: `/home/z/my-project/agent-ctx/k-server-game-server-updater.md`
+
+---
+
+## Task `l-server` — Sync server `bosque` map to client IIFE rewrite
+
+### Scope
+
+The client's `bosque` map at `/home/z/my-project/src/lib/game/constants.ts`
+was completely rewritten as an IIFE with new features (diagonal river, 3
+bridges, 8 climbable big trees, 12 small trees, 8 large rocks, 12 small
+rocks, 6 bush clusters, 6 fallen logs, cabin + watchtower + campfire +
+mushrooms). The server's `bosque` map at
+`/home/z/my-project/mini-services/game-server/index.ts` still had the old
+flat `obstacles: [ ... ]` array and needed to be brought in sync.
+
+### What was changed
+
+- File: `mini-services/game-server/index.ts`
+- Replaced the entire `bosque` map entry (old theme `'Bosque denso con río
+  y lago'`, ground `0x4a7a3a`, flat `obstacles: [...]` array) with the
+  verbatim IIFE copy from the client (`constants.ts` lines 863-992).
+- New entry keeps the IIFE form `((): MapObstacle[] => { ... })()`, the
+  local helper functions `buildBigTree`, `buildSmallTree`, `buildRock`,
+  `buildBushCluster`, all color constants (`cTrunk`, `cLeaf`, `cLeaf2`,
+  `cRock`, `cRockD`, `cWater`, `cWood`, `cBush`), and the new map header
+  (`theme: 'Bosque con río y árboles escalables'`, ground `0x3a6a2a`,
+  fog `0x5a8a4a`, accent `0x2a4a1a`).
+- The server already has matching `ob()`, `buildHouse()`, and
+  `buildTower()` helpers (same signatures as the client), so the IIFE
+  body resolves cleanly without any further edits.
+- Spawns unchanged: `[[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]]`
+  (identical on both sides).
+- Map is now feature-identical between client and server, so collision
+  and spawn logic on the server will agree with what the player sees on
+  the client.
+
+### What was NOT changed
+
+- `ob()` / `buildHouse()` / `buildTower()` / `buildTree()` /
+  `buildStairs()` helper definitions.
+- All other maps (`pueblo`, `arena`, `ciudad`, `paisaje`, …).
+- All gameplay code (movement, shooting, mob AI, scoring, killstreaks).
+- Any client-side files (`src/lib/game/constants.ts` etc.).
+
+### Verification
+
+- `cd /home/z/my-project && bun run lint` → exit 0, no errors / no
+  warnings.
+
+### Agent context
+
+- Full work record: `/home/z/my-project/agent-ctx/l-server-game-server-updater.md`
