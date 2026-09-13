@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doodle Shooter: Ultimate Edition</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            overflow: hidden;
+            background-color: #fdfbf7;
+            background-image: 
+                linear-gradient(#e8e4df 1px, transparent 1px),
+                linear-gradient(90deg, #e8e4df 1px, transparent 1px);
+            background-size: 40px 40px;
+            font-family: 'Comic Sans MS', 'Courier New', cursive;
+            user-select: none;
+        }
+        
+        .screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(253, 251, 247, 0.95);
+            z-index: 100;
+        }
+        .hidden { display: none !important; }
+        
+        h1 {
+            font-size: 64px;
+            color: #1a1a1a;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 0px #ccc;
+            transform: rotate(-2deg);
+        }
+        h2 { font-size: 32px; margin-bottom: 20px; }
+        
+        .btn {
+            background: #fff;
+            border: 3px solid #1a1a1a;
+            padding: 15px 40px;
+            margin: 10px;
+            font-size: 20px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 5px 5px 0px #1a1a1a;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .btn:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 7px 7px 0px #1a1a1a;
+        }
+        .btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px #1a1a1a;
+        }
+
+        .map-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .map-card {
+            border: 3px solid #1a1a1a;
+            padding: 15px;
+            width: 180px;
+            text-align: center;
+            cursor: pointer;
+            background: white;
+            box-shadow: 4px 4px 0px #1a1a1a;
+            font-size: 14px;
+        }
+        .map-card:hover { background: #f9f9f9; transform: scale(1.05); }
+
+        #hud {
+            position: absolute;
+            top: 20px; left: 20px;
+            color: #1a1a1a;
+            font-size: 18px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 10;
+            background: rgba(255,255,255,0.9);
+            padding: 15px;
+            border: 2px solid #1a1a1a;
+            box-shadow: 3px 3px 0px #1a1a1a;
+            min-width: 200px;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 24px; height: 24px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 10;
+        }
+        #crosshair::before, #crosshair::after {
+            content: ''; position: absolute; background: #1a1a1a;
+        }
+        #crosshair::before { top: 11px; left: 0; width: 24px; height: 2px; }
+        #crosshair::after { top: 0; left: 11px; width: 2px; height: 24px; }
+
+        #killStreak {
+            position: absolute;
+            top: 20px; right: 20px;
+            color: #d00000;
+            font-size: 24px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 10;
+            text-align: right;
+        }
+
+        #weaponSlots {
+            position: absolute;
+            bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+        .weapon-slot {
+            width: 80px; height: 60px;
+            border: 2px solid #1a1a1a;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 2px 2px 0px #1a1a1a;
+        }
+        .weapon-slot.active {
+            background: #ffd700;
+            border-color: #ff6b00;
+        }
+
+        #pauseMenu {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border: 4px solid #1a1a1a;
+            padding: 40px;
+            text-align: center;
+            z-index: 200;
+            box-shadow: 8px 8px 0px #1a1a1a;
+        }
+
+        #notification {
+            position: absolute;
+            top: 100px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.95);
+            border: 3px solid #1a1a1a;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 50;
+            box-shadow: 4px 4px 0px #1a1a1a;
+            transition: opacity 0.3s;
+            text-align: center;
+        }
+
+        .health-bar {
+            width: 100%;
+            height: 20px;
+            background: #ddd;
+            border: 2px solid #1a1a1a;
+            margin-top: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+        .health-fill {
+            height: 100%;
+            background: #4caf50;
+            transition: width 0.3s;
+        }
+        .health-fill.low { background: #ff5722; }
+        .health-fill.medium { background: #ff9800; }
+
+        .doodle-anim { animation: sketch 0.4s infinite alternate; }
+        @keyframes sketch {
+            0% { transform: rotate(-1deg) translate(0, 0); }
+            100% { transform: rotate(1deg) translate(1px, -1px); }
+        }
+        @keyframes explode {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(5); opacity: 0; }
+        }
+        .explosion {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, #ff6b00, #d00000, transparent);
+            pointer-events: none;
+            animation: explode 1s forwards;
+            z-index: 999;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="mainMenu" class="screen">
+        <h1 class="doodle-anim">DOODLE SHOOTER</h1>
+        <p style="font-size: 18px; color: #555; margin-bottom: 20px;">Ultimate Edition</p>
+        <button class="btn" onclick="showMapSelect()">🎯 INICIAR JUEGO</button>
+    </div>
+
+    <div id="mapMenu" class="screen hidden">
+        <h2>SELECCIONA EL MAPA</h2>
+        <div class="map-grid" id="mapGrid"></div>
+        <button class="btn" style="margin-top: 20px;" onclick="backToMain()">← Volver</button>
+    </div>
+
+    <div id="hud" class="hidden">
+        <div>Nivel: <span id="levelDisplay">1</span> / 20</div>
+        <div>Mapa: <span id="mapDisplay">-</span></div>
+        <div style="margin-top: 10px;">
+            Salud: <span id="health">100</span>%
+            <div class="health-bar"><div class="health-fill" id="healthFill" style="width: 100%"></div></div>
+        </div>
+        <div>Escudo: <span id="shield">0</span>%</div>
+        <div style="margin-top: 10px;">Puntuación: <span id="score">0</span></div>
+        <div>Enemigos: <span id="enemyCount">0</span></div>
+    </div>
+
+    <div id="killStreak" class="hidden">
+        <div>🔥 Racha: <span id="streak">0</span></div>
+        <div id="specialAbility" style="font-size: 16px; margin-top: 10px;"></div>
+    </div>
+
+    <div id="weaponSlots" class="hidden"></div>
+    <div id="crosshair" class="hidden"></div>
+    <div id="notification" class="hidden"></div>
+
+    <div id="pauseMenu" class="hidden">
+        <h2>⏸️ JUEGO PAUSADO</h2>
+        <p style="margin-bottom: 20px;">Presiona ESC o haz clic para continuar</p>
+        <button class="btn" onclick="resumeGame()">▶️ Continuar</button>
+        <button class="btn" onclick="location.reload()">🏠 Menú Principal</button>
+    </div>
+
+    <div id="gameOverScreen" class="screen hidden">
+        <h1 style="color: #d00000;">GAME OVER</h1>
+        <p style="font-size: 24px;">Puntuación Final: <span id="finalScore">0</span></p>
+        <p style="font-size: 20px;">Nivel Alcanzado: <span id="finalLevel">1</span></p>
+        <p style="font-size: 20px;">Eliminaciones: <span id="finalKills">0</span></p>
+        <button class="btn" onclick="location.reload()">🔄 Jugar de Nuevo</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+        const CONFIG = {
+            PLAYER_SPEED: 12,
+            PLAYER_JUMP: 15,
+            GRAVITY: 30,
+            MAX_ENEMIES: 15,
+            MAP_SIZE: 80,
+            DRONE_DROP_CHANCE: 0.05,
+            DRAGON_DROP_CHANCE: 0.01,
+            GREEN_MOB_CHANCE: 0.001
+        };
+
+        const WEAPONS = {
+            pistol: { name: 'Pistola', damage: 15, fireRate: 300, ammo: 12, maxAmmo: 12, reloadTime: 1500, automatic: false, spread: 0.02, bulletSpeed: 80, color: 0x2d3436 },
+            shotgun: { name: 'Escopeta', damage: 8, fireRate: 800, ammo: 6, maxAmmo: 6, reloadTime: 2000, automatic: false, spread: 0.15, pellets: 8, bulletSpeed: 70, color: 0x5c3a21 },
+            smg: { name: 'SMG', damage: 10, fireRate: 80, ammo: 30, maxAmmo: 30, reloadTime: 2000, automatic: true, spread: 0.05, bulletSpeed: 90, color: 0x636e72 },
+            rifle: { name: 'Rifle', damage: 25, fireRate: 150, ammo: 20, maxAmmo: 20, reloadTime: 2500, automatic: true, spread: 0.03, bulletSpeed: 120, color: 0x3d3d3d },
+            sniper: { name: 'Sniper', damage: 100, fireRate: 1200, ammo: 5, maxAmmo: 5, reloadTime: 3000, automatic: false, spread: 0, bulletSpeed: 200, color: 0x1a1a1a },
+            minigun: { name: 'Minigun', damage: 12, fireRate: 50, ammo: 200, maxAmmo: 200, reloadTime: 4000, automatic: true, spread: 0.08, bulletSpeed: 100, color: 0x2d3436 },
+            rpg: { name: 'RPG', damage: 200, fireRate: 2000, ammo: 3, maxAmmo: 3, reloadTime: 3000, automatic: false, spread: 0, bulletSpeed: 50, explosive: true, color: 0x4a5c4f }
+        };
+
+        const MAPS = [
+            { id: 'school', name: 'Escuela', color: 0xfff9c4, obstacles: 0x90a4ae },
+            { id: 'beach', name: 'Playa', color: 0xffe0b2, obstacles: 0x795548 },
+            { id: 'forest', name: 'Bosque', color: 0x81c784, obstacles: 0x388e3c },
+            { id: 'rocky', name: 'Terreno Rocoso', color: 0x9e9e9e, obstacles: 0x616161 },
+            { id: 'city', name: 'Ciudad', color: 0xb0bec5, obstacles: 0x455a64 },
+            { id: 'suburb', name: 'Suburbio', color: 0xc8e6c9, obstacles: 0x7cb342 },
+            { id: 'colony', name: 'Colonia', color: 0xffccbc, obstacles: 0xff7043 },
+            { id: 'park', name: 'Parque', color: 0xa5d6a7, obstacles: 0x66bb6a },
+            { id: 'building', name: 'Edificio', color: 0xe0e0e0, obstacles: 0x757575 },
+            { id: 'desert', name: 'Desierto', color: 0xffd54f, obstacles: 0xf57f17 },
+            { id: 'snow', name: 'Nieve', color: 0xe3f2fd, obstacles: 0x90a4ae },
+            { id: 'volcano', name: 'Volcán', color: 0x424242, obstacles: 0xd84315 },
+            { id: 'swamp', name: 'Pantano', color: 0x9e9d24, obstacles: 0x558b2f },
+            { id: 'cave', name: 'Cueva', color: 0x616161, obstacles: 0x424242 },
+            { id: 'factory', name: 'Fábrica', color: 0x78909c, obstacles: 0x37474f },
+            { id: 'mall', name: 'Centro Comercial', color: 0xf3e5f5, obstacles: 0x9c27b0 },
+            { id: 'airport', name: 'Aeropuerto', color: 0xb3e5fc, obstacles: 0x0288d1 },
+            { id: 'hospital', name: 'Hospital', color: 0xe1f5fe, obstacles: 0x0277bd },
+            { id: 'prison', name: 'Prisión', color: 0xcfd8dc, obstacles: 0x455a64 },
+            { id: 'stadium', name: 'Estadio', color: 0xffe082, obstacles: 0xffa000 }
+        ];
+
+        function createDoodleMesh(geometry, color, scale = 1) {
+            const group = new THREE.Group();
+            const material = new THREE.MeshToonMaterial({ color: color });
+            const mesh = new THREE.Mesh(geometry, material);
+            const edges = new THREE.EdgesGeometry(geometry, 15);
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+            const wireframe = new THREE.LineSegments(edges, lineMaterial);
+            wireframe.scale.set(1.01, 1.01, 1.01);
+            group.add(mesh);
+            group.add(wireframe);
+            group.scale.set(scale, scale, scale);
+            group.userData = { 
+                wireframe: wireframe,
+                wobbleSpeed: Math.random() * 0.003 + 0.002,
+                wobbleOffset: Math.random() * 100,
+                isDoodle: true
+            };
+            return group;
+        }
+
+        class AABB {
+            constructor(min, max) { this.min = min; this.max = max; }
+            intersects(other) {
+                return this.min.x <= other.max.x && this.max.x >= other.min.x &&
+                       this.min.y <= other.max.y && this.max.y >= other.min.y &&
+                       this.min.z <= other.max.z && this.max.z >= other.min.z;
+            }
+            contains(point) {
+                return point.x >= this.min.x && point.x <= this.max.x &&
+                       point.y >= this.min.y && point.y <= this.max.y &&
+                       point.z >= this.min.z && point.z <= this.max.z;
+            }
+        }
+
+        class Entity {
+            constructor(position, type) {
+                this.position = position.clone();
+                this.velocity = new THREE.Vector3();
+                this.type = type;
+                this.alive = true;
+                this.mesh = null;
+                this.bbox = null;
+            }
+            update(delta) {
+                this.position.add(this.velocity.clone().multiplyScalar(delta));
+                if (this.mesh) this.mesh.position.copy(this.position);
+            }
+            destroy() {
+                this.alive = false;
+                if (this.mesh) game.scene.remove(this.mesh);
+            }
+        }
+
+        class Enemy extends Entity {
+            constructor(position, level) {
+                super(position, 'enemy');
+                this.health = 50 + (level * 10);
+                this.maxHealth = this.health;
+                this.speed = 3 + (level * 0.5);
+                this.level = level;
+                this.lastShot = 0;
+                this.weapon = this.getRandomWeapon(level);
+                this.createMesh();
+            }
+            getRandomWeapon(level) {
+                const weapons = ['pistol', 'smg', 'rifle', 'shotgun'];
+                if (level >= 5) weapons.push('sniper');
+                if (level >= 10) weapons.push('minigun');
+                return weapons[Math.floor(Math.random() * weapons.length)];
+            }
+            createMesh() {
+                this.mesh = new THREE.Group();
+                const body = createDoodleMesh(new THREE.BoxGeometry(0.6, 1.4, 0.4), 0xe74c3c);
+                body.position.y = 0.7; body.userData.isBody = true;
+                const head = createDoodleMesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), 0xffdbac);
+                head.position.y = 1.6; head.userData.isHead = true;
+                const armGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2);
+                const leftArm = createDoodleMesh(armGeo, 0xe74c3c); leftArm.position.set(-0.4, 0.9, 0);
+                const rightArm = createDoodleMesh(armGeo, 0xe74c3c); rightArm.position.set(0.4, 0.9, 0);
+                const legGeo = new THREE.BoxGeometry(0.25, 0.9, 0.25);
+                const leftLeg = createDoodleMesh(legGeo, 0x34495e); leftLeg.position.set(-0.2, -0.45, 0);
+                const rightLeg = createDoodleMesh(legGeo, 0x34495e); rightLeg.position.set(0.2, -0.45, 0);
+                const gun = createDoodleMesh(new THREE.BoxGeometry(0.1, 0.1, 0.5), 0x2c3e50);
+                gun.position.set(0.5, 1.0, 0.3);
+                this.mesh.add(body, head, leftArm, rightArm, leftLeg, rightLeg, gun);
+                this.mesh.position.copy(this.position);
+                this.bbox = new AABB(new THREE.Vector3(-0.3, 0, -0.3), new THREE.Vector3(0.3, 2.0, 0.3));
+                game.scene.add(this.mesh);
+            }
+            takeDamage(damage, isHeadshot) {
+                const finalDamage = isHeadshot ? damage * 3 : damage;
+                this.health -= finalDamage;
+                if (this.mesh) {
+                    this.mesh.children.forEach(child => {
+                        if (child.userData && child.userData.isDoodle) {
+                            child.position.x += (Math.random() - 0.5) * 0.1;
+                        }
+                    });
+                }
+                if (this.health <= 0) { this.die(); return true; }
+                return false;
+            }
+            die() {
+                this.destroy();
+                game.player.killStreak++;
+                game.player.kills++;
+                game.updateScore(50);
+                if (Math.random() < 0.6) game.spawnPickup(this.position.clone(), 'ammo');
+                if (Math.random() < 0.2) game.spawnPickup(this.position.clone(), 'health');
+                if (Math.random() < 0.15) {
+                    const weapons = ['pistol', 'smg', 'rifle', 'shotgun'];
+                    if (this.level >= 5) weapons.push('sniper');
+                    game.spawnPickup(this.position.clone(), 'weapon', weapons[Math.floor(Math.random() * weapons.length)]);
+                }
+                if (this.level >= 10 && Math.random() < CONFIG.DRONE_DROP_CHANCE) game.spawnPickup(this.position.clone(), 'drone');
+                if (this.level >= 15 && Math.random() < CONFIG.DRAGON_DROP_CHANCE) game.spawnPickup(this.position.clone(), 'dragon');
+            }
+            update(delta, playerPos) {
+                super.update(delta);
+                const direction = new THREE.Vector3();
+                direction.subVectors(playerPos, this.position);
+                direction.y = 0;
+                const distance = direction.length();
+                direction.normalize();
+                if (distance > 5) this.velocity.copy(direction.multiplyScalar(this.speed));
+                else this.velocity.set(0, 0, 0);
+                if (this.mesh) this.mesh.lookAt(playerPos.x, this.position.y + 1, playerPos.z);
+                const now = Date.now();
+                if (distance < 25 && now - this.lastShot > WEAPONS[this.weapon].fireRate * 2) {
+                    this.shoot(playerPos);
+                    this.lastShot = now;
+                }
+            }
+            shoot(targetPos) {
+                const weapon = WEAPONS[this.weapon];
+                const direction = new THREE.Vector3();
+                direction.subVectors(targetPos, this.position);
+                direction.y += 0.5;
+                direction.normalize();
+                direction.x += (Math.random() - 0.5) * weapon.spread;
+                direction.z += (Math.random() - 0.5) * weapon.spread;
+                const bullet = new Bullet(this.position.clone().add(new THREE.Vector3(0, 1.2, 0)), direction, weapon.damage * 0.7, weapon.bulletSpeed, 'enemy');
+                game.bullets.push(bullet);
+            }
+        }
+
+        class Bullet extends Entity {
+            constructor(position, direction, damage, speed, owner) {
+                super(position, 'bullet');
+                this.direction = direction.clone().normalize();
+                this.velocity = this.direction.multiplyScalar(speed);
+                this.damage = damage;
+                this.owner = owner;
+                this.life = 3;
+                this.createMesh();
+            }
+            createMesh() {
+                this.mesh = createDoodleMesh(new THREE.SphereGeometry(0.08, 6, 6), 0x000000, 1);
+                this.mesh.position.copy(this.position);
+                game.scene.add(this.mesh);
+            }
+            update(delta) {
+                super.update(delta);
+                this.life -= delta;
+                if (this.life <= 0) this.destroy();
+            }
+        }
+
+        class Pickup extends Entity {
+            constructor(position, type, subtype) {
+                super(position, 'pickup');
+                this.pickupType = type;
+                this.subtype = subtype;
+                this.createMesh();
+                this.bobOffset = Math.random() * Math.PI * 2;
+            }
+            createMesh() {
+                this.mesh = new THREE.Group();
+                let color = 0xffffff, geometry;
+                switch(this.pickupType) {
+                    case 'health': color = 0xe74c3c; geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4); break;
+                    case 'shield': color = 0x3498db; geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4); break;
+                    case 'ammo': color = 0xf39c12; geometry = new THREE.BoxGeometry(0.5, 0.3, 0.2); break;
+                    case 'weapon': color = 0x9b59b6; geometry = new THREE.BoxGeometry(0.6, 0.3, 0.2); break;
+                    case 'drone': color = 0x00bcd4; geometry = new THREE.BoxGeometry(0.3, 0.3, 0.3); break;
+                    case 'dragon': color = 0xff5722; geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5); break;
+                    case 'epic': color = 0xffd700; geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5); break;
+                    default: color = 0x95a5a6; geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+                }
+                const box = createDoodleMesh(geometry, color);
+                this.mesh.add(box);
+                this.mesh.position.copy(this.position);
+                game.scene.add(this.mesh);
+                this.bbox = new AABB(new THREE.Vector3(-0.25, 0, -0.25), new THREE.Vector3(0.25, 0.5, 0.25));
+            }
+            update(delta) {
+                super.update(delta);
+                if (this.mesh) {
+                    this.mesh.position.y = this.position.y + Math.sin(Date.now() * 0.003 + this.bobOffset) * 0.1;
+                    this.mesh.rotation.y += delta * 2;
+                }
+            }
+            collect() {
+                const player = game.player;
+                switch(this.pickupType) {
+                    case 'health': player.health = Math.min(100, player.health + 25); game.showNotification('❤️ +25 Salud'); break;
+                    case 'shield': player.shield = Math.min(100, player.shield + 50); game.showNotification('🛡️ +50 Escudo'); break;
+                    case 'ammo':
+                        const cw = WEAPONS[player.weapons[player.currentWeapon]];
+                        if (cw) { cw.ammo = Math.min(cw.maxAmmo, cw.ammo + 15); game.showNotification('🔫 +15 Balas'); }
+                        break;
+                    case 'weapon':
+                        if (!player.weapons.includes(this.subtype)) {
+                            if (player.weapons.length < 4) { player.weapons.push(this.subtype); game.showNotification(`🎯 Nueva arma: ${WEAPONS[this.subtype].name}`); }
+                            else { player.weapons[player.currentWeapon] = this.subtype; game.showNotification(`🎯 Reemplazado con: ${WEAPONS[this.subtype].name}`); }
+                        }
+                        break;
+                    case 'drone': player.drones++; game.showNotification('🚁 +1 Dron'); break;
+                    case 'dragon': player.dragonCubes++; game.showNotification('🐉 +1 Cubo de Dragón'); break;
+                    case 'epic':
+                        const epicWeapons = ['minigun', 'rpg', 'sniper'];
+                        const randomEpic = epicWeapons[Math.floor(Math.random() * epicWeapons.length)];
+                        if (!player.weapons.includes(randomEpic)) player.weapons.push(randomEpic);
+                        game.showNotification(`⭐ ARMA ÉPICA: ${WEAPONS[randomEpic].name}`);
+                        break;
+                }
+                this.destroy();
+                game.updateHUD();
+            }
+        }
+
+        class Drone extends Entity {
+            constructor(position) {
+                super(position, 'drone');
+                this.health = 50;
+                this.target = null;
+                this.lifetime = 30;
+                this.createMesh();
+            }
+            createMesh() {
+                this.mesh = createDoodleMesh(new THREE.BoxGeometry(0.5, 0.2, 0.5), 0x00bcd4);
+                this.mesh.position.copy(this.position);
+                game.scene.add(this.mesh);
+            }
+            update(delta) {
+                super.update(delta);
+                this.lifetime -= delta;
+                if (this.lifetime <= 0) { this.destroy(); return; }
+                if (!this.target || !this.target.alive) {
+                    let maxKills = -1;
+                    game.enemies.forEach(enemy => {
+                        if (enemy.alive) {
+                            const kills = Math.floor(Math.random() * 5);
+                            if (kills > maxKills) { maxKills = kills; this.target = enemy; }
+                        }
+                    });
+                }
+                if (this.target && this.target.alive) {
+                    const direction = new THREE.Vector3();
+                    direction.subVectors(this.target.position, this.position);
+                    direction.y = 2;
+                    direction.normalize();
+                    this.velocity.copy(direction.multiplyScalar(15));
+                    if (this.position.distanceTo(this.target.position) < 15) {
+                        const bullet = new Bullet(this.position.clone(), direction.normalize(), 20, 80, 'drone');
+                        game.bullets.push(bullet);
+                    }
+                } else { this.velocity.set(0, 0, 0); }
+                if (this.mesh) {
+                    this.mesh.position.y = this.position.y + Math.sin(Date.now() * 0.005) * 0.2;
+                    this.mesh.rotation.y += delta * 5;
+                }
+            }
+        }
+
+        class Dragon extends Entity {
+            constructor(position) {
+                super(position, 'dragon');
+                this.health = 200;
+                this.lifetime = 30;
+                this.owner = game.player;
+                this.createMesh();
+            }
+            createMesh() {
+                this.mesh = new THREE.Group();
+                const body = createDoodleMesh(new THREE.BoxGeometry(1, 1.5, 2), 0xecf0f1); body.position.y = 1;
+                const head = createDoodleMesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), 0xecf0f1); head.position.set(0, 2, 1.5);
+                const wingGeo = new THREE.BoxGeometry(3, 0.2, 1);
+                const leftWing = createDoodleMesh(wingGeo, 0xbdc3c7); leftWing.position.set(-1.5, 1.5, 0); leftWing.rotation.z = -0.3;
+                const rightWing = createDoodleMesh(wingGeo, 0xbdc3c7); rightWing.position.set(1.5, 1.5, 0); rightWing.rotation.z = 0.3;
+                this.mesh.add(body, head, leftWing, rightWing);
+                this.mesh.position.copy(this.position);
+                game.scene.add(this.mesh);
+            }
+            update(delta) {
+                super.update(delta);
+                this.lifetime -= delta;
+                if (this.lifetime <= 0) { this.destroy(); return; }
+                let closestEnemy = null, closestDistance = Infinity;
+                game.enemies.forEach(enemy => {
+                    if (enemy.alive) {
+                        const distance = this.position.distanceTo(enemy.position);
+                        if (distance < closestDistance) { closestDistance = distance; closestEnemy = enemy; }
+                    }
+                });
+                if (closestEnemy) {
+                    const direction = new THREE.Vector3();
+                    direction.subVectors(closestEnemy.position, this.position);
+                    direction.normalize();
+                    this.velocity.copy(direction.multiplyScalar(10));
+                    if (closestDistance < 8 && Math.random() < 0.05) {
+                        const bullet = new Bullet(this.position.clone().add(new THREE.Vector3(0, 2, 0)), direction, 150, 60, 'dragon');
+                        game.bullets.push(bullet);
+                    }
+                }
+                if (this.mesh) {
+                    this.mesh.position.y = this.position.y + 2;
+                    this.mesh.lookAt(closestEnemy ? closestEnemy.position.x : this.position.x, this.position.y + 2, closestEnemy ? closestEnemy.position.z : this.position.z);
+                }
+            }
+        }
+
+        class GreenMob extends Entity {
+            constructor(position) {
+                super(position, 'greenmob');
+                this.health = 100;
+                this.lifetime = 60;
+                this.invulnerable = 10;
+                this.createMesh();
+            }
+            createMesh() {
+                this.mesh = createDoodleMesh(new THREE.BoxGeometry(0.8, 1.6, 0.8), 0x4caf50);
+                this.mesh.position.copy(this.position);
+                game.scene.add(this.mesh);
+            }
+            update(delta) {
+                super.update(delta);
+                this.lifetime -= delta;
+                this.invulnerable -= delta;
+                if (this.lifetime <= 0) {
+                    this.destroy();
+                    if (this.alive) {
+                        if (!game.player.weapons.includes('rifle')) game.player.weapons.push('rifle');
+                        game.showNotification('🎉 ¡Mob verde sobrevivió! +Rifle y +Balas');
+                        const cw = WEAPONS['rifle'];
+                        if(cw) cw.ammo = cw.maxAmmo;
+                    }
+                    return;
+                }
+                if (Math.random() < 0.02) {
+                    const randomDir = new THREE.Vector3((Math.random() - 0.5) * 10, 0, (Math.random() - 0.5) * 10);
+                    this.velocity.copy(randomDir.normalize().multiplyScalar(5));
+                }
+                if (this.mesh) this.mesh.rotation.y += delta * 2;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0xfdfbf7);
+                this.scene.fog = new THREE.Fog(0xfdfbf7, 20, 80);
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.y = 1.6;
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                document.body.appendChild(this.renderer.domElement);
+                
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+                this.scene.add(ambientLight);
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+                dirLight.position.set(10, 20, 10);
+                this.scene.add(dirLight);
+                
+                this.controls = new PointerLockControls(this.camera, document.body);
+                this.mapGroup = new THREE.Group();
+                this.scene.add(this.mapGroup);
+                
+                this.viewModel = new THREE.Group();
+                this.camera.add(this.viewModel);
+                this.viewModel.position.set(0.3, -0.3, -0.5);
+                const hand = createDoodleMesh(new THREE.BoxGeometry(0.1, 0.1, 0.2), 0xffdbac);
+                this.viewModel.add(hand);
+                this.scene.add(this.camera);
+                
+                this.player = {
+                    health: 100, shield: 0, weapons: ['pistol'], currentWeapon: 0,
+                    killStreak: 0, kills: 0, drones: 0, dragonCubes: 0,
+                    position: new THREE.Vector3(0, 1.6, 0), velocity: new THREE.Vector3(), canJump: false
+                };
+                
+                this.enemies = []; this.bullets = []; this.pickups = [];
+                this.drones = []; this.dragons = []; this.greenMobs = []; this.obstacles = [];
+                this.currentLevel = 1; this.currentMap = null; this.score = 0;
+                this.isPaused = false; this.isGameOver = false;
+                this.lastShot = 0; this.isShooting = false; this.lastFrameTime = performance.now();
+                this.moveState = { forward: false, backward: false, left: false, right: false };
+                
+                this.setupEventListeners();
+                this.initMapSelection();
+            }
+            
+            updateViewModel() {
+                while(this.viewModel.children.length > 1) this.viewModel.remove(this.viewModel.children[this.viewModel.children.length - 1]);
+                const weaponType = this.player.weapons[this.player.currentWeapon];
+                if (!weaponType) return;
+                const weapon = WEAPONS[weaponType];
+                const gunGroup = new THREE.Group();
+                if (weaponType === 'pistol') {
+                    const body = createDoodleMesh(new THREE.BoxGeometry(0.08, 0.12, 0.25), weapon.color);
+                    const barrel = createDoodleMesh(new THREE.BoxGeometry(0.05, 0.05, 0.2), weapon.color);
+                    barrel.position.z = -0.2; gunGroup.add(body, barrel);
+                } else if (weaponType === 'shotgun') {
+                    const body = createDoodleMesh(new THREE.BoxGeometry(0.1, 0.12, 0.4), weapon.color);
+                    const barrel = createDoodleMesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8), weapon.color);
+                    barrel.rotation.x = Math.PI / 2; barrel.position.z = -0.4; gunGroup.add(body, barrel);
+                } else if (weaponType === 'sniper') {
+                    const body = createDoodleMesh(new THREE.BoxGeometry(0.08, 0.1, 0.6), weapon.color);
+                    const barrel = createDoodleMesh(new THREE.BoxGeometry(0.05, 0.05, 0.8), weapon.color);
+                    barrel.position.z = -0.6;
+                    const scope = createDoodleMesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 8), 0x000000);
+                    scope.rotation.x = Math.PI / 2; scope.position.set(0, 0.08, -0.2);
+                    gunGroup.add(body, barrel, scope);
+                } else if (weaponType === 'minigun') {
+                    const body = createDoodleMesh(new THREE.BoxGeometry(0.12, 0.12, 0.5), weapon.color);
+                    const barrels = [];
+                    for(let i = 0; i < 6; i++) {
+                        const barrel = createDoodleMesh(new THREE.CylinderGeometry(0.02, 0.02, 0.6, 6), 0x2c3e50);
+                        barrel.rotation.x = Math.PI / 2;
+                        const angle = (i / 6) * Math.PI * 2;
+                        barrel.position.set(Math.cos(angle) * 0.04, Math.sin(angle) * 0.04, -0.4);
+                        barrels.push(barrel);
+                    }
+                    gunGroup.add(body, ...barrels);
+                } else if (weaponType === 'rpg') {
+                    const body = createDoodleMesh(new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8), weapon.color);
+                    body.rotation.x = Math.PI / 2; gunGroup.add(body);
+                } else {
+                    const body = createDoodleMesh(new THREE.BoxGeometry(0.08, 0.1, 0.5), weapon.color);
+                    const barrel = createDoodleMesh(new THREE.BoxGeometry(0.05, 0.05, 0.6), weapon.color);
+                    barrel.position.z = -0.5; gunGroup.add(body, barrel);
+                }
+                gunGroup.position.set(0, -0.05, 0);
+                this.viewModel.add(gunGroup);
+            }
+            
+            initMapSelection() {
+                const grid = document.getElementById('mapGrid');
+                MAPS.forEach((map, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'map-card';
+                    card.innerHTML = `<h3>${index + 1}. ${map.name}</h3><p>Dificultad: ${index < 5 ? 'Fácil' : index < 10 ? 'Medio' : index < 15 ? 'Difícil' : 'Extremo'}</p>`;
+                    card.onclick = () => this.startGame(map);
+                    grid.appendChild(card);
+                });
+            }
+            
+            startGame(map) {
+                this.currentMap = map;
+                document.getElementById('mainMenu').classList.add('hidden');
+                document.getElementById('mapMenu').classList.add('hidden');
+                document.getElementById('hud').classList.remove('hidden');
+                document.getElementById('crosshair').classList.remove('hidden');
+                document.getElementById('killStreak').classList.remove('hidden');
+                document.getElementById('weaponSlots').classList.remove('hidden');
+                document.getElementById('mapDisplay').innerText = map.name;
+                this.buildMap(map);
+                this.player.weapons.forEach(weaponType => { if(WEAPONS[weaponType]) WEAPONS[weaponType].ammo = WEAPONS[weaponType].maxAmmo; });
+                this.startWave();
+                this.controls.lock();
+                this.lastFrameTime = performance.now();
+                this.gameLoop();
+            }
+            
+            buildMap(map) {
+                while(this.mapGroup.children.length > 0) this.mapGroup.remove(this.mapGroup.children[0]);
+                this.obstacles = [];
+                const ground = createDoodleMesh(new THREE.PlaneGeometry(CONFIG.MAP_SIZE, CONFIG.MAP_SIZE, 10, 10), map.color);
+                ground.rotation.x = -Math.PI / 2;
+                this.mapGroup.add(ground);
+                const obstacleCount = 30 + Math.floor(Math.random() * 20);
+                for(let i = 0; i < obstacleCount; i++) {
+                    const type = Math.random();
+                    let geo, height;
+                    if (type < 0.4) { geo = new THREE.BoxGeometry(2 + Math.random() * 3, 2 + Math.random() * 2, 2 + Math.random() * 3); height = geo.parameters.height; }
+                    else if (type < 0.6) { geo = new THREE.BoxGeometry(4 + Math.random() * 4, 0.5, 6 + Math.random() * 6); height = 0.5; }
+                    else if (type < 0.8) { geo = new THREE.BoxGeometry(0.5, 3 + Math.random() * 2, 4 + Math.random() * 8); height = geo.parameters.height; }
+                    else { geo = new THREE.BoxGeometry(2, 4 + Math.random() * 4, 2); height = geo.parameters.height; }
+                    const obstacle = createDoodleMesh(geo, map.obstacles);
+                    let x, z;
+                    do { x = (Math.random() - 0.5) * (CONFIG.MAP_SIZE - 10); z = (Math.random() - 0.5) * (CONFIG.MAP_SIZE - 10); } 
+                    while(Math.sqrt(x*x + z*z) < 10);
+                    obstacle.position.set(x, height / 2, z);
+                    if (type >= 0.4 && type < 0.6) obstacle.rotation.x = 0.3;
+                    this.mapGroup.add(obstacle);
+                    this.obstacles.push({
+                        bbox: new AABB(new THREE.Vector3(x - geo.parameters.width/2, 0, z - geo.parameters.depth/2), new THREE.Vector3(x + geo.parameters.width/2, height, z + geo.parameters.depth/2)),
+                        mesh: obstacle
+                    });
+                }
+                this.addThematicElements(map);
+            }
+            
+            addThematicElements(map) {
+                if (map.id === 'forest' || map.id === 'park') {
+                    for(let i = 0; i < 15; i++) {
+                        const trunk = createDoodleMesh(new THREE.CylinderGeometry(0.3, 0.4, 4, 6), 0x8b4513);
+                        trunk.position.set((Math.random() - 0.5) * 60, 2, (Math.random() - 0.5) * 60);
+                        const leaves = createDoodleMesh(new THREE.ConeGeometry(2, 3, 6), 0x228b22);
+                        leaves.position.y = 2.5; trunk.add(leaves); this.mapGroup.add(trunk);
+                    }
+                } else if (map.id === 'beach') {
+                    for(let i = 0; i < 10; i++) {
+                        const palm = createDoodleMesh(new THREE.CylinderGeometry(0.2, 0.3, 5, 6), 0x8b4513);
+                        palm.position.set((Math.random() - 0.5) * 60, 2.5, (Math.random() - 0.5) * 60);
+                        palm.rotation.z = (Math.random() - 0.5) * 0.3;
+                        const leaves = createDoodleMesh(new THREE.SphereGeometry(1.5, 6, 6), 0x228b22);
+                        leaves.position.y = 3; palm.add(leaves); this.mapGroup.add(palm);
+                    }
+                } else if (map.id === 'city' || map.id === 'suburb') {
+                    for(let i = 0; i < 8; i++) {
+                        const building = createDoodleMesh(new THREE.BoxGeometry(6, 8 + Math.random() * 8, 6), map.obstacles);
+                        building.position.set((Math.random() - 0.5) * 50, 4 + Math.random() * 4, (Math.random() - 0.5) * 50);
+                        this.mapGroup.add(building);
+                    }
+                }
+            }
+            
+            startWave() {
+                const enemyCount = 5 + (this.currentLevel * 2);
+                for(let i = 0; i < enemyCount; i++) {
+                    setTimeout(() => { if (!this.isGameOver && !this.isPaused) this.spawnEnemy(); }, i * 800);
+                }
+                this.showNotification(`🌊 Oleada ${this.currentLevel} - ${enemyCount} enemigos`);
+            }
+            
+            spawnEnemy() {
+                if (this.enemies.length >= CONFIG.MAX_ENEMIES) return;
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 20 + Math.random() * 20;
+                const x = this.player.position.x + Math.cos(angle) * distance;
+                const z = this.player.position.z + Math.sin(angle) * distance;
+                this.enemies.push(new Enemy(new THREE.Vector3(x, 0, z), this.currentLevel));
+                this.updateHUD();
+            }
+            
+            spawnPickup(position, type, subtype = null) {
+                position.y = 0.5;
+                this.pickups.push(new Pickup(position, type, subtype));
+            }
+            
+            shoot() {
+                if (this.isPaused || this.isGameOver || !this.controls.isLocked) return;
+                const weaponType = this.player.weapons[this.player.currentWeapon];
+                if (!weaponType) return;
+                const weapon = WEAPONS[weaponType];
+                const now = Date.now();
+                if (now - this.lastShot < weapon.fireRate) return;
+                if (weapon.ammo <= 0) { this.showNotification('⚠️ Sin munición - Presiona R'); return; }
+                this.lastShot = now;
+                weapon.ammo--;
+                const pellets = weapon.pellets || 1;
+                for(let i = 0; i < pellets; i++) {
+                    const direction = new THREE.Vector3(0, 0, -1);
+                    direction.applyQuaternion(this.camera.quaternion);
+                    direction.x += (Math.random() - 0.5) * weapon.spread;
+                    direction.y += (Math.random() - 0.5) * weapon.spread;
+                    direction.z += (Math.random() - 0.5) * weapon.spread;
+                    direction.normalize();
+                    this.bullets.push(new Bullet(this.player.position.clone(), direction, weapon.damage, weapon.bulletSpeed, 'player'));
+                }
+                this.viewModel.position.z += 0.05;
+                setTimeout(() => { this.viewModel.position.z = -0.5; }, 50);
+                this.updateHUD();
+            }
+            
+            reload() {
+                const weaponType = this.player.weapons[this.player.currentWeapon];
+                if (!weaponType) return;
+                const weapon = WEAPONS[weaponType];
+                if (weapon.ammo === weapon.maxAmmo) return;
+                this.showNotification('🔄 Recargando...');
+                setTimeout(() => { weapon.ammo = weapon.maxAmmo; this.updateHUD(); }, weapon.reloadTime);
+            }
+            
+            useBomb() {
+                if (this.player.killStreak < 10) return;
+                this.player.killStreak = 0;
+                this.showNotification('💣 ¡BOMBA ACTIVADA!');
+                const explosion = document.createElement('div');
+                explosion.className = 'explosion';
+                explosion.style.width = '200px'; explosion.style.height = '200px';
+                explosion.style.left = '50%'; explosion.style.top = '50%';
+                explosion.style.transform = 'translate(-50%, -50%)';
+                document.body.appendChild(explosion);
+                setTimeout(() => explosion.remove(), 1000);
+                this.enemies.forEach(enemy => {
+                    if (enemy.alive && enemy.position.distanceTo(this.player.position) < 15) enemy.takeDamage(150, false);
+                });
+            }
+            
+            activateDrone() {
+                if (this.player.drones <= 0) return;
+                this.player.drones--;
+                this.drones.push(new Drone(this.player.position.clone()));
+                this.showNotification('🚁 ¡Dron activado!');
+                this.updateHUD();
+            }
+            
+            useDragonCube() {
+                if (this.player.dragonCubes <= 0) return;
+                this.player.dragonCubes--;
+                this.dragons.push(new Dragon(this.player.position.clone()));
+                this.showNotification('🐉 ¡Dragón de huesos invocado!');
+                this.updateHUD();
+            }
+            
+            switchWeapon(index) {
+                if (index < this.player.weapons.length) {
+                    this.player.currentWeapon = index;
+                    this.updateViewModel();
+                    this.updateHUD();
+                }
+            }
+            
+            update(delta) {
+                if (this.isPaused || this.isGameOver) return;
+                this.updatePlayer(delta);
+                for(let i = this.bullets.length - 1; i >= 0; i--) {
+                    this.bullets[i].update(delta);
+                    if (!this.bullets[i].alive) { this.bullets.splice(i, 1); continue; }
+                    this.checkBulletCollisions(this.bullets[i]);
+                }
+                for(let i = this.enemies.length - 1; i >= 0; i--) {
+                    this.enemies[i].update(delta, this.player.position);
+                    if (!this.enemies[i].alive) { this.enemies.splice(i, 1); continue; }
+                    if (this.enemies[i].position.distanceTo(this.player.position) < 1.5) this.damagePlayer(5);
+                }
+                for(let i = this.pickups.length - 1; i >= 0; i--) {
+                    this.pickups[i].update(delta);
+                    if (!this.pickups[i].alive) { this.pickups.splice(i, 1); continue; }
+                    if (this.pickups[i].position.distanceTo(this.player.position) < 2) { this.pickups[i].collect(); this.pickups.splice(i, 1); }
+                }
+                for(let i = this.drones.length - 1; i >= 0; i--) { this.drones[i].update(delta); if (!this.drones[i].alive) this.drones.splice(i, 1); }
+                for(let i = this.dragons.length - 1; i >= 0; i--) { this.dragons[i].update(delta); if (!this.dragons[i].alive) this.dragons.splice(i, 1); }
+                for(let i = this.greenMobs.length - 1; i >= 0; i--) { this.greenMobs[i].update(delta); if (!this.greenMobs[i].alive) this.greenMobs.splice(i, 1); }
+                if (Math.random() < CONFIG.GREEN_MOB_CHANCE) this.greenMobs.push(new GreenMob(new THREE.Vector3((Math.random() - 0.5) * 40, 0, (Math.random() - 0.5) * 40)));
+                if (this.enemies.length === 0 && this.isShooting === false) { // Simple check to ensure wave is truly done
+                    // Defer level up slightly to let last bullets resolve
+                    setTimeout(() => {
+                        if(this.enemies.length === 0 && !this.isGameOver) {
+                            this.currentLevel++;
+                            if (this.currentLevel > 20) this.victory();
+                            else this.startWave();
+                        }
+                    }, 1000);
+                }
+                this.scene.traverse((obj) => {
+                    if (obj.userData && obj.userData.isDoodle && obj.userData.wireframe) {
+                        const t = Date.now() * obj.userData.wobbleSpeed + obj.userData.wobbleOffset;
+                        obj.userData.wireframe.rotation.z = Math.sin(t) * 0.02;
+                    }
+                });
+                this.updateHUD();
+            }
+            
+            updatePlayer(delta) {
+                const speed = CONFIG.PLAYER_SPEED;
+                const velocity = this.player.velocity;
+                velocity.y -= CONFIG.GRAVITY * delta;
+                const direction = new THREE.Vector3();
+                if (this.moveState.forward) direction.z -= 1;
+                if (this.moveState.backward) direction.z += 1;
+                if (this.moveState.left) direction.x -= 1;
+                if (this.moveState.right) direction.x += 1;
+                direction.normalize();
+                if (direction.length() > 0) {
+                    const moveX = direction.x * speed * delta;
+                    const moveZ = direction.z * speed * delta;
+                    const rotatedMove = new THREE.Vector3(moveX, 0, moveZ);
+                    rotatedMove.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.camera.rotation.y);
+                    const newPos = this.player.position.clone();
+                    newPos.x += rotatedMove.x; newPos.z += rotatedMove.z;
+                    let canMove = true;
+                    const playerBBox = new AABB(new THREE.Vector3(newPos.x - 0.3, newPos.y - 1.6, newPos.z - 0.3), new THREE.Vector3(newPos.x + 0.3, newPos.y + 0.4, newPos.z + 0.3));
+                    for(const obstacle of this.obstacles) {
+                        if (playerBBox.intersects(obstacle.bbox)) { canMove = false; break; }
+                    }
+                    if (canMove) { this.player.position.x = newPos.x; this.player.position.z = newPos.z; }
+                }
+                this.player.position.y += velocity.y * delta;
+                if (this.player.position.y < 1.6) { this.player.position.y = 1.6; velocity.y = 0; this.player.canJump = true; }
+                this.camera.position.copy(this.player.position);
+                if (this.isShooting) {
+                    const weaponType = this.player.weapons[this.player.currentWeapon];
+                    if (weaponType && WEAPONS[weaponType].automatic) this.shoot();
+                }
+            }
+            
+            checkBulletCollisions(bullet) {
+                for(let i = 0; i < this.enemies.length; i++) {
+                    const enemy = this.enemies[i];
+                    if (!enemy.alive) continue;
+                    const distance = bullet.position.distanceTo(enemy.position);
+                    if (distance < 1.5) {
+                        const headPos = enemy.position.clone(); headPos.y += 1.6;
+                        const isHeadshot = bullet.position.distanceTo(headPos) < 0.5;
+                        if (enemy.takeDamage(bullet.damage, isHeadshot)) this.enemies.splice(i, 1);
+                        bullet.destroy(); return;
+                    }
+                }
+                for(const obstacle of this.obstacles) {
+                    if (obstacle.bbox.contains(bullet.position)) { bullet.destroy(); return; }
+                }
+            }
+            
+            damagePlayer(damage) {
+                let actualDamage = damage;
+                if (this.player.shield > 0) {
+                    const shieldDamage = Math.min(this.player.shield, damage);
+                    this.player.shield -= shieldDamage; actualDamage -= shieldDamage;
+                }
+                this.player.health -= actualDamage;
+                if (this.player.health <= 0) { this.player.health = 0; this.gameOver(); }
+                this.player.killStreak = 0;
+                this.updateHUD();
+            }
+            
+            gameOver() {
+                this.isGameOver = true;
+                this.controls.unlock();
+                document.getElementById('finalScore').innerText = this.score;
+                document.getElementById('finalLevel').innerText = this.currentLevel;
+                document.getElementById('finalKills').innerText = this.player.kills;
+                document.getElementById('gameOverScreen').classList.remove('hidden');
+            }
+            
+            victory() {
+                this.isGameOver = true;
+                this.controls.unlock();
+                this.showNotification('🏆 ¡VICTORIA! ¡Has completado los 20 niveles!');
+                setTimeout(() => this.gameOver(), 3000);
+            }
+            
+            updateScore(points) { this.score += points; }
+            
+            updateHUD() {
+                document.getElementById('levelDisplay').innerText = this.currentLevel;
+                document.getElementById('health').innerText = Math.max(0, this.player.health);
+                document.getElementById('shield').innerText = Math.max(0, this.player.shield);
+                document.getElementById('score').innerText = this.score;
+                document.getElementById('enemyCount').innerText = this.enemies.length;
+                document.getElementById('streak').innerText = this.player.killStreak;
+                const healthFill = document.getElementById('healthFill');
+                healthFill.style.width = Math.max(0, this.player.health) + '%';
+                healthFill.className = 'health-fill';
+                if (this.player.health < 30) healthFill.classList.add('low');
+                else if (this.player.health < 60) healthFill.classList.add('medium');
+                const slotsContainer = document.getElementById('weaponSlots');
+                slotsContainer.innerHTML = '';
+                this.player.weapons.forEach((weaponType, index) => {
+                    const slot = document.createElement('div');
+                    slot.className = 'weapon-slot' + (index === this.player.currentWeapon ? ' active' : '');
+                    const weapon = WEAPONS[weaponType];
+                    slot.innerHTML = `<div style="font-size:14px; font-weight:bold;">${index + 1}</div><div style="font-size:10px;">${weapon.name}</div><div style="font-size:11px; color:#d00000; font-weight:bold;">${weapon.ammo}/${weapon.maxAmmo}</div>`;
+                    slotsContainer.appendChild(slot);
+                });
+                const specialDiv = document.getElementById('specialAbility');
+                let specialText = '';
+                if (this.player.killStreak >= 10) specialText += '💣 [B] Bomba lista<br>';
+                if (this.player.drones > 0) specialText += `🚁 [V] Dron (${this.player.drones})<br>`;
+                if (this.player.dragonCubes > 0) specialText += `🐉 [N] Dragón (${this.player.dragonCubes})<br>`;
+                specialDiv.innerHTML = specialText;
+            }
+            
+            showNotification(message) {
+                const notif = document.getElementById('notification');
+                notif.innerText = message;
+                notif.classList.remove('hidden');
+                setTimeout(() => { notif.classList.add('hidden'); }, 2500);
+            }
+            
+            setupEventListeners() {
+                document.addEventListener('keydown', (e) => {
+                    if (this.isGameOver) return;
+                    switch(e.code) {
+                        case 'KeyW': this.moveState.forward = true; break;
+                        case 'KeyS': this.moveState.backward = true; break;
+                        case 'KeyA': this.moveState.left = true; break;
+                        case 'KeyD': this.moveState.right = true; break;
+                        case 'Space': if (this.player.canJump) { this.player.velocity.y = CONFIG.PLAYER_JUMP; this.player.canJump = false; } break;
+                        case 'KeyR': this.reload(); break;
+                        case 'Digit1': this.switchWeapon(0); break;
+                        case 'Digit2': this.switchWeapon(1); break;
+                        case 'Digit3': this.switchWeapon(2); break;
+                        case 'Digit4': this.switchWeapon(3); break;
+                        case 'KeyB': this.useBomb(); break;
+                        case 'KeyV': this.activateDrone(); break;
+                        case 'KeyN': this.useDragonCube(); break;
+                        case 'Escape': 
+                            if (this.controls.isLocked) {
+                                this.isPaused = true;
+                                this.controls.unlock();
+                                document.getElementById('pauseMenu').classList.remove('hidden');
+                            }
+                            break;
+                    }
+                });
+                document.addEventListener('keyup', (e) => {
+                    switch(e.code) {
+                        case 'KeyW': this.moveState.forward = false; break;
+                        case 'KeyS': this.moveState.backward = false; break;
+                        case 'KeyA': this.moveState.left = false; break;
+                        case 'KeyD': this.moveState.right = false; break;
+                    }
+                });
+                document.addEventListener('mousedown', (e) => {
+                    if (e.button === 0 && this.controls.isLocked) {
+                        this.isShooting = true;
+                        const currentWeapon = WEAPONS[this.player.weapons[this.player.currentWeapon]];
+                        if (currentWeapon && !currentWeapon.automatic) this.shoot();
+                    }
+                });
+                document.addEventListener('mouseup', (e) => { if (e.button === 0) this.isShooting = false; });
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+                this.controls.addEventListener('unlock', () => {
+                    if (!this.isGameOver && !this.isPaused) {
+                        this.isPaused = true;
+                        document.getElementById('pauseMenu').classList.remove('hidden');
+                    }
+                });
+            }
+            
+            gameLoop() {
+                if (this.isGameOver) return;
+                requestAnimationFrame(() => this.gameLoop());
+                const currentTime = performance.now();
+                const delta = Math.min((currentTime - this.lastFrameTime) / 1000, 0.1);
+                this.lastFrameTime = currentTime;
+                this.update(delta);
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        const game = new Game();
+
+        window.showMapSelect = () => {
+            document.getElementById('mainMenu').classList.add('hidden');
+            document.getElementById('mapMenu').classList.remove('hidden');
+        };
+        window.backToMain = () => {
+            document.getElementById('mapMenu').classList.add('hidden');
+            document.getElementById('mainMenu').classList.remove('hidden');
+        };
+        window.resumeGame = () => {
+            game.isPaused = false;
+            document.getElementById('pauseMenu').classList.add('hidden');
+            game.controls.lock();
+            game.lastFrameTime = performance.now();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doodle Shooter Clone</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #f4f4f0; /* Color papel */
+            font-family: 'Courier New', Courier, monospace;
+            user-select: none;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #1a1a1a;
+            font-size: 24px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 10;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: #1a1a1a;
+        }
+        #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
+        #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
+        
+        #instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border: 3px solid #1a1a1a;
+            box-shadow: 5px 5px 0px #1a1a1a;
+            cursor: pointer;
+            z-index: 20;
+        }
+        #instructions h1 {
+            margin-top: 0;
+            font-size: 36px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .hidden { display: none !important; }
+        
+        /* Efecto de garabato animado */
+        @keyframes sketch {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(1px, 1px); }
+            50% { transform: translate(-1px, 0); }
+            75% { transform: translate(0, -1px); }
+            100% { transform: translate(0, 0); }
+        }
+        .doodle {
+            animation: sketch 0.5s infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div>Puntuación: <span id="score">0</span></div>
+        <div>Oleada: <span id="wave">1</span></div>
+        <div>Salud: <span id="health">100</span>%</div>
+    </div>
+
+    <div id="crosshair"></div>
+
+    <div id="instructions">
+        <h1 class="doodle">DOODLE SHOOTER</h1>
+        <p>CLON DE SUPERVIVENCIA</p>
+        <p><strong>WASD</strong> para moverte</p>
+        <p><strong>MOUSE</strong> para apuntar</p>
+        <p><strong>CLIC IZQUIERDO</strong> para disparar</p>
+        <p><strong>ESPACIO</strong> para saltar</p>
+        <br>
+        <p style="color: #666; font-size: 14px;">(Haz clic para comenzar)</p>
+    </div>
+
+    <!-- Importar Three.js desde CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+        // --- Configuración Inicial ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf4f4f0); // Color papel
+        scene.fog = new THREE.Fog(0xf4f4f0, 10, 50);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.y = 1.6; // Altura de los ojos
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // --- Iluminación ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        // --- Estética "Doodle" (Garabato) ---
+        // Función para crear materiales con estilo de dibujo a lápiz
+        function createDoodleMaterial(color = 0x1a1a1a) {
+            return new THREE.MeshBasicMaterial({ 
+                color: color, 
+                wireframe: true,
+                transparent: true,
+                opacity: 0.8
+            });
+        }
+
+        // --- Suelo ---
+        const floorGeometry = new THREE.PlaneGeometry(100, 100, 20, 20);
+        // Deformar ligeramente el suelo para que parezca dibujado a mano
+        const positionAttribute = floorGeometry.attributes.position;
+        for (let i = 0; i < positionAttribute.count; i++) {
+            const z = positionAttribute.getZ(i);
+            positionAttribute.setZ(i, z + (Math.random() - 0.5) * 0.2);
+        }
+        floorGeometry.computeVertexNormals();
+        
+        const floor = new THREE.Mesh(floorGeometry, createDoodleMaterial(0xaaaaaa));
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+
+        // --- Jugador y Controles ---
+        const controls = new PointerLockControls(camera, document.body);
+        const instructions = document.getElementById('instructions');
+
+        instructions.addEventListener('click', () => {
+            controls.lock();
+        });
+
+        controls.addEventListener('lock', () => {
+            instructions.classList.add('hidden');
+        });
+
+        controls.addEventListener('unlock', () => {
+            instructions.classList.remove('hidden');
+        });
+
+        // --- Variables de Juego ---
+        let moveForward = false;
+        let moveBackward = false;
+        let moveLeft = false;
+        let moveRight = false;
+        let canJump = false;
+        let velocity = new THREE.Vector3();
+        let direction = new THREE.Vector3();
+        let score = 0;
+        let wave = 1;
+        let health = 100;
+        let isGameOver = false;
+
+        // --- Proyectiles ---
+        const bullets = [];
+        const bulletGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+        const bulletMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+        function shoot() {
+            if (!controls.isLocked || isGameOver) return;
+            
+            const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
+            bullet.position.copy(camera.position);
+            
+            // Dirección del disparo
+            const vector = new THREE.Vector3(0, 0, -1);
+            vector.applyQuaternion(camera.quaternion);
+            bullet.userData = { velocity: vector.multiplyScalar(1.5), life: 100 };
+            
+            scene.add(bullet);
+            bullets.push(bullet);
+
+            // Efecto de retroceso visual
+            camera.position.y += 0.05;
+            setTimeout(() => { camera.position.y -= 0.05; }, 50);
+        }
+
+        document.addEventListener('mousedown', (event) => {
+            if (event.button === 0) shoot();
+        });
+
+        // --- Enemigos ---
+        const enemies = [];
+        const enemyGeometry = new THREE.BoxGeometry(1, 1, 1);
+        
+        function spawnEnemy() {
+            if (isGameOver) return;
+            
+            const enemy = new THREE.Mesh(enemyGeometry, createDoodleMaterial(0xff0000)); // Enemigos en rojo garabato
+            
+            // Posición aleatoria alrededor del jugador
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 15 + Math.random() * 10;
+            enemy.position.x = camera.position.x + Math.cos(angle) * radius;
+            enemy.position.z = camera.position.z + Math.sin(angle) * radius;
+            enemy.position.y = 0.5;
+            
+            // Añadir bordes para efecto "dibujo"
+            const edges = new THREE.EdgesGeometry(enemyGeometry);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 }));
+            enemy.add(line);
+            
+            enemy.userData = { health: 2, speed: 0.03 + (wave * 0.005) };
+            scene.add(enemy);
+            enemies.push(enemy);
+        }
+
+        // --- Sistema de Oleadas ---
+        let enemiesToSpawn = 5;
+        let spawnTimer = 0;
+
+        function updateWave() {
+            if (enemiesToSpawn > 0 && spawnTimer <= 0) {
+                spawnEnemy();
+                enemiesToSpawn--;
+                spawnTimer = 60; // Frames entre spawns
+            } else if (spawnTimer > 0) {
+                spawnTimer--;
+            }
+
+            if (enemiesToSpawn === 0 && enemies.length === 0) {
+                wave++;
+                enemiesToSpawn = 5 + (wave * 2);
+                document.getElementById('wave').innerText = wave;
+                // Curar un poco al jugador
+                health = Math.min(100, health + 20);
+                document.getElementById('health').innerText = health;
+            }
+        }
+
+        // --- Input de Teclado ---
+        const onKeyDown = function (event) {
+            switch (event.code) {
+                case 'ArrowUp': case 'KeyW': moveForward = true; break;
+                case 'ArrowLeft': case 'KeyA': moveLeft = true; break;
+                case 'ArrowDown': case 'KeyS': moveBackward = true; break;
+                case 'ArrowRight': case 'KeyD': moveRight = true; break;
+                case 'Space': if (canJump) velocity.y += 15; canJump = false; break;
+            }
+        };
+
+        const onKeyUp = function (event) {
+            switch (event.code) {
+                case 'ArrowUp': case 'KeyW': moveForward = false; break;
+                case 'ArrowLeft': case 'KeyA': moveLeft = false; break;
+                case 'ArrowDown': case 'KeyS': moveBackward = false; break;
+                case 'ArrowRight': case 'KeyD': moveRight = false; break;
+            }
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
+
+        // --- Bucle Principal ---
+        let prevTime = performance.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (isGameOver) return;
+
+            const time = performance.now();
+            const delta = (time - prevTime) / 1000;
+            prevTime = time;
+
+            if (controls.isLocked) {
+                // Física de movimiento
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+                velocity.y -= 9.8 * 5.0 * delta; // Gravedad
+
+                direction.z = Number(moveForward) - Number(moveBackward);
+                direction.x = Number(moveRight) - Number(moveLeft);
+                direction.normalize();
+
+                if (moveForward || moveBackward) velocity.z -= direction.z * 100.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 100.0 * delta;
+
+                controls.moveRight(-velocity.x * delta);
+                controls.moveForward(-velocity.z * delta);
+                camera.position.y += velocity.y * delta;
+
+                // Colisión con el suelo
+                if (camera.position.y < 1.6) {
+                    velocity.y = 0;
+                    camera.position.y = 1.6;
+                    canJump = true;
+                }
+
+                // Actualizar balas
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    const b = bullets[i];
+                    b.position.add(b.userData.velocity);
+                    b.userData.life--;
+                    
+                    if (b.userData.life <= 0) {
+                        scene.remove(b);
+                        bullets.splice(i, 1);
+                        continue;
+                    }
+
+                    // Colisión bala-enemigo
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        const e = enemies[j];
+                        if (b.position.distanceTo(e.position) < 0.8) {
+                            e.userData.health--;
+                            scene.remove(b);
+                            bullets.splice(i, 1);
+                            
+                            if (e.userData.health <= 0) {
+                                scene.remove(e);
+                                enemies.splice(j, 1);
+                                score += 10;
+                                document.getElementById('score').innerText = score;
+                            }
+                            break; // La bala desapareció, dejar de comprobar enemigos
+                        }
+                    }
+                }
+
+                // Actualizar enemigos
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const e = enemies[i];
+                    const directionToPlayer = new THREE.Vector3();
+                    directionToPlayer.subVectors(camera.position, e.position).normalize();
+                    
+                    e.position.add(directionToPlayer.multiplyScalar(e.userData.speed));
+                    e.lookAt(camera.position);
+                    
+                    // Animación de "garabato" (vibración)
+                    e.rotation.z = Math.sin(time * 0.01 + i) * 0.1;
+
+                    // Daño al jugador
+                    if (e.position.distanceTo(camera.position) < 1.0) {
+                        health -= 1;
+                        document.getElementById('health').innerText = Math.max(0, health);
+                        
+                        if (health <= 0) {
+                            isGameOver = true;
+                            controls.unlock();
+                            instructions.innerHTML = `
+                                <h1 style="color:red">GAME OVER</h1>
+                                <p>Puntuación Final: ${score}</p>
+                                <p>Oleada Alcanzada: ${wave}</p>
+                                <br>
+                                <p>Recarga la página para intentar de nuevo</p>
+                            `;
+                            instructions.classList.remove('hidden');
+                        }
+                    }
+                }
+
+                updateWave();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Ajustar tamaño de ventana
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

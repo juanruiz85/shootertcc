@@ -1,0 +1,1452 @@
+     1→<!DOCTYPE html>
+     2→<html lang="es">
+     3→<head>
+     4→    <meta charset="UTF-8">
+     5→    <title>Doodle Shooter: Ultimate Edition</title>
+     6→    <style>
+     7→        body {
+     8→            margin: 0;
+     9→            overflow: hidden;
+    10→            background-color: #fdfbf7;
+    11→            background-image: 
+    12→                linear-gradient(#e8e4df 1px, transparent 1px),
+    13→                linear-gradient(90deg, #e8e4df 1px, transparent 1px);
+    14→            background-size: 40px 40px;
+    15→            font-family: 'Comic Sans MS', 'Courier New', cursive;
+    16→            user-select: none;
+    17→        }
+    18→        .screen {
+    19→            position: absolute;
+    20→            top: 0; left: 0; width: 100%; height: 100%;
+    21→            display: flex;
+    22→            flex-direction: column;
+    23→            align-items: center;
+    24→            justify-content: center;
+    25→            background: rgba(253, 251, 247, 0.97);
+    26→            z-index: 100;
+    27→            overflow-y: auto;
+    28→        }
+    29→        .hidden { display: none !important; }
+    30→        h1 { font-size: 56px; color: #1a1a1a; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 10px; text-shadow: 3px 3px 0px #ccc; transform: rotate(-2deg); }
+    31→        h2 { font-size: 32px; margin: 10px; }
+    32→        .btn {
+    33→            background: #fff; border: 3px solid #1a1a1a; padding: 12px 30px; margin: 8px;
+    34→            font-size: 20px; font-family: inherit; font-weight: bold; cursor: pointer;
+    35→            box-shadow: 4px 4px 0px #1a1a1a; transition: all 0.1s;
+    36→        }
+    37→        .btn:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0px #1a1a1a; background: #f0f0f0; }
+    38→        .btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0px #1a1a1a; }
+    39→        .map-grid {
+    40→            display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    41→            margin-top: 20px; max-width: 1200px;
+    42→        }
+    43→        .map-card {
+    44→            border: 3px solid #1a1a1a; padding: 12px; text-align: center; cursor: pointer;
+    45→            background: white; box-shadow: 3px 3px 0px #1a1a1a; font-size: 14px;
+    46→        }
+    47→        .map-card:hover { transform: scale(1.05); }
+    48→        #hud {
+    49→            position: absolute; top: 15px; left: 15px;
+    50→            color: #1a1a1a; font-size: 18px; font-weight: bold;
+    51→            pointer-events: none; z-index: 10;
+    52→            background: rgba(255,255,255,0.85);
+    53→            padding: 12px; border: 2px solid #1a1a1a;
+    54→            box-shadow: 3px 3px 0px #1a1a1a; min-width: 200px;
+    55→        }
+    56→        #weaponBar {
+    57→            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    58→            display: flex; gap: 8px; z-index: 10; pointer-events: none;
+    59→        }
+    60→        .weapon-slot {
+    61→            background: rgba(255,255,255,0.85); border: 2px solid #1a1a1a;
+    62→            padding: 8px 14px; font-weight: bold; font-size: 14px;
+    63→            box-shadow: 2px 2px 0px #1a1a1a;
+    64→        }
+    65→        .weapon-slot.active { background: #ffd700; }
+    66→        #crosshair {
+    67→            position: absolute; top: 50%; left: 50%; width: 24px; height: 24px;
+    68→            transform: translate(-50%, -50%); pointer-events: none; z-index: 10;
+    69→        }
+    70→        #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #1a1a1a; }
+    71→        #crosshair::before { top: 11px; left: 0; width: 24px; height: 2px; }
+    72→        #crosshair::after { top: 0; left: 11px; width: 2px; height: 24px; }
+    73→        #killFeed {
+    74→            position: absolute; top: 20px; right: 20px;
+    75→            color: #d00; font-weight: bold; font-size: 16px;
+    76→            pointer-events: none; z-index: 10; text-align: right;
+    77→        }
+    78→        .kill-msg { animation: fadeOut 3s forwards; }
+    79→        @keyframes fadeOut { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+    80→        .doodle-anim { animation: sketch 0.4s infinite alternate; }
+    81→        @keyframes sketch {
+    82→            0% { transform: rotate(-1deg) translate(0,0); }
+    83→            100% { transform: rotate(1deg) translate(1px, -1px); }
+    84→        }
+    85→        #bombReady {
+    86→            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    87→            color: #ff0000; font-size: 48px; font-weight: bold;
+    88→            text-shadow: 3px 3px 0 #000; pointer-events: none; z-index: 15;
+    89→            animation: pulse 1s infinite;
+    90→        }
+    91→        @keyframes pulse { 0%,100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.2); } }
+    92→        .special-alert {
+    93→            position: absolute; top: 30%; left: 50%; transform: translateX(-50%);
+    94→            background: rgba(255, 215, 0, 0.9); padding: 20px 40px;
+    95→            border: 4px solid #1a1a1a; font-size: 24px; font-weight: bold;
+    96→            z-index: 20; animation: alertSlide 0.5s;
+    97→        }
+    98→        @keyframes alertSlide { from { transform: translateX(-50%) translateY(-100%); } to { transform: translateX(-50%) translateY(0); } }
+    99→    </style>
+   100→</head>
+   101→<body>
+   102→
+   103→<!-- MENÚ PRINCIPAL -->
+   104→<div id="mainMenu" class="screen">
+   105→    <h1 class="doodle-anim">DOODLE SHOOTER</h1>
+   106→    <p style="font-size: 22px; color: #555;">Ultimate Edition</p>
+   107→    <button class="btn" onclick="selectMode('solo')">🎯 SUPERVIVENCIA POR NIVELES</button>
+   108→    <button class="btn" onclick="selectMode('multi')">🌐 MULTIJUGADOR (10 Players)</button>
+   109→    <div style="margin-top: 20px; font-size: 12px; color: #888;">
+   110→        <p>WASD: Mover: WASD | Saltar: Espacio | Disparar: Clic Izq | Cambiar arma: 1-7
+   111→    </div>
+   112→</div>
+   113→
+   114→<!-- SELECCIÓN DE MAPA -->
+   115→<div id="mapMenu" class="screen hidden">
+   116→    <h2>SELECCIONA EL ESCOGER MAPA</h2>
+   117→    <div class="map-grid" id="mapGrid"></div>
+   118→    <button class="btn" style="margin-top: 20px;" onclick="backToMain()">← Volver</button>
+   119→</div>
+   120→
+   121→<!-- PAUSA -->
+   122→<div id="pauseMenu" class="screen hidden">
+   123→    <h200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000......" style="display:none">
+   124→    <h2>⏸️ JUEGO PAUSADO</h2>
+   125→    <button class="btn" onclick="resumeGame()">▶️ Continuar</button>
+   126→    <button class="btn" onclick="quitToMenu()">🚪 Salir al Menú</button>
+   127→</div>
+   128→
+   129→<!-- HUD -->
+   130→<div id="hud" class="hidden">
+   131→    <div>❤️ Salud: <span id="health">100</span></div>
+   132→    <div>🛡️ Escudo: <span id="shield">0</span></div>
+   133→    <div>💀 Kills: <span id="kills">0</span> (Racha: <span id="streak">0</span>)</div>
+   134→    <div>🎯 Nivel: <span id="level">1</span></div>
+   135→    <div>🌍 Mapa: <span id="mapName">-</span></div>
+   136→    <div>⚡ Balas: <span id="ammo">∞</span></div>
+   137→</div>
+   138→
+   139→<div id="weaponBar" class="hidden"></div>
+   140→<div id="crosshair" class="hidden"></div>
+   141→<div id="killFeed"></div>
+   142→<div id="bombReady" class="hidden">¡BOMBA LISTA! Presiona [B]</div>
+   143→
+   144→<!-- GAME OVER -->
+   145→<div id="gameOverMenu" class="screen hidden">
+   146→    <h1 style="color:#d00;">☠️ GAME OVER</h1>
+   147→    <p style="font-size: 24px;">Kills: <span id="finalKills">0</span></p>
+   148→    <p style="font-size: 24px;">Nivel alcanzado: <span id="finalLevel">1</span></p>
+   149→    <button class="btn" onclick="location.reload()">🔄 Jugar de Nuevo</button>
+   150→    <button class="btn" onclick="quitToMenu()">🏠 Menú Principal</button>
+   151→</div>
+   152→
+   153→<!-- VICTORIA -->
+   154→<div id="victoryMenu" class="screen hidden">
+   155→    <h1 style="color:#0a0;">🏆 ¡VICTORIA!</h1>
+   156→    <p style="font-size: 24px;">Has superado los 20 niveles</p>
+   157→    <p style="font-size: 24px;">Kills totales: <span id="victoryKills">0</span></p>
+   158→    <button class="btn" onclick="location.reload()">🔄 Jugar de Nuevo</button>
+   159→</div>
+   160→
+   161→<script type="importmap">
+   162→{
+   163→    "imports": {
+   164→        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+   165→        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+   166→    }
+   167→}
+   168→</script>
+   169→
+   170→<script type="module">
+   171→import * as THREE from 'three';
+   172→import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+   173→
+   174→// ============================================================
+   175→// CONFIGURACIÓN GLOBAL
+   176→// ============================================================
+   177→const scene = new THREE.Scene();
+   178→scene.background = new THREE.Color(0xfdfbf7);
+   179→scene.fog = new THREE.Fog(0xfdfbf7, 20, 80);
+   180→
+   181→const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+   182→camera.position.set(0, 1.7, 0);
+   183→
+   184→const renderer = new THREE.WebGLRenderer({ antialias: true });
+   185→renderer.setSize(innerWidth, innerHeight);
+   186→renderer.setPixelRatio(devicePixelRatio);
+   187→document.body.appendChild(renderer.domElement);
+   188→
+   189→// Luz
+   190→scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+   191→const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+   192→dirLight.position.set(20, 30, 20);
+   193→scene.add(dirLight);
+   194→
+   195→const controls = new PointerLockControls(camera, document.body);
+   196→const mapGroup = new THREE.Group();
+   197→scene.add(mapGroup);
+   198→
+   199→// ============================================================
+   200→// UTILIDAD: MATERIALES DOODLE
+   201→// ============================================================
+   202→function doodle(geo, color, thickness = 1.015) {
+   203→    const g = new THREE.Group();
+   204→    const mat = new THREE.MeshToonMaterial({ color });
+   205→    const mesh = new THREE.Mesh(geo, mat);
+   206→    const edges = new THREE.EdgesGeometry(geo, 20);
+   207→    const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 }));
+   208→    wire.scale.setScalar(thickness);
+   209→    g.add(mesh, wire);
+   210→    g.userData.isDoodle = true;
+   211→    g.userData.wireframe = wire;
+   212→    g.userData.wobbleSpeed = 0.003 + Math.random() * 0.002;
+   213→    g.userData.wobbleOffset = Math.random() * 100;
+   214→    return g;
+   215→}
+   216→
+   217→// ============================================================
+   218→// CATÁLOGO DE MAPAS (20 mapas diferentes)
+   219→// ============================================================
+   220→const MAPS = [
+   221→    { id: 'school', name: '🏫 Escuela', ground: 0xf5deb3, walls: 0xffffff, accent: 0xb22222, theme: 'urban' },
+   222→    { id: 'beach', name: '🏖️ Playa', ground: 0xf4e4a8, walls: 0x87ceeb, accent: 0xffd700, theme: 'open' },
+   223→    { id: 'forest', name: '🌲 Bosque', ground: 0x556b2f, walls: 0x8b4513, accent: 0x228b22, theme: 'natural' },
+   224→    { id: 'rocky', name: '🪨 Terreno Pedregoso', ground: 0x808080, walls: 0x696969, accent: 0x555555, theme: 'natural' },
+   225→    { id: 'city', name: '🏙️ Ciudad', ground: 0xa9a9a9, walls: 0x4682b4, accent: 0x2f4f4f, theme: 'urban' },
+   226→    { id: 'suburb', name: '🏡 Suburbio', ground: 0x90ee90, walls: 0xadd8e6, accent: 0xffffff, theme: 'urban' },
+   227→    { id: 'colony', name: '🏘️ Colonia', ground: 0xd2b48c, walls: 0xbc8f8f, accent: 0x8b4513, theme: 'urban' },
+   228→    { id: 'park', name: '🌳 Parque', ground: 0x7cfc00, walls: 0x556b2f, accent: 0x2e8b57, theme: 'natural' },
+   229→    { id: 'building', name: '🏢 Edificio Multi-Piso', ground: 0xc0c0c0, walls: 0x696969, accent: 0x2c3e50, theme: 'indoor' },
+   230→    { id: 'snow', name: '❄️ Nieve', ground: 0xfaf0e6, walls: 0xb0c4de, accent: 0x4682b4, theme: 'natural' },
+   231→    { id: 'desert', name: '🏜️ Desierto', ground: 0xedc9af, walls: 0xd2b48c, accent: 0x8b4513, theme: 'open' },
+   232→    { id: 'jungle', name: '🌴 Jungla', ground: 0x2e8b57, walls: 0x6b8e23, accent: 0x556b2f, theme: 'natural' },
+   233→    { id: 'swamp', name: '🐊 Pantano', ground: 0x556b2f, walls: 0x4a5d23, accent: 0x3b3b2f, theme: 'natural' },
+   234→    { id: 'factory', name: '🏭 Fábrica', ground: 0x424242, walls: 0x8b0000, accent: 0xffd700, theme: 'industrial' },
+   235→    { id: 'space', name: '🚀 Estación Espacial', ground: 0x1a1a2e, walls: 0x16213e, accent: 0x0f3460, theme: 'sci-fi' },
+   236→    { id: 'volcano', name: '🌋 Volcán', ground: 0x3d2817, walls: 0x8b0000, accent: 0xff4500, theme: 'extreme' },
+   237→    { id: 'cave', name: '🕳️ Cueva', ground: 0x3e2723, walls: 0x5d4037, accent: 0x4e342e, theme: 'indoor' },
+   238→    { id: 'temple', name: '🏛️ Templo Antiguo', ground: 0xd4c5a0, walls: 0xc0a062, accent: 0x8b7d3a, theme: 'urban' },
+   239→    { id: 'mall', name: '🛒 Centro Comercial', ground: 0xf0ead6, walls: 0xffb6c1, accent: 0x4169e1, theme: 'indoor' },
+   240→    { id: 'stadium', name: '🏟️ Estadio', ground: 0x4caf50, walls: 0x2196f3, accent: 0xffc107, theme: 'open' }
+   241→];
+   242→
+   243→// ============================================================
+   244→// SISTEMAÁLOGO DE ARMAS
+   245→// ============================================================
+   246→const WEAPONS = {
+   247→    pistol:    { name: '🔫 Pistola', damage: 20, rpm: 240, auto: false, bulletSpeed: 2.5, spread: 0.02, pellets: 1, tier: 0, unlock: 0 },
+   248→    shotgun:   { name: '💥 Escopeta', damage: 8, rpm: 60, auto: false, bulletSpeed: 2.0, spread: 0.15, pellets: 8, tier: 1, unlock: 3 },
+   249→    smg:       { name: '🔫 SMG', damage: 12, rpm: 600, auto: true, bulletSpeed: 2.8, spread: 0.06, pellets: 1, tier: 1, unlock: 5 },
+   250→    rifle:     { name: '🎯 Rifle', damage: 35, rpm: 120, auto: false, bulletSpeed: 3.5, spread: 0.005, pellets: 1, tier: 2, unlock: 7 },
+   251→    mg:        { name: '⚙️ Ametralladora', damage: 18, rpm: 800, auto: true, bulletSpeed: 3.0, spread: 0.08, pellets: 1, tier: 2, unlock: 10 },
+   252→    sniper:    { name: '🎯 Sniper', damage: 100, rpm: 30, auto: false, bulletSpeed: 5.0, spread: 0.001, pellets: 1, tier: 3, unlock: 13 },
+   253→    rpg:       { name: '🚀 Lanz', damage: 150, rpm: 20, auto: false, bulletSpeed: 1.5, spread: 0.02, pellets: 1, tier: 3, unlock: 15, explosive: true },
+   254→    minigun:   { name: '🔥 Minigun', damage: 22, rpm: 1200, auto: true, bulletSpeed: 3.5, spread: 0.1, pellets: 1, tier: 4, unlock: 18 },
+   255→    epic:      { name: '⚡ ARMA ÉPICA', damage: 80, rpm: 500, auto: true, bulletSpeed: 4.0, spread: 0.02, pellets: 3, tier: 5, unlock: 20 }
+   256→};
+   257→
+   258→// ============================================================
+   259→// ESTADO DEL JUEGO
+   260→// ============================================================
+   261→const state = {
+   262→    mode: 'solo',
+   263→    currentMapId: null,
+   264→    level: 1,
+   265→    maxLevel: 20,
+   266→    paused: false,
+   267→    gameOver: false,
+   268→    won: false,
+   269→    // Jugador
+   270→    player: {
+   271→        health: 100,
+   272→        maxHealth: 100,
+   273→        shield: 0,
+   274→        maxShield: 100,
+   275→        inventory: ['pistol'],
+   276→        currentWeapon: 'pistol',
+   277→        lastShot: 0,
+   278→        kills: 0,
+   279→        streak: 0,
+   280→        bombReady: false,
+   281→        mouseDown: false,
+   282→        moveF: false, moveB: false, moveL: false, moveR: false,
+   283→        vel: new THREE.Vector3(),
+   284→        pos: new THREE.Vector3(0, 1.7, 0)
+   285→    },
+   286→    // Mundo
+   287→    enemies: [],
+   288→    bullets: [],
+   289→    enemyBullets: [],
+   290→    items: [],
+   291→    obstacles: [], // Para colisiones
+   292→    specialMobs: [], // Drones, dragones, mob verde
+   293→    explosions: [],
+   294→    waveTimer: 0,
+   295→    enemiesToSpawn: 0,
+   296→    totalKills: 0,
+   297→    epicSpawnChance: 0,
+   298→    dragonCubeActive: false,
+   299→    dragonTimer: 0
+   300→};
+   301→
+   302→// ============================================================
+   303→// VIEW MODEL (ARMA EN PRIMERA PERSONA)
+   304→// ============================================================
+   305→const viewModel = new THREE.Group();
+   306→camera.add(viewModel);
+   307→viewModel.position.set(0.3, -0.35, -0.6);
+   308→
+   309→const handGeo = new THREE.BoxGeometry(0.12, 0.12, 0.25);
+   310→const hand = doodle(handGeo, 0xffdbac);
+   311→viewModel.add(hand);
+   312→
+   313→const gunGroup = new THREE.Group();
+   314→const barrel = doodle(new THREE.BoxGeometry(0.06, 0.06, 0.6), 0x2d3436);
+   315→barrel.position.z = -0.3;
+   316→const body = doodle(new THREE.BoxGeometry(0.08, 0.12, 0.28), 0x636e72);
+   317→const grip = doodle(new THREE.BoxGeometry(0.07, 0.18, 0.08), 0x5c3a21);
+   318→grip.position.set(0, -0.12, 0.1);
+   319→grip.rotation.x = 0.3;
+   320→const scope = doodle(new THREE.CylinderGeometry(0.03, 0.03, 0.2, 8), 0x1a1a1a);
+   321→scope.rotation.x = Math.PI/2;
+   322→scope.position.set(0, 0.08, -0.1);
+   323→
+   324→// Cross-hatching
+   325→const hatchGeo = new THREE.BufferGeometry().setFromPoints([
+   326→    new THREE.Vector3(-0.04, 0.06, 0.15), new THREE.Vector3(0.04, -0.06, 0.15),
+   327→    new THREE.Vector3(0.04, 0.06, 0.15), new THREE.Vector3(-0.04, -0.06, 0.15),
+   328→    new THREE.Vector3(-0.04, 0.06, 0.05), new THREE.Vector3(0.04, -0.06, 0.05),
+   329→    new THREE.Vector3(0.04, 0.06, 0.05), new THREE.Vector3(-0.04, -0.06, 0.05)
+   330→]);
+   331→body.add(new THREE.LineSegments(hatchGeo, new THREE.LineBasicMaterial({ color: 0x000000, opacity: 0.6, transparent: true })));
+   332→
+   333→gunGroup.add(barrel, body, grip, scope);
+   334→viewModel.add(gunGroup);
+   335→scene.add(camera);
+   336→
+   337→let recoil = 0;
+   338→
+   339→// ============================================================
+   340→// GENERADOR DE MAPAS
+   341→// ============================================================
+   342→function buildMap(mapId) {
+   343→    while (mapGroup.children.length) mapGroup.remove(mapGroup.children[0]);
+   344→    state.obstacles = [];
+   345→    
+   346→    const map = MAPS.find(m => m.id === mapId);
+   347→    
+   348→    // Suelo
+   349→    const ground = doodle(new THREE.PlaneGeometry(100, 100, 20, 20), map.ground);
+   350→    ground.rotation.x = -Math.PI/2;
+   351→    // Ligera deformación doodle
+   352→    const pos = ground.children[0].geometry.attributes.position;
+   353→    for (let i = 0; i < pos.count; i++) {
+   354→        pos.setZ(i, pos.getZ(i) + (Math.random() - 0.5) * 0.15);
+   355→    }
+   356→    pos.needsUpdate = true;
+   357→    ground.children[0].geometry.computeVertexNormals();
+   358→    mapGroup.add(ground);
+   359→    
+   360→    // Paredes perimetrales (colisión)
+   361→    const wallH = 8;
+   362→    for (let i = 0; i < 4; i++) {
+   363→        const wall = doodle(new THREE.BoxGeometry(100, wallH, 1), map.walls);
+   364→        wall.position.y = wallH/2;
+   365→        if (i === 0) wall.position.z = -50;
+   366→        if (i === 1) wall.position.z = 50;
+   367→        if (i === 2) { wall.position.x = -50; wall.rotation.y = Math.PI/2; }
+   368→        if (i === 3) { wall.position.x = 50; wall.rotation.y = Math.PI/2; }
+   369→        mapGroup.add(wall);
+   370→        state.obstacles.push({ mesh: wall, box: new THREE.Box3().setFromObject(wall) });
+   371→    }
+   372→    
+   373→    // Generar obstáculos según tema
+   374→    const theme = map.theme;
+   375→    const obstacleCount = 35 + Math.floor(Math.random() * 15);
+   376→    
+   377→    for (let i = 0; i < obstacleCount; i++) {
+   378→        let w, h, d, color;
+   379→        
+   380→        // Variar según tema
+   381→        if (theme === 'indoor' || theme === 'industrial') {
+   382→            w = 2 + Math.random() * 3; h = 3 + Math.random() * 4; d = 0.3 + Math.random() * 0.5;
+   383→            color = Math.random() > 0.5 ? map.walls : map.accent;
+   384→        } else if (theme === 'natural') {
+   385→            w = 1 + Math.random() * 2; h = 2 + Math.random() * 3; d = 1 + Math.random() * 2;
+   386→            color = Math.random() > 0.6 ? map.accent : map.walls;
+   387→        } else if (theme === 'urban') {
+   388→            w = 3 + Math.random() * 5; h = 4 + Math.random() * 8; d = 3 + Math.random() * 5;
+   389→            color = Math.random() > 0.3 ? map.walls : map.accent;
+   390→        } else if (theme === 'open') {
+   391→            w = 1 + Math.random() * 3; h = 1 + Math.random() * 2; d = 1 + Math.random() * 3;
+   392→            color = map.accent;
+   393→        } else { // sci-fi, extreme
+   394→            w = 2 + Math.random() * 3; h = 3 + Math.random() * 5; d = 2 + Math.random() * 3;
+   395→            color = map.accent;
+   396→        }
+   397→        
+   398→        const obs = doodle(new THREE.BoxGeometry(w, h, d), color);
+   399→        obs.position.set(
+   400→            (Math.random() - 0.5) * 80,
+   401→            h / 2,
+   402→            (Math.random() - 0.5) * 80
+   403→        );
+   404→        
+   405→        // Evitar spawn del jugador
+   406→        if (Math.hypot(obs.position.x, obs.position.z) < 8) continue;
+   407→        
+   408→        // Rotación aleatoria
+   409→        obs.rotation.y = Math.random() * Math.PI * 2;
+   410→        
+   411→        mapGroup.add(obs);
+   412→        obs.updateMatrixWorld();
+   413→        state.obstacles.push({ mesh: obs, box: new THREE.Box3().setFromObject(obs) });
+   414→    }
+   415→    
+   416→    // Elementos temáticos
+   417→    if (mapId === 'forest' || mapId === 'jungle') {
+   418→        for (let i = 0; i < 20; i++) {
+   419→            const trunk = doodle(new THREE.CylinderGeometry(0.3, 0.4, 5, 6), 0x8b4513);
+   420→            trunk.position.set((Math.random()-0.5)*80, 2.5, (Math.random()-0.5)*80);
+   421→            const leaves = doodle(new THREE.ConeGeometry(2.5, 3, 6), 0x228b22);
+   422→            leaves.position.y = 3;
+   423→            trunk.add(leaves);
+   424→            mapGroup.add(trunk);
+   425→            trunk.updateMatrixWorld();
+   426→            state.obstacles.push({ mesh: trunk, box: new THREE.Box3().setFromObject(trunk) });
+   427→        }
+   428→    } else if (mapId === 'desert' || mapId === 'beach') {
+   429→        for (let i = 0; i < 15; i++) {
+   430→            const cactus = doodle(new THREE.CylinderGeometry(0.4, 0.4, 3 + Math.random()*2, 6), 0x2e8b57);
+   431→            cactus.position.set((Math.random()-0.5)*80, 1.5, (Math.random()-0.5)*80);
+   432→            mapGroup.add(cactus);
+   433→            cactus.updateMatrixWorld();
+   434→            state.obstacles.push({ mesh: cactus, box: new THREE.Box3().setFromObject(cactus) });
+   435→        }
+   436→    } else if (mapId === 'rocky') {
+   437→        for (let i = 0; i < 25; i++) {
+   438→            const rock = doodle(new THREE.DodecahedronGeometry(1 + Math.random()*2, 0), 0x696969);
+   439→            rock.position.set((Math.random()-0.5)*80, 1, (Math.random()-0.5)*80);
+   440→            mapGroup.add(rock);
+   441→            rock.updateMatrixWorld();
+   442→            state.obstacles.push({ mesh: rock, box: new THREE.Box3().setFromObject(rock) });
+   443→        }
+   444→    } else if (mapId === 'building') {
+   445→        // Pisos superioresuales
+   446→        for (let floor = 0; floor < 3; floor++) {
+   447→            const platform = doodle(new THREE.BoxGeometry(20, 0.3, 20), map.walls);
+   448→            platform.position.y = 4 * (floor + 1);
+   449→            platform.position.x = (Math.random() - 0.5) * 30;
+   450→            platform.position.z = (Math.random() - 0.5) * 30;
+   451→            mapGroup.add(platform);
+   452→            platform.updateMatrixWorld();
+   453→            state.obstacles.push({ mesh: platform, box: new THREE.Box3().setFromObject(platform) });
+   454→        }
+   455→    }
+   456→}
+   457→
+   458→// ============================================================
+   459→// SISTEMA DE COLISIONES
+   460→// ============================================================
+   461→function checkCollision(newPos) {
+   462→    const playerBox = new THREE.Box3().setFromCenterAndSize(
+   463→        newPos, new THREE.Vector3(0.6, 1.7, 0.6)
+   464→    );
+   465→    
+   466→    for (const obs of state.obstacles) {
+   467→        if (playerBox.intersectsBox(obs.box)) return true;
+   468→    }
+   469→    
+   470→    // Límites del mapa
+   471→    if (Math.abs(newPos.x) > 48 || Math.abs(newPos.z) > 48) return true;
+   472→    
+   473→    return false;
+   474→}
+   475→
+   476→function checkGround(pos) {
+   477→    // Verificar si hay suelo debajo debajo del jugador
+   478→    const rayOrigin = new THREE.Vector3(pos.x, pos.y + 2, pos.z);
+   479→    const rayDir = new THREE.Vector3(0, -1, 0);
+   480→    const ray = new THREE.Raycaster(rayOrigin, rayDir, 0, 4);
+   481→    
+   482→    for (const obs of state.obstacles) {
+   483→        const hits = ray.intersectObject(obs.mesh, true);
+   484→        if (hits.length > 0) {
+   485→            const top = hits[0].point.y;
+   486→            return top;
+   487→        }
+   488→    }
+   489→    return 0; // suelo base
+   490→}
+   491→
+   492→// ============================================================
+   493→// ENEMIGOS CON HITBOXES (cabeza + cuerpo)
+   494→// ============================================================
+   495→class Enemy {
+   496→    constructor(level) {
+   497→        this.group = new THREE.Group();
+   498→        
+   499→        // Cuerpo (más principal - daño de 25 daño)
+   500→        this.body = doodle(new THREE.BoxGeometry(0.7, 1.2, 0.5), 0xff6b6b);
+   501→        this.body.position.y = 0.6;
+   502→        this.group.add(this.body);
+   503→        
+   504→        // Cabeza (hitbox pequeña - daño x3)
+   505→        this.head = doodle(new THREE.BoxGeometry(0.4, 0.4, 0.4), 0xffdbac);
+   506→        this.head.position.y = 1.4;
+   507→        this.body.add(this.head);
+   508→        
+   509→        // Brazos (decoración)
+   510→        const armL = doodle(new THREE.BoxGeometry(0.15, 0.7, 0.15), 0xff6b6b);
+   511→        armL.position.set(-0.35, 0.3, 0);
+   512→        this.body.add(armL);
+   513→        const armR = doodle(new THREE.BoxGeometry(0.15, 0.7, 0.15), 0xff6b6b);
+   514→        armR.position.set(0.35, 0.3, 0);
+   515→        this.body.add(armR);
+   516→        
+   517→        // Posición inicial
+   518→        const angle = Math.random() * Math.PI * 2;
+   519→        const dist = 20 + Math.random() * 20;
+   520→        this.group.position.set(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+   521→        
+   522→        this.health = 50 + level * 10;
+   523→        this.maxHealth = this.health;
+   524→        this.level = level;
+   525→        this.lastShot = 0;
+   526→        this.shootCooldown = Math.max(600, 2000 - level * 80);
+   527→        
+   528→        // El enemigo asignada según nivel
+   529→        if (level <= 3) this.weapon = 'pistol';
+   530→        else if (level <= 6) this.weapon = Math.random() > 0.5 ? 'smg' : 'pistol';
+   531→        else if (level <= 10) this.weapon = ['smg', 'shotgun', 'rifle'][Math.floor(Math.random()*3)];
+   532→        else if (level <= 15) this.weapon = ['rifle', 'mg', 'shotgun'][Math.floor(Math.random()*3)];
+   533→        else this.weapon = ['mg', 'sniper', 'minigun'][Math.floor(Math.random()*3)];
+   534→        
+   535→        this.velocity = new THREE.Vector3();
+   536→        this.targetPos = this.group.position.clone();
+   537→        this.alive = true;
+   538→        this.hitFlash = 0;
+   539→        
+   540→        scene.add(this.group);
+   541→    }
+   542→    
+   543→    update(dt) {
+   544→        if (!this.alive) return;
+   545→        
+   546→        // Mover hacia el jugador con IA básica
+   547→        const dir = new THREE.Vector3().subVectors(state.player.pos, this.group.position);
+   548→        dir.y = 0;
+   549→        const dist = dir.length();
+   550→        dir.normalize();
+   551→        
+   552→        // Mantener distancia de ataque
+   553→        const idealDist = 12;
+   554→        const speed = 2 + this.level * 0.15;
+   555→        
+   556→        if (dist > idealDist + 2) {
+   557→            this.group.position.x += dir.x * speed * dt;
+   558→            this.group.position.z += dir.z * speed * dt;
+   559→        } else if (dist < idealDist - 2) {
+   560→            this.group.position.x -= dir.x * speed * dt;
+   561→            this.group.position.z -= dir.z * speed * dt;
+   562→        }
+   563→        
+   564→        // Mirar al jugador
+   565→        this.group.lookAt(state.player.pos.x, this.group.position.y, state.player.pos.z);
+   566→        
+   567→        // Disparar
+   568→        const now = Date.now();
+   569→        if (dist < 30 && now - this.lastShot > this.shootCooldown) {
+   570→            this.shoot();
+   571→            this.lastShot = now;
+   572→        }
+   573→        
+   574→        // Ground check
+   575→        const ground = checkGround(this.group.position);
+   576→        this.group.position.y = ground;
+   577→        
+   578→        // Flash de daño
+   579→        if (this.hitFlash > 0) {
+   580→            this.body.children[0].material.color.setHex(0xffffff);
+   581→            this.hitFlash -= dt;
+   582→            if (this.hitFlash <= 0) this.body.children[0].material.color.setHex(0xff6b6b);
+   583→        }
+   584→        
+   585→        // Animación doodle
+   586→        this.body.userData.wireframe.rotation.z = Math.sin(Date.now() * 0.005 + this.group.id) * 0.03;
+   587→    }
+   588→    
+   589→    shoot() {
+   590→        const wp = WEAPONS[this.weapon];
+   591→        const origin = this.group.position.clone();
+   592→        origin.y += 1.2;
+   593→        
+   594→        for (let i = 0; i < Math.min(wp.pellets, 3); i++) {
+   595→            const dir = new THREE.Vector3().subVectors(state.player.pos, origin).normalize();
+   596→            // Añadir imprecisión
+   597→            dir.x += (Math.random() - 0.5) * 0.15;
+   598→            dir.y += (Math.random() - 0.5) * 0.08;
+   599→            dir.z += (Math.random() - 0.5) * 0.15;
+   600→            dir.normalize();
+   601→            
+   602→            const bullet = new THREE.Mesh(
+   603→                new THREE.SphereGeometry(0.08, 6, 6),
+   604→                new THREE.MeshBasicMaterial({ color: 0xff0000 })
+   605→            );
+   606→            bullet.position.copy(origin);
+   607→            bullet.userData = { velocity: dir.multiplyScalar(wp.bulletSpeed), damage: wp.damage * 0.5, life: 100 };
+   608→            scene.add(bullet);
+   609→            state.enemyBullets.push(bullet);
+   610→        }
+   611→    }
+   612→    
+   613→    hit(damage, isHeadshot) {
+   614→        const actualDmg = isHeadshot ? damage * 3 : damage;
+   615→        this.health -= actualDmg;
+   616→        this.hitFlash = 0.15;
+   617→        
+   618→        if (this.health <= 0) {
+   619→            this.die();
+   620→        }
+   621→    }
+   622→    
+   623→    die() {
+   624→        this.alive = false;
+   625→        scene.remove(this.group);
+   626→        
+   627→        state.player.kills++;
+   628→        state.player.streak++;
+   629→        state.totalKills++;
+   630→        addKillFeed(`💀 Enemigo eliminado (${isHeadshot ? 'HEADSHOT' : 'kill'})`);
+   631→        document.getElementById('kills').innerText = state.player.kills;
+   632→        document.getElementById('streak').innerText = state.player.streak;
+   633→        
+   634→        // Drop aleatorio (60% probabilidad)
+   635→        if (Math.random() < 0.6) {
+   636→            spawnDrop(this.group.position);
+   637→        }
+   638→        
+   639→        // Probabilidad de drone en nivel >= 10
+   640→        if (this.level >= 10 && Math.random() < 0.08) {
+   641→            spawnDrone();
+   642→        }
+   643→        
+   644→        // Killstreak: bomba a los 10 kills sin morir
+   645→        if (state.player.streak === 10) {
+   646→            state.player.bombReady = true;
+   647→            document.getElementById('bombReady').classList.remove('hidden');
+   648→            addKillFeed('💣 ¡BOMBA DISPONIBLE! [B]');
+   649→        }
+   650→        
+   651→        // Progreso de nivel
+   652→        checkLevelProgress();
+   653→    }
+   654→}
+   655→
+   656→// ============================================================
+   657→// SISTEMA DE ÍTEMS Y DROPS
+   658→// ============================================================
+   659→function spawnItem(type, pos) {
+   660→    const colors = { health: 0xff4444, shield: 0x4488ff, ammo: 0xffaa00, weapon: 0x9944ff, epic: 0xffd700 };
+   661→    const item = doodle(new THREE.BoxGeometry(0.5, 0.5, 0.5), colors[type]);
+   662→    item.position.copy(pos);
+   663→    item.position.y = 0.5;
+   664→    item.userData.type = type;
+   665→    scene.add(item);
+   666→    state.items.push(item);
+   667→}
+   668→
+   669→function spawnDrop(pos) {
+   670→    const roll = Math.random();
+   671→    if (roll < 0.3) spawnItem('health', pos);
+   672→    else if (roll < 0.5) spawnItem('shield', pos);
+   673→    else if (roll < 0.75) spawnItem('ammo', pos);
+   674→    else {
+   675→        // Drop de arma
+   676→        const available = Object.keys(WEAPONS).filter(k => WEAPONS[k].unlock <= state.level);
+   677→        const weaponId = available[Math.floor(Math.random() * available.length)];
+   678→        const item = doodle(new THREE.BoxGeometry(0.6, 0.3, 0.8), 0x9944ff);
+   679→        item.position.copy(pos);
+   680→        item.position.y = 0.5;
+   681→        item.userData.type = 'weapon';
+   682→        item.userData.weaponId = weaponId;
+   683→        scene.add(item);
+   684→        state.items.push(item);
+   685→    }
+   686→}
+   687→
+   688→function spawnEpicWeapon() {
+   689→    const pos = new THREE.Vector3((Math.random()-0.5)*60, 1, (Math.random()-0.5)*60);
+   690→    const item = doodle(new THREE.BoxGeometry(1, 1, 1), 0xffd700);
+   691→    item.position.copy(pos);
+   692→    item.userData.type = 'weapon';
+   693→    item.userData.weaponId = 'epic';
+   694→    item.userData.wireframe.scale.setScalar(1.03);
+   695→    scene.add(item);
+   696→    state.items.push(item);
+   697→    showAlert('⚡ ¡ARMA ÉPICA APARECIÓ!');
+   698→}
+   699→
+   700→// ============================================================
+   701→// SISTEMA DE MOBS ESPECIALES
+   702→// ============================================================
+   703→function spawnDrone() {
+   704→    const drone = {
+   705→        group: new THREE.Group(),
+   706→        alive: true,
+   707→        target: null,
+   708→        lastShot: 0,
+   709→        life: 100
+   710→    };
+   711→    
+   712→    const body = doodle(new THREE.SphereGeometry(0.4, 8, 8), 0x888888);
+   713→    const prop1 = doodle(new THREE.BoxGeometry(0.8, 0.05, 0.05), 0x444444);
+   714→    prop1.position.y = 0.4;
+   715→    const prop2 = doodle(new THREE.BoxGeometry(0.05, 0.05, 0.8), 0x444444);
+   716→    prop2.position.y = 0.4;
+   717→    drone.group.add(body, prop1, prop2);
+   718→    
+   719→    // Encontrar jugador con más kills sin morir (en este caso es el jugador, ya que los bots no tienen streak)
+   720→    drone.group.position.copy(state.player.pos);
+   721→    drone.group.position.y += 5;
+   722→    drone.group.position.x += (Math.random() - 0.5) * 20;
+   723→    drone.group.position.z += (Math.random() - 0.5) * 20;
+   724→    
+   725→    drone.group.userData.isDrone = true;
+   726→    scene.add(drone.group);
+   727→    state.specialMobs.push(drone);
+   728→    showAlert('🛸 ¡Dron enemigo aparecido!');
+   729→}
+   730→
+   731→function spawnDragon() {
+   732→    if (state.dragonTimer > 0) return;
+   733→    
+   734→    const dragon = {
+   735→        segments: [],
+   736→        alive: true,
+   737→        life: 30000, // 30 segundos
+   738→        lastShot: 0
+   739→    };
+   740→    
+   741→    // Crear segmentos (cabeza + cuerpo serpenteante de huesos)
+   742→    for (let i = 0; i < 8; i++) {
+   743→        const seg = doodle(new THREE.SphereGeometry(0.5 - i*0.03, 6, 6), 0xffffee);
+   744→        seg.position.set(i * 0.8, 3, 0);
+   745→        dragon.segments.push(seg);
+   746→        scene.add(seg);
+   747→    }
+   748→    
+   749→    state.specialMobs.push(dragon);
+   750→    state.dragonTimer = 30000;
+   751→    showAlert('🦴 ¡DRAGÓN DE HUESOS INVOCADO! 30s');
+   752→}
+   753→
+   754→function spawnGreenMob() {
+   755→    const mob = {
+   756→        group: new THREE.Group(),
+   757→        alive: true,
+   758→        health: 150,
+   759→        hostileTimer: 10000, // Los enemigos lo atacan después de 10s
+   760→        hostile: false
+   761→    };
+   762→    
+   763→    const body = doodle(new THREE.BoxGeometry(0.8, 1.4, 0.6), 0x00ff00);
+   764→    body.position.y = 0.7;
+   765→    const head = doodle(new THREE.BoxGeometry(0.5, 0.5, 0.5), 0x00cc00);
+   766→    head.position.y = 1.5;
+   767→    mob.group.add(body, head);
+   768→    
+   769→    mob.group.position.set((Math.random()-0.5)*60, 0, (Math.random()-0.5)*60);
+   770→    mob.group.userData.isGreenMob = true;
+   771→    scene.add(mob.group);
+   772→    state.specialMobs.push(mob);
+   773→    showAlert('🟢 ¡MOB VERDE APARECIÓ! Protégelo 10s');
+   774→}
+   775→
+   776→// ============================================================
+   777→// BALAS DEL JUGADOR
+   778→// ============================================================
+   779→function shootPlayer() {
+   780→    const p = state.player;
+   781→    const now = Date.now();
+   782→    const wp = WEAPONS[p.currentWeapon];
+   783→    
+   784→    if (now - p.lastShot < 60000 / wp.rpm) return;
+   785→    p.lastShot = now;
+   786→    
+   787→    for (let i = 0; i < wp.pellets; i++) {
+   788→        const bullet = new THREE.Mesh(
+   789→            new THREE.SphereGeometry(0.08, 6, 6),
+   790→            new THREE.MeshBasicMaterial({ color: 0x000000 })
+   791→        );
+   792→        bullet.position.copy(camera.position);
+   793→        
+   794→        const dir = new THREE.Vector3(0, 0, -1);
+   795→        dir.applyQuaternion(camera.quaternion);
+   796→        dir.x += (Math.random() - 0.5) * wp.spread;
+   797→        dir.y += (Math.random() - 0.5) * wp.spread;
+   798→        dir.z += (Math.random() - 0.5) * wp.spread;
+   799→        dir.normalize();
+   800→        
+   801→        bullet.userData = { 
+   802→            velocity: dir.multiplyScalar(wp.bulletSpeed),
+   803→            damage: wp.damage,
+   804→            life: 120,
+   805→            explosive: wp.explosive || false
+   806→        };
+   807→        
+   808→        scene.add(bullet);
+   809→        state.bullets.push(bullet);
+   810→    }
+   811→    
+   812→    recoil = 0.12;
+   813→}
+   814→
+   815→// ============================================================
+   816→// EXPLOSIONES (BOMBA NUCLEAR)
+   817→// ============================================================
+   818→function detonateBomb() {
+   819→    if (!state.player.bombReady) return;
+   820→    state.player.bombReady = false;
+   821→    document.getElementById('bombReady').classList.add('hidden');
+   822→    
+   823→    const center = state.player.pos.clone();
+   824→    
+   825→    // Crear hongo nuclear
+   826→    const explosion = {
+   827→        group: new THREE.Group(),
+   828→        age: 0,
+   829→        maxAge: 3000
+   830→    };
+   831→    
+   832→    // Bola de fuego
+   833→    const fireball = doodle(new THREE.SphereGeometry(1, 16, 16), 0xff4400);
+   834→    explosion.group.add(fireball);
+   835→    
+   836→    // Tallo del hongo
+   837→    const stem = doodle(new THREE.CylinderGeometry(0.5, 1, 3, 8), 0xffaa00);
+   838→    stem.position.y = 2;
+   839→    explosion.group.add(stem);
+   840→    
+   841→    // Sombrero del hongo
+   842→    const cap = doodle(new THREE.SphereGeometry(3, 12, 8), 0xff6600);
+   843→    cap.position.y = 5;
+   844→    explosion.group.add(cap);
+   845→    
+   846→    explosion.group.position.copy(center);
+   847→    scene.add(explosion.group);
+   848→    state.explosions.push(explosion);
+   849→    
+   850→    // Daño en área
+   851→    state.enemies.forEach(e => {
+   852→        if (!e.alive) return;
+   853→        const dist = e.group.position.distanceTo(center);
+   854→        if (dist < 25) {
+   855→            const dmg = Math.max(0, 300 - dist * 12);
+   856→            e.hit(dmg, false);
+   857→        }
+   858→    });
+   859→    
+   860→    addKillFeed('☢️ ¡BOMBA NUCLEAR DETONADA!');
+   861→}
+   862→
+   863→// ============================================================
+   864→// UI HELPERS
+   865→// ============================================================
+   866→function addKillFeed(msg) {
+   867→    const feed = document.getElementById('killFeed');
+   868→    const div = document.createElement('div');
+   869→    div.className = 'kill-msg';
+   870→    div.innerText = msg;
+   871→    feed.appendChild(div);
+   872→    setTimeout(() => div.remove(), 3000);
+   873→}
+   874→
+   875→function showAlert(msg) {
+   876→    const alert = document.createElement('div');
+   877→    alert.className = 'special-alert doodle-anim';
+   878→    alert.innerText = msg;
+   879→    document.body.appendChild(alert);
+   880→    setTimeout(() => alert.remove(), 3000);
+   881→}
+   882→
+   883→function updateWeaponBar() {
+   884→    const bar = document.getElementById('weaponBar');
+   885→    bar.innerHTML = '';
+   886→    state.player.inventory.forEach((wId, idx) => {
+   887→        const slot = document.createElement('div');
+   888→        slot.className = 'weapon-slot' + (wId === state.player.currentWeapon ? ' active' : '');
+   889→        slot.innerText = `[${idx+1}] ${WEAPONS[wId].name}`;
+   890→        bar.appendChild(slot);
+   891→    });
+   892→}
+   893→
+   894→function checkLevelProgress() {
+   895→    const threshold = 5 + state.level * 2;
+   896→    if (state.player.kills >= threshold && state.enemies.filter(e => e.alive).length === 0) {
+   897→        advanceLevel();
+   898→    }
+   899→}
+   900→
+   901→function advanceLevel() {
+   902→    state.level++;
+   903→    document.getElementById('level').innerText = state.level;
+   904→    addKillFeed(`🎯 ¡NIVEL ${state.level}!`);
+   905→    
+   906→    // Curar un poco
+   907→    state.player.health = Math.min(state.player.maxHealth, state.player.health + 30);
+   908→    document.getElementById('health').innerText = state.player.health;
+   909→    
+   910→    // Spawn arma épica rara (5% por nivel)
+   911→    if (Math.random() < 0.05 || state.level === 15 || state.level === 20) {
+   912→        setTimeout(spawnEpicWeapon, 2000);
+   913→    }
+   914→    
+   915→    // Spawn dragón de huesos (3% en niveles difíciles)
+   916→    if (state.level >= 15 && Math.random() < 0.03) {
+   917→        setTimeout(spawnDragon, 5000);
+   918→    }
+   919→    
+   920→    // Spawn mob verde aleatorio
+   921→    if (Math.random() < 0.08) {
+   922→        setTimeout(spawnGreenMob, 3000);
+   923→    }
+   924→    
+   925→    // Cambiar mapa cada 3 niveles
+   926→    if (state.level % 3 === 0) {
+   927→        const map = MAPS[Math.floor(Math.random() * MAPS.length)];
+   928→        buildMap(map.id);
+   929→        document.getElementById('mapName').innerText = map.name;
+   930→        addKillFeed(`🌍 Nuevo mapa: ${map.name}`);
+   931→    }
+   932→    
+   933→    if (state.level > state.maxLevel) {
+   934→        winGame();
+   935→    } else {
+   936→        spawnWave();
+   937→    }
+   938→}
+   939→
+   940→function winGame() {
+   941→    state.won = true;
+   942→    controls.unlock();
+   943→    document.getElementById('victoryKills').innerText = state.totalKills;
+   944→    document.getElementById('victoryMenu').classList.remove('hidden');
+   945→}
+   946→
+   947→function spawnWave() {
+   948→    // Calcular dificultad según nivel
+   949→    let count, difficulty;
+   950→    if (state.level <= 3) { count = 3 + state.level; difficulty = 'easy'; }
+   951→    else if (state.level <= 6) { count = 5 + state.level; difficulty = 'easy'; }
+   952→    else if (state.level <= 10) { count = 8 + state.level; difficulty = 'medium'; }
+   953→    else if (state.level <= 15) { count = 10 + state.level * 1.5; difficulty = 'hard'; }
+   954→    else { count = 15 + state.level * 2; difficulty = 'extreme'; }
+   955→    
+   956→    state.enemiesToSpawn = count;
+   957→    state.spawnTimer = 0;
+   958→}
+   959→
+   960→// ============================================================
+   961→// INPUT
+   962→// ============================================================
+   963→document.addEventListener('keydown', e => {
+   964→    if (state.paused) {
+   965→        if (e.code === 'Escape') resumeGame();
+   966→        return;
+   967→    }
+   968→    switch(e.code) {
+   969→        case 'KeyW': state.player.moveF = true; break;
+   970→        case 'KeyA': state.player.moveL = true; break;
+   971→        case 'KeyS': state.player.moveB = true; break;
+   972→        case 'KeyD': state.player.moveR = true; break;
+   973→        case 'Space': if (state.player.canJump) { state.player.vel.y = 10; state.player.canJump = false; } break;
+   974→        case 'Escape': if (state.mode === 'solo' && controls.isLocked) pauseGame(); break;
+   975→        case 'KeyB': detonateBomb(); break;
+   976→        case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5': case 'Digit6': case 'Digit7': {
+   977→            const idx = parseInt(e.code.slice(-1)) - 1;
+   978→            if (state.player.inventory[idx]) {
+   979→                state.player.currentWeapon = state.player.inventory[idx];
+   980→                updateWeaponBar();
+   981→            }
+   982→            break;
+   983→        }
+   984→    }
+   985→});
+   986→
+   987→document.addEventListener('keyup', e => {
+   988→    switch(e.code) {
+   989→        case 'KeyW': state.player.moveF = false; break;
+   990→        case 'KeyA': state.player.moveL = false; break;
+   991→        case 'KeyS': state.player.moveB = false; break;
+   992→        case 'KeyD': state.player.moveR = false; break;
+   993→    }
+   994→});
+   995→
+   996→document.addEventListener('mousedown', e => {
+   997→    if (e.button === 0 && controls.isLocked) {
+   998→        state.player.mouseDown = true;
+   999→        shootPlayer();
+  1000→    }
+  1001→});
+  1002→
+  1003→document.addEventListener('mouseup', e => {
+  1004→    if (e.button === 0) state.player.mouseDown = false;
+  1005→});
+  1006→
+  1007→// ============================================================
+  1008→// CONTROL DE PAUSA
+  1009→// ============================================================
+  1010→window.pauseGame = () => {
+  1011→    state.paused = true;
+  1012→    controls.unlock();
+  1013→    document.getElementById('pauseMenu').classList.remove('hidden');
+  1014→};
+  1015→
+  1016→window.resumeGame = () => {
+  1017→    state.paused = false;
+  1018→    document.getElementById('pauseMenu').classList.add('hidden');
+  1019→    controls.lock();
+  1020→};
+  1021→
+  1022→window.quitToMenu = () => {
+  1023→    location.reload();
+  1024→};
+  1025→
+  1026→// ============================================================
+  1027→// LOOP PRINCIPAL
+  1028→// ============================================================
+  1029→let prevTime = performance.now();
+  1030→
+  1031→function animate() {
+  1032→    requestAnimationFrame(animate);
+  1033→    
+  1034→    if (state.gameOver || state.won || state.paused) {
+  1035→        renderer.render(scene, camera);
+  1036→        return;
+  1037→    }
+  1038→    
+  1039→    const now = performance.now();
+  1040→    const dt = Math.min(0.1, (now - prevTime) / 1000);
+  1041→    prevTime = now;
+  1042→    
+  1043→    const p = state.player;
+  1044→    
+  1045→    if (controls.isLocked) {
+  1046→        // Movimiento
+  1047→        p.vel.x -= p.vel.x * 10 * dt;
+  1048→        p.vel.z -= p.vel.z * 10 * dt;
+  1049→        p.vel.y -= 25 * dt;
+  1050→        
+  1051→        const dir = new THREE.Vector3();
+  1052→        dir.z = Number(p.moveF) - Number(p.moveB);
+  1053→        dir.x = Number(p.moveR) - Number(p.moveL);
+  1054→        dir.normalize();
+  1055→        
+  1056→        if (p.moveF || p.moveB) p.vel.z -= dir.z * 80 * dt;
+  1057→        if (p.moveL || p.moveR) p.vel.x -= dir.x * 80 * dt;
+  1058→        
+  1059→        // Intentar mover con colisión
+  1060→        const newPos = camera.position.clone();
+  1061→        
+  1062→        // Movimiento X
+  1063→        const dx = -p.vel.x * dt;
+  1064→        const testX = newPos.clone();
+  1065→        testX.x += dx;
+  1066→        if (!checkCollision(testX)) {
+  1067→            camera.position.x += dx;
+  1068→        }
+  1069→        
+  1070→        // Movimiento Z
+  1071→        const dz = -p.vel.z * dt;
+  1072→        const testZ = camera.position.clone();
+  1073→        testZ.z += dz;
+  1074→        if (!checkCollision(testZ)) {
+  1075→            camera.position.z += dz;
+  1076→        }
+  1077→        
+  1078→        // Movimiento Y (gravedad + salto)
+  1079→        camera.position.y += p.vel.y * dt;
+  1080→        
+  1081→        // Ground check
+  1082→        const groundY = checkGround(camera.position);
+  1083→        if (camera.position.y < groundY + 1.7) {
+  1084→            camera.position.y = groundY + 1.7;
+  1085→            p.vel.y = 0;
+  1086→            p.canJump = true;
+  1087→        }
+  1088→        
+  1089→        p.pos.copy(camera.position);
+  1090→        
+  1091→        // Disparo automático si arma es auto
+  1092→        if (p.mouseDown && WEAPONS[p.currentWeapon].auto) {
+  1093→            shootPlayer();
+  1094→        }
+  1095→        
+  1096→        // Recoil
+  1097→        if (recoil > 0) {
+  1098→            viewModel.position.z = -0.6 + recoil;
+  1099→            viewModel.rotation.x = -recoil * 1.5;
+  1100→            recoil -= dt * 1.5;
+  1101→        } else {
+  1102→            viewModel.position.z = -0.6;
+  1103→            viewModel.rotation.x = 0;
+  1104→        }
+  1105→        
+  1106→        // Balanceo al caminar
+  1107→        if (p.moveF || p.moveB || p.moveL || p.moveR) {
+  1108→            viewModel.position.y = -0.35 + Math.sin(now * 0.015) * 0.02;
+  1109→        }
+  1110→        
+  1111→        // Actualizar enemigos
+  1112→        state.enemies.forEach(e => e.update(dt));
+  1113→        
+  1114→        // Balas del jugador
+  1115→        for (let i = state.bullets.length - 1; i >= 0; i--) {
+  1116→            const b = state.bullets[i];
+  1117→            b.position.add(b.userData.velocity);
+  1118→            b.userData.life--;
+  1119→            
+  1120→            if (b.userData.life <= 0) {
+  1121→                if (b.userData.explosive) detonateExplosion(b.position);
+  1122→                scene.remove(b);
+  1123→                state.bullets.splice(i, 1);
+  1124→                continue;
+  1125→            }
+  1126→            
+  1127→            // Colisión con obstáculos
+  1128→            let hit = false;
+  1129→            for (const e of state.enemies) {
+  1130→                if (!e.alive) continue;
+  1131→                
+  1132→                // Check cabeza
+  1133→                const headPos = e.group.position.clone();
+  1134→                headPos.y += 1.4;
+  1135→                if (b.position.distanceTo(headPos) < 0.4) {
+  1136→                    e.hit(b.userData.damage, true);
+  1137→                    hit = true;
+  1138→                    break;
+  1139→                }
+  1140→                
+  1141→                // Check cuerpo
+  1142→                const bodyPos = e.group.position.clone();
+  1143→                bodyPos.y += 0.6;
+  1144→                if (b.position.distanceTo(bodyPos) < 0.7) {
+  1145→                    e.hit(b.userData.damage, false);
+  1146→                    hit = true;
+  1147→                    break;
+  1148→                }
+  1149→            }
+  1150→            
+  1151→            if (hit) {
+  1152→                if (b.userData.explosive) detonateExplosion(b.position);
+  1153→                scene.remove(b);
+  1154→                state.bullets.splice(i, 1);
+  1155→            }
+  1156→        }
+  1157→        
+  1158→        // Balas enemigas
+  1159→        for (let i = state.enemyBullets.length - 1; i >= 0; i--) {
+  1160→            const b = state.enemyBullets[i];
+  1161→            b.position.add(b.userData.velocity);
+  1162→            b.userData.life--;
+  1163→            
+  1164→            if (b.userData.life <= 0) {
+  1165→                scene.remove(b);
+  1166→                state.enemyBullets.splice(i, 1);
+  1167→                continue;
+  1168→            }
+  1169→            
+  1170→            // Colisión con jugador
+  1171→            if (b.position.distanceTo(camera.position) < 0.6) {
+  1172→                takeDamage(b.userData.damage);
+  1173→                scene.remove(b);
+  1174→                state.enemyBullets.splice(i, 1);
+  1175→            }
+  1176→        }
+  1177→        
+  1178→        // Ítems (pickup)
+  1179→        for (let i = state.items.length - 1; i >= 0; i--) {
+  1180→            const it = state.items[i];
+  1181→            it.rotation.y += dt * 2;
+  1182→            it.position.y = 0.5 + Math.sin(now * 0.003) * 0.1;
+  1183→            if (it.position.distanceTo(camera.position) < 1.5) {
+  1184→                pickupItem(it);
+  1185→                scene.remove(it);
+  1186→                state.items.splice(i, 1);
+  1187→            }
+  1188→        }
+  1189→        
+  1190→        // Mobs especiales
+  1191→        for (let i = state.specialMobs.length - 1; i >= 0; i--) {
+  1192→            const m = state.specialMobs[i];
+  1193→            
+  1194→            if (m.group && m.group.userData.isDrone) {
+  1195→                // Drone: atacar al jugador (que tiene el streak más alto)
+  1196→                m.group.position.y += Math.sin(now * 0.003) * 0.05;
+  1197→                const dir = new THREE.Vector3().subVectors(p.pos, m.group.position).normalize();
+  1198→                m.group.position.add(dir.multiplyScalar(3 * dt));
+  1199→                m.group.lookAt(p.pos);
+  1200→                
+  1201→                if (now - m.lastShot > 800) {
+  1202→                    m.lastShot = now;
+  1203→                    const bullet = new THREE.Mesh(
+  1204→                        new THREE.SphereGeometry(0.08, 6, 6),
+  1205→                        new THREE.MeshBasicMaterial({ color: 0xff00ff })
+  1206→                    );
+  1207→                    bullet.position.copy(m.group.position);
+  1208→                    bullet.userData = { velocity: dir.multiplyScalar(3), damage: 15, life: 100 };
+  1209→                    scene.add(bullet);
+  1210→                    state.enemyBullets.push(bullet);
+  1211→                }
+  1212→                
+  1213→                // Colisión con jugador = daño
+  1214→                if (m.group.position.distanceTo(p.pos) < 1) {
+  1215→                    takeDamage(10);
+  1216→                }
+  1217→            } else if (m.segments) {
+  1218→                // Dragón: seguir y atacar enemigos (no al jugador)
+  1219→                m.life -= dt * 1000;
+  1220→                if (m.life <= 0) {
+  1221→                    m.segments.forEach(s => scene.remove(s));
+  1222→                    state.specialMobs.splice(i, 1);
+  1223→                    continue;
+  1224→                }
+  1225→                
+  1226→                // Mover cabeza hacia enemigo más cercano
+  1227→                const aliveEnemies = state.enemies.filter(e => e.alive);
+  1228→                if (aliveEnemies.length > 0) {
+  1229→                    const head = m.segments[0];
+  1230→                    const target = aliveEnemies.reduce((a,b) => 
+  1231→                        a.group.position.distanceTo(head.position) < b.group.position.distanceTo(head.position) ? a : b);
+  1232→                    
+  1233→                    const dir = new THREE.Vector3().subVectors(target.group.position, head.position).normalize();
+  1234→                    head.position.add(dir.multiplyScalar(5 * dt));
+  1235→                    
+  1236→                    // Seguir segmentos (cuerpo serpenteante)
+  1237→                    for (let j = 1; j < m.segments.length; j++) {
+  1238→                        const prev = m.segments[j-1].position;
+  1239→                        const d = new THREE.Vector3().subVectors(prev, m.segments[j].position).normalize();
+  1240→                        m.segments[j].position.add(d.multiplyScalar(5 * dt));
+  1241→                    }
+  1242→                    
+  1243→                    // Headshot check al impactar enemigo
+  1244→                    if (head.position.distanceTo(target.group.position) < 1.2) {
+  1245→                        // Instakill si da en cabeza
+  1246→                        const headDist = Math.hypot(
+  1247→                            head.position.x - target.group.position.x,
+  1248→                            head.position.z - target.group.position.z,
+  1249→                            head.position.y - (target.group.position.y + 1.4)
+  1250→                        );
+  1251→                        if (headDist < 0.6) {
+  1252→                            target.health = -1; // Fuerza muerte
+  1253→                        }
+  1254→                        target.hit(100, headDist < 0.6);
+  1255→                        addKillFeed('🦴 ¡Dragón devoró a un enemigo!');
+  1256→                        // Respawn dragón cerca
+  1257→                        head.position.set((Math.random()-0.5)*40, 3, (Math.random()-0.5)*40);
+  1258→                    }
+  1259→                }
+  1260→            } else if (m.group && m.group.userData.isGreenMob) {
+  1261→                // Mob verde: enemigos lo atacan después de 10s
+  1262→                m.hostileTimer -= dt * 1000;
+  1263→                if (m.hostileTimer <= 0 && !m.hostile) {
+  1264→                    m.hostile = true;
+  1265→                    addKillFeed('⚠️ ¡Los enemigos atacan al mob verde!');
+  1266→                }
+  1267→                
+  1268→                // Movimiento errático
+  1269→                m.group.position.x += Math.sin(now * 0.001) * 0.5 * dt;
+  1270→                m.group.position.z += Math.cos(now * 0.001) * 0.5 * dt;
+  1271→            }
+  1272→        }
+  1273→        
+  1274→        // Explosiones
+  1275→        for (let i = state.explosions.length - 1; i >= 0; i--) {
+  1276→            const ex = state.explosions[i];
+  1277→            ex.age += dt * 1000;
+  1278→            const t = ex.age / ex.maxAge;
+  1279→            const scale = 1 + t * 8;
+  1280→            ex.group.scale.setScalar(scale);
+  1281→            ex.group.position.y += dt * 2;
+  1282→            if (t >= 1) {
+  1283→                scene.remove(ex.group);
+  1284→                state.explosions.splice(i, 1);
+  1285→            }
+  1286→        }
+  1287→        
+  1288→        // Spawn progresivo de enemigos
+  1289→        if (state.enemiesToSpawn > 0) {
+  1290→            state.spawnTimer -= dt;
+  1291→            if (state.spawnTimer <= 0) {
+  1292→                const enemy = new Enemy(state.level);
+  1293→                state.enemies.push(enemy);
+  1294→                state.enemiesToSpawn--;
+  1295→                state.spawnTimer = 0.5 + Math.random() * 0.8;
+  1296→            }
+  1297→        }
+  1298→        
+  1299→        // Limpiar enemigos muertos del array
+  1300→        state.enemies = state.enemies.filter(e => e.alive);
+  1301→    }
+  1302→    
+  1303→    // Animación doodle global
+  1304→    scene.traverse(obj => {
+  1305→        if (obj.userData && obj.userData.isDoodle && obj.userData.wireframe) {
+  1306→            const t = now * obj.userData.wobbleSpeed + obj.userData.wobbleOffset;
+  1307→            obj.userData.wireframe.rotation.z = Math.sin(t) * 0.03;
+  1308→        }
+  1309→    });
+  1310→    
+  1311→    renderer.render(scene, camera);
+  1312→}
+  1313→
+  1314→function takeDamage(dmg) {
+  1315→    const p = state.player;
+  1316→    if (p.shield > 0) {
+  1317→        const absorbed = Math.min(p.shield, dmg);
+  1318→        p.shield -= absorbed;
+  1319→        dmg -= absorbed;
+  1320→        document.getElementById('shield').innerText = p.shield;
+  1321→    }
+  1322→    if (dmg > 0) {
+  1323→        p.health -= dmg;
+  1324→        document.getElementById('health').innerText = Math.max(0, p.health);
+  1325→    }
+  1326→    
+  1327→    // Reset streak si recibe daño
+  1328→    p.streak = 0;
+  1329→    document.getElementById('streak').innerText = 0;
+  1330→    if (p.bombReady) {
+  1331→        p.bombReady = false;
+  1332→        document.getElementById('bombReady').classList.add('hidden');
+  1333→    }
+  1334→    
+  1335→    if (p.health <= 0) {
+  1336→        gameOver();
+  1337→    }
+  1338→}
+  1339→
+  1340→function gameOver() {
+  1341→    state.gameOver = true;
+  1342→    controls.unlock();
+  1343→    document.getElementById('finalKills').innerText = state.totalKills;
+  1344→    document.getElementById('finalLevel').innerText = state.level;
+  1345→    document.getElementById('gameOverMenu').classList.remove('hidden');
+  1346→    document.getElementById('hud').classList.add('hidden');
+  1347→    document.getElementById('weaponBar').classList.add('hidden');
+  1348→    document.getElementById('crosshair').classList.add('hidden');
+  1349→}
+  1350→
+  1351→function pickupItem(it) {
+  1352→    const p = state.player;
+  1353→    switch(it.userData.type) {
+  1354→        case 'health':
+  1355→            p.health = Math.min(p.maxHealth, p.health + 30);
+  1356→            document.getElementById('health').innerText = p.health;
+  1357→            addKillFeed('❤️ +30 Salud');
+  1358→            break;
+  1359→        case 'shield':
+  1360→            p.shield = Math.min(p.maxShield, p.shield + 50);
+  1361→            document.getElementById('shield').innerText = p.shield;
+  1362→            addKillFeed('🛡️ +50 Escudo');
+  1363→            break;
+  1364→        case 'ammo':
+  1365→            addKillFeed('🔫 Munición recargada');
+  1366→            break;
+  1367→        case 'weapon':
+  1368→            const wId = it.userData.weaponId;
+  1369→            if (!p.inventory.includes(wId) && p.inventory.length < 7) {
+  1370→                p.inventory.push(wId);
+  1371→                addKillFeed(`🎁 Obtenido: ${WEAPONS[wId].name}`);
+  1372→                updateWeaponBar();
+  1373→            } else {
+  1374→                p.currentWeapon = wId;
+  1375→                addKillFeed(`🔄 Cambiado a: ${WEAPONS[wId].name}`);
+  1376→                updateWeaponBar();
+  1377→            }
+  1378→            break;
+  1379→    }
+  1380→}
+  1381→
+  1382→function detonateExplosion(pos) {
+  1383→    // Radio pequeño para RPG
+  1384→    const ex = { group: new THREE.Group(), age: 0, maxAge: 800 };
+  1385→    const sphere = doodle(new THREE.SphereGeometry(1, 12, 12), 0xff6600);
+  1386→    ex.group.add(sphere);
+  1387→    ex.group.position.copy(pos);
+  1388→    scene.add(ex.group);
+  1389→    state.explosions.push(ex);
+  1390→    
+  1391→    state.enemies.forEach(e => {
+  1392→        if (!e.alive) return;
+  1393→        const d = e.group.position.distanceTo(pos);
+  1394→        if (d < 5) e.hit(150 - d * 20, false);
+  1395→    });
+  1396→}
+  1397→
+  1398→// ============================================================
+  1399→// MENÚ Y NAVEGACIÓN
+  1400→// ============================================================
+  1401→// Generar tarjetas de mapa
+  1402→const mapGrid = document.getElementById('mapGrid');
+  1403→MAPS.forEach(map => {
+  1404→    const card = document.createElement('div');
+  1405→    card.className = 'map-card';
+  1406→    card.innerHTML = `<h3>${map.name}</h3><p>Tema: ${map.theme}</p>`;
+  1407→    card.onclick = () => startGame(map.id);
+  1408→    mapGrid.appendChild(card);
+  1409→});
+  1410→
+  1411→window.selectMode = (mode) => {
+  1412→    state.mode = mode;
+  1413→    document.getElementById('mainMenu').classList.add('hidden');
+  1414→    document.getElementById('mapMenu').classList.remove('hidden');
+  1415→};
+  1416→
+  1417→window.backToMain = () => {
+  1418→    document.getElementById('mapMenu').classList.add('hidden');
+  1419→    document.getElementById('mainMenu').classList.remove('hidden');
+  1420→};
+  1421→
+  1422→window.startGame = (mapId) => {
+  1423→    state.currentMapId = mapId;
+  1424→    const map = MAPS.find(m => m.id === mapId);
+  1425→    
+  1426→    document.getElementById('mapMenu').classList.add('hidden');
+  1427→    document.getElementById('hud').classList.remove('hidden');
+  1428→    document.getElementById('weaponBar').classList.remove('hidden');
+  1429→    document.getElementById('crosshair').classList.remove('hidden');
+  1430→    
+  1431→    document.getElementById('mapName').innerText = map.name;
+  1432→    document.getElementById('level').innerText = state.level;
+  1433→    document.getElementById('health').innerText = state.player.health;
+  1434→    
+  1435→    buildMap(mapId);
+  1436→    updateWeaponBar();
+  1437→    
+  1438→    controls.lock();
+  1439→    spawnWave();
+  1440→    animate();
+  1441→};
+  1442→
+  1443→// Resize
+  1444→window.addEventListener('resize', () => {
+  1445→    camera.aspect = innerWidth / innerHeight;
+  1446→    camera.updateProjectionMatrix();
+  1447→    renderer.setSize(innerWidth, innerHeight);
+  1448→});
+  1449→
+  1450→</script>
+  1451→</body>
+  1452→</html>

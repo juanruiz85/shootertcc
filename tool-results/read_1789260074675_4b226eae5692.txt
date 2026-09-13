@@ -1,0 +1,1186 @@
+     1→<!DOCTYPE html>
+     2→<html lang="es">
+     3→<head>
+     4→    <meta charset="UTF-8">
+     5→    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     6→    <title>Doodle Shooter: Ultimate Edition</title>
+     7→    <style>
+     8→        * { margin: 0; padding: 0; box-sizing: border-box; }
+     9→        body {
+    10→            overflow: hidden;
+    11→            background-color: #fdfbf7;
+    12→            background-image: 
+    13→                linear-gradient(#e8e4df 1px, transparent 1px),
+    14→                linear-gradient(90deg, #e8e4df 1px, transparent 1px);
+    15→            background-size: 40px 40px;
+    16→            font-family: 'Comic Sans MS', 'Courier New', cursive;
+    17→            user-select: none;
+    18→        }
+    19→        
+    20→        .screen {
+    21→            position: absolute;
+    22→            top: 0; left: 0; width: 100%; height: 100%;
+    23→            display: flex;
+    24→            flex-direction: column;
+    25→            align-items: center;
+    26→            justify-content: center;
+    27→            background: rgba(253, 251, 247, 0.95);
+    28→            z-index: 100;
+    29→        }
+    30→        .hidden { display: none !important; }
+    31→        
+    32→        h1 {
+    33→            font-size: 64px;
+    34→            color: #1a1a1a;
+    35→            text-transform: uppercase;
+    36→            letter-spacing: 4px;
+    37→            margin-bottom: 10px;
+    38→            text-shadow: 3px 3px 0px #ccc;
+    39→            transform: rotate(-2deg);
+    40→        }
+    41→        h2 { font-size: 32px; margin-bottom: 20px; }
+    42→        
+    43→        .btn {
+    44→            background: #fff;
+    45→            border: 3px solid #1a1a1a;
+    46→            padding: 15px 40px;
+    47→            margin: 10px;
+    48→            font-size: 20px;
+    49→            font-family: inherit;
+    50→            font-weight: bold;
+    51→            cursor: pointer;
+    52→            box-shadow: 5px 5px 0px #1a1a1a;
+    53→            transition: transform 0.1s, box-shadow 0.1s;
+    54→        }
+    55→        .btn:hover {
+    56→            transform: translate(-2px, -2px);
+    57→            box-shadow: 7px 7px 0px #1a1a1a;
+    58→        }
+    59→        .btn:active {
+    60→            transform: translate(2px, 2px);
+    61→            box-shadow: 2px 2px 0px #1a1a1a;
+    62→        }
+    63→
+    64→        .map-grid {
+    65→            display: grid;
+    66→            grid-template-columns: repeat(4, 1fr);
+    67→            gap: 15px;
+    68→            margin: 20px;
+    69→            max-height: 500px;
+    70→            overflow-y: auto;
+    71→            padding: 20px;
+    72→        }
+    73→        .map-card {
+    74→            border: 3px solid #1a1a1a;
+    75→            padding: 15px;
+    76→            width: 180px;
+    77→            text-align: center;
+    78→            cursor: pointer;
+    79→            background: white;
+    80→            box-shadow: 4px 4px 0px #1a1a1a;
+    81→            font-size: 14px;
+    82→        }
+    83→        .map-card:hover { background: #f9f9f9; transform: scale(1.05); }
+    84→
+    85→        #hud {
+    86→            position: absolute;
+    87→            top: 20px; left: 20px;
+    88→            color: #1a1a1a;
+    89→            font-size: 18px;
+    90→            font-weight: bold;
+    91→            pointer-events: none;
+    92→            z-index: 10;
+    93→            background: rgba(255,255,255,0.9);
+    94→            padding: 15px;
+    95→            border: 2px solid #1a1a1a;
+    96→            box-shadow: 3px 3px 0px #1a1a1a;
+    97→            min-width: 200px;
+    98→        }
+    99→        #crosshair {
+   100→            position: absolute;
+   101→            top: 50%; left: 50%;
+   102→            width: 24px; height: 24px;
+   103→            transform: translate(-50%, -50%);
+   104→            pointer-events: none;
+   105→            z-index: 10;
+   106→        }
+   107→        #crosshair::before, #crosshair::after {
+   108→            content: ''; position: absolute; background: #1a1a1a;
+   109→        }
+   110→        #crosshair::before { top: 11px; left: 0; width: 24px; height: 2px; }
+   111→        #crosshair::after { top: 0; left: 11px; width: 2px; height: 24px; }
+   112→
+   113→        #killStreak {
+   114→            position: absolute;
+   115→            top: 20px; right: 20px;
+   116→            color: #d00000;
+   117→            font-size: 24px;
+   118→            font-weight: bold;
+   119→            pointer-events: none;
+   120→            z-index: 10;
+   121→            text-align: right;
+   122→        }
+   123→
+   124→        #weaponSlots {
+   125→            position: absolute;
+   126→            bottom: 20px; left: 50%;
+   127→            transform: translateX(-50%);
+   128→            display: flex;
+   129→            gap: 10px;
+   130→            z-index: 10;
+   131→        }
+   132→        .weapon-slot {
+   133→            width: 80px; height: 60px;
+   134→            border: 2px solid #1a1a1a;
+   135→            background: rgba(255,255,255,0.9);
+   136→            display: flex;
+   137→            flex-direction: column;
+   138→            align-items: center;
+   139→            justify-content: center;
+   140→            font-size: 12px;
+   141→            font-weight: bold;
+   142→            box-shadow: 2px 2px 0px #1a1a1a;
+   143→        }
+   144→        .weapon-slot.active {
+   145→            background: #ffd700;
+   146→            border-color: #ff6b00;
+   147→        }
+   148→
+   149→        #pauseMenu {
+   150→            position: absolute;
+   151→            top: 50%; left: 50%;
+   152→            transform: translate(-50%, -50%);
+   153→            background: white;
+   154→            border: 4px solid #1a1a1a;
+   155→            padding: 40px;
+   156→            text-align: center;
+   157→            z-index: 200;
+   158→            box-shadow: 8px 8px 0px #1a1a1a;
+   159→        }
+   160→
+   161→        #notification {
+   162→            position: absolute;
+   163→            top: 100px; left: 50%;
+   164→            transform: translateX(-50%);
+   165→            background: rgba(255,255,255,0.95);
+   166→            border: 3px solid #1a1a1a;
+   167→            padding: 15px 30px;
+   168→            font-size: 18px;
+   169→            font-weight: bold;
+   170→            z-index: 50;
+   171→            box-shadow: 4px 4px 0px #1a1a1a;
+   172→            transition: opacity 0.3s;
+   173→            text-align: center;
+   174→        }
+   175→
+   176→        .health-bar {
+   177→            width: 100%;
+   178→            height: 20px;
+   179→            background: #ddd;
+   180→            border: 2px solid #1a1a1a;
+   181→            margin-top: 5px;
+   182→            position: relative;
+   183→            overflow: hidden;
+   184→        }
+   185→        .health-fill {
+   186→            height: 100%;
+   187→            background: #4caf50;
+   188→            transition: width 0.3s;
+   189→        }
+   190→        .health-fill.low { background: #ff5722; }
+   191→        .health-fill.medium { background: #ff9800; }
+   192→
+   193→        .doodle-anim { animation: sketch 0.4s infinite alternate; }
+   194→        @keyframes sketch {
+   195→            0% { transform: rotate(-1deg) translate(0, 0); }
+   196→            100% { transform: rotate(1deg) translate(1px, -1px); }
+   197→        }
+   198→        @keyframes explode {
+   199→            0% { transform: scale(1); opacity: 1; }
+   200→            100% { transform: scale(5); opacity: 0; }
+   201→        }
+   202→        .explosion {
+   203→            position: absolute;
+   204→            border-radius: 50%;
+   205→            background: radial-gradient(circle, #ff6b00, #d00000, transparent);
+   206→            pointer-events: none;
+   207→            animation: explode 1s forwards;
+   208→            z-index: 999;
+   209→        }
+   210→    </style>
+   211→</head>
+   212→<body>
+   213→
+   214→    <div id="mainMenu" class="screen">
+   215→        <h1 class="doodle-anim">DOODLE SHOOTER</h1>
+   216→        <p style="font-size: 18px; color: #555; margin-bottom: 20px;">Ultimate Edition</p>
+   217→        <button class="btn" onclick="showMapSelect()">🎯 INICIAR JUEGO</button>
+   218→    </div>
+   219→
+   220→    <div id="mapMenu" class="screen hidden">
+   221→        <h2>SELECCIONA EL MAPA</h2>
+   222→        <div class="map-grid" id="mapGrid"></div>
+   223→        <button class="btn" style="margin-top: 20px;" onclick="backToMain()">← Volver</button>
+   224→    </div>
+   225→
+   226→    <div id="hud" class="hidden">
+   227→        <div>Nivel: <span id="levelDisplay">1</span> / 20</div>
+   228→        <div>Mapa: <span id="mapDisplay">-</span></div>
+   229→        <div style="margin-top: 10px;">
+   230→            Salud: <span id="health">100</span>%
+   231→            <div class="health-bar"><div class="health-fill" id="healthFill" style="width: 100%"></div></div>
+   232→        </div>
+   233→        <div>Escudo: <span id="shield">0</span>%</div>
+   234→        <div style="margin-top: 10px;">Puntuación: <span id="score">0</span></div>
+   235→        <div>Enemigos: <span id="enemyCount">0</span></div>
+   236→    </div>
+   237→
+   238→    <div id="killStreak" class="hidden">
+   239→        <div>🔥 Racha: <span id="streak">0</span></div>
+   240→        <div id="specialAbility" style="font-size: 16px; margin-top: 10px;"></div>
+   241→    </div>
+   242→
+   243→    <div id="weaponSlots" class="hidden"></div>
+   244→    <div id="crosshair" class="hidden"></div>
+   245→    <div id="notification" class="hidden"></div>
+   246→
+   247→    <div id="pauseMenu" class="hidden">
+   248→        <h2>⏸️ JUEGO PAUSADO</h2>
+   249→        <p style="margin-bottom: 20px;">Presiona ESC o haz clic para continuar</p>
+   250→        <button class="btn" onclick="resumeGame()">▶️ Continuar</button>
+   251→        <button class="btn" onclick="location.reload()">🏠 Menú Principal</button>
+   252→    </div>
+   253→
+   254→    <div id="gameOverScreen" class="screen hidden">
+   255→        <h1 style="color: #d00000;">GAME OVER</h1>
+   256→        <p style="font-size: 24px;">Puntuación Final: <span id="finalScore">0</span></p>
+   257→        <p style="font-size: 20px;">Nivel Alcanzado: <span id="finalLevel">1</span></p>
+   258→        <p style="font-size: 20px;">Eliminaciones: <span id="finalKills">0</span></p>
+   259→        <button class="btn" onclick="location.reload()">🔄 Jugar de Nuevo</button>
+   260→    </div>
+   261→
+   262→    <script type="importmap">
+   263→        {
+   264→            "imports": {
+   265→                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+   266→                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+   267→            }
+   268→        }
+   269→    </script>
+   270→
+   271→    <script type="module">
+   272→        import * as THREE from 'three';
+   273→        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+   274→
+   275→        const CONFIG = {
+   276→            PLAYER_SPEED: 12,
+   277→            PLAYER_JUMP: 15,
+   278→            GRAVITY: 30,
+   279→            MAX_ENEMIES: 15,
+   280→            MAP_SIZE: 80,
+   281→            DRONE_DROP_CHANCE: 0.05,
+   282→            DRAGON_DROP_CHANCE: 0.01,
+   283→            GREEN_MOB_CHANCE: 0.001
+   284→        };
+   285→
+   286→        const WEAPONS = {
+   287→            pistol: { name: 'Pistola', damage: 15, fireRate: 300, ammo: 12, maxAmmo: 12, reloadTime: 1500, automatic: false, spread: 0.02, bulletSpeed: 80, color: 0x2d3436 },
+   288→            shotgun: { name: 'Escopeta', damage: 8, fireRate: 800, ammo: 6, maxAmmo: 6, reloadTime: 2000, automatic: false, spread: 0.15, pellets: 8, bulletSpeed: 70, color: 0x5c3a21 },
+   289→            smg: { name: 'SMG', damage: 10, fireRate: 80, ammo: 30, maxAmmo: 30, reloadTime: 2000, automatic: true, spread: 0.05, bulletSpeed: 90, color: 0x636e72 },
+   290→            rifle: { name: 'Rifle', damage: 25, fireRate: 150, ammo: 20, maxAmmo: 20, reloadTime: 2500, automatic: true, spread: 0.03, bulletSpeed: 120, color: 0x3d3d3d },
+   291→            sniper: { name: 'Sniper', damage: 100, fireRate: 1200, ammo: 5, maxAmmo: 5, reloadTime: 3000, automatic: false, spread: 0, bulletSpeed: 200, color: 0x1a1a1a },
+   292→            minigun: { name: 'Minigun', damage: 12, fireRate: 50, ammo: 200, maxAmmo: 200, reloadTime: 4000, automatic: true, spread: 0.08, bulletSpeed: 100, color: 0x2d3436 },
+   293→            rpg: { name: 'RPG', damage: 200, fireRate: 2000, ammo: 3, maxAmmo: 3, reloadTime: 3000, automatic: false, spread: 0, bulletSpeed: 50, explosive: true, color: 0x4a5c4f }
+   294→        };
+   295→
+   296→        const MAPS = [
+   297→            { id: 'school', name: 'Escuela', color: 0xfff9c4, obstacles: 0x90a4ae },
+   298→            { id: 'beach', name: 'Playa', color: 0xffe0b2, obstacles: 0x795548 },
+   299→            { id: 'forest', name: 'Bosque', color: 0x81c784, obstacles: 0x388e3c },
+   300→            { id: 'rocky', name: 'Terreno Rocoso', color: 0x9e9e9e, obstacles: 0x616161 },
+   301→            { id: 'city', name: 'Ciudad', color: 0xb0bec5, obstacles: 0x455a64 },
+   302→            { id: 'suburb', name: 'Suburbio', color: 0xc8e6c9, obstacles: 0x7cb342 },
+   303→            { id: 'colony', name: 'Colonia', color: 0xffccbc, obstacles: 0xff7043 },
+   304→            { id: 'park', name: 'Parque', color: 0xa5d6a7, obstacles: 0x66bb6a },
+   305→            { id: 'building', name: 'Edificio', color: 0xe0e0e0, obstacles: 0x757575 },
+   306→            { id: 'desert', name: 'Desierto', color: 0xffd54f, obstacles: 0xf57f17 },
+   307→            { id: 'snow', name: 'Nieve', color: 0xe3f2fd, obstacles: 0x90a4ae },
+   308→            { id: 'volcano', name: 'Volcán', color: 0x424242, obstacles: 0xd84315 },
+   309→            { id: 'swamp', name: 'Pantano', color: 0x9e9d24, obstacles: 0x558b2f },
+   310→            { id: 'cave', name: 'Cueva', color: 0x616161, obstacles: 0x424242 },
+   311→            { id: 'factory', name: 'Fábrica', color: 0x78909c, obstacles: 0x37474f },
+   312→            { id: 'mall', name: 'Centro Comercial', color: 0xf3e5f5, obstacles: 0x9c27b0 },
+   313→            { id: 'airport', name: 'Aeropuerto', color: 0xb3e5fc, obstacles: 0x0288d1 },
+   314→            { id: 'hospital', name: 'Hospital', color: 0xe1f5fe, obstacles: 0x0277bd },
+   315→            { id: 'prison', name: 'Prisión', color: 0xcfd8dc, obstacles: 0x455a64 },
+   316→            { id: 'stadium', name: 'Estadio', color: 0xffe082, obstacles: 0xffa000 }
+   317→        ];
+   318→
+   319→        function createDoodleMesh(geometry, color, scale = 1) {
+   320→            const group = new THREE.Group();
+   321→            const material = new THREE.MeshToonMaterial({ color: color });
+   322→            const mesh = new THREE.Mesh(geometry, material);
+   323→            const edges = new THREE.EdgesGeometry(geometry, 15);
+   324→            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+   325→            const wireframe = new THREE.LineSegments(edges, lineMaterial);
+   326→            wireframe.scale.set(1.01, 1.01, 1.01);
+   327→            group.add(mesh);
+   328→            group.add(wireframe);
+   329→            group.scale.set(scale, scale, scale);
+   330→            group.userData = { 
+   331→                wireframe: wireframe,
+   332→                wobbleSpeed: Math.random() * 0.003 + 0.002,
+   333→                wobbleOffset: Math.random() * 100,
+   334→                isDoodle: true
+   335→            };
+   336→            return group;
+   337→        }
+   338→
+   339→        class AABB {
+   340→            constructor(min, max) { this.min = min; this.max = max; }
+   341→            intersects(other) {
+   342→                return this.min.x <= other.max.x && this.max.x >= other.min.x &&
+   343→                       this.min.y <= other.max.y && this.max.y >= other.min.y &&
+   344→                       this.min.z <= other.max.z && this.max.z >= other.min.z;
+   345→            }
+   346→            contains(point) {
+   347→                return point.x >= this.min.x && point.x <= this.max.x &&
+   348→                       point.y >= this.min.y && point.y <= this.max.y &&
+   349→                       point.z >= this.min.z && point.z <= this.max.z;
+   350→            }
+   351→        }
+   352→
+   353→        class Entity {
+   354→            constructor(position, type) {
+   355→                this.position = position.clone();
+   356→                this.velocity = new THREE.Vector3();
+   357→                this.type = type;
+   358→                this.alive = true;
+   359→                this.mesh = null;
+   360→                this.bbox = null;
+   361→            }
+   362→            update(delta) {
+   363→                this.position.add(this.velocity.clone().multiplyScalar(delta));
+   364→                if (this.mesh) this.mesh.position.copy(this.position);
+   365→            }
+   366→            destroy() {
+   367→                this.alive = false;
+   368→                if (this.mesh) game.scene.remove(this.mesh);
+   369→            }
+   370→        }
+   371→
+   372→        class Enemy extends Entity {
+   373→            constructor(position, level) {
+   374→                super(position, 'enemy');
+   375→                this.health = 50 + (level * 10);
+   376→                this.maxHealth = this.health;
+   377→                this.speed = 3 + (level * 0.5);
+   378→                this.level = level;
+   379→                this.lastShot = 0;
+   380→                this.weapon = this.getRandomWeapon(level);
+   381→                this.createMesh();
+   382→            }
+   383→            getRandomWeapon(level) {
+   384→                const weapons = ['pistol', 'smg', 'rifle', 'shotgun'];
+   385→                if (level >= 5) weapons.push('sniper');
+   386→                if (level >= 10) weapons.push('minigun');
+   387→                return weapons[Math.floor(Math.random() * weapons.length)];
+   388→            }
+   389→            createMesh() {
+   390→                this.mesh = new THREE.Group();
+   391→                const body = createDoodleMesh(new THREE.BoxGeometry(0.6, 1.4, 0.4), 0xe74c3c);
+   392→                body.position.y = 0.7; body.userData.isBody = true;
+   393→                const head = createDoodleMesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), 0xffdbac);
+   394→                head.position.y = 1.6; head.userData.isHead = true;
+   395→                const armGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2);
+   396→                const leftArm = createDoodleMesh(armGeo, 0xe74c3c); leftArm.position.set(-0.4, 0.9, 0);
+   397→                const rightArm = createDoodleMesh(armGeo, 0xe74c3c); rightArm.position.set(0.4, 0.9, 0);
+   398→                const legGeo = new THREE.BoxGeometry(0.25, 0.9, 0.25);
+   399→                const leftLeg = createDoodleMesh(legGeo, 0x34495e); leftLeg.position.set(-0.2, -0.45, 0);
+   400→                const rightLeg = createDoodleMesh(legGeo, 0x34495e); rightLeg.position.set(0.2, -0.45, 0);
+   401→                const gun = createDoodleMesh(new THREE.BoxGeometry(0.1, 0.1, 0.5), 0x2c3e50);
+   402→                gun.position.set(0.5, 1.0, 0.3);
+   403→                this.mesh.add(body, head, leftArm, rightArm, leftLeg, rightLeg, gun);
+   404→                this.mesh.position.copy(this.position);
+   405→                this.bbox = new AABB(new THREE.Vector3(-0.3, 0, -0.3), new THREE.Vector3(0.3, 2.0, 0.3));
+   406→                game.scene.add(this.mesh);
+   407→            }
+   408→            takeDamage(damage, isHeadshot) {
+   409→                const finalDamage = isHeadshot ? damage * 3 : damage;
+   410→                this.health -= finalDamage;
+   411→                if (this.mesh) {
+   412→                    this.mesh.children.forEach(child => {
+   413→                        if (child.userData && child.userData.isDoodle) {
+   414→                            child.position.x += (Math.random() - 0.5) * 0.1;
+   415→                        }
+   416→                    });
+   417→                }
+   418→                if (this.health <= 0) { this.die(); return true; }
+   419→                return false;
+   420→            }
+   421→            die() {
+   422→                this.destroy();
+   423→                game.player.killStreak++;
+   424→                game.player.kills++;
+   425→                game.updateScore(50);
+   426→                if (Math.random() < 0.6) game.spawnPickup(this.position.clone(), 'ammo');
+   427→                if (Math.random() < 0.2) game.spawnPickup(this.position.clone(), 'health');
+   428→                if (Math.random() < 0.15) {
+   429→                    const weapons = ['pistol', 'smg', 'rifle', 'shotgun'];
+   430→                    if (this.level >= 5) weapons.push('sniper');
+   431→                    game.spawnPickup(this.position.clone(), 'weapon', weapons[Math.floor(Math.random() * weapons.length)]);
+   432→                }
+   433→                if (this.level >= 10 && Math.random() < CONFIG.DRONE_DROP_CHANCE) game.spawnPickup(this.position.clone(), 'drone');
+   434→                if (this.level >= 15 && Math.random() < CONFIG.DRAGON_DROP_CHANCE) game.spawnPickup(this.position.clone(), 'dragon');
+   435→            }
+   436→            update(delta, playerPos) {
+   437→                super.update(delta);
+   438→                const direction = new THREE.Vector3();
+   439→                direction.subVectors(playerPos, this.position);
+   440→                direction.y = 0;
+   441→                const distance = direction.length();
+   442→                direction.normalize();
+   443→                if (distance > 5) this.velocity.copy(direction.multiplyScalar(this.speed));
+   444→                else this.velocity.set(0, 0, 0);
+   445→                if (this.mesh) this.mesh.lookAt(playerPos.x, this.position.y + 1, playerPos.z);
+   446→                const now = Date.now();
+   447→                if (distance < 25 && now - this.lastShot > WEAPONS[this.weapon].fireRate * 2) {
+   448→                    this.shoot(playerPos);
+   449→                    this.lastShot = now;
+   450→                }
+   451→            }
+   452→            shoot(targetPos) {
+   453→                const weapon = WEAPONS[this.weapon];
+   454→                const direction = new THREE.Vector3();
+   455→                direction.subVectors(targetPos, this.position);
+   456→                direction.y += 0.5;
+   457→                direction.normalize();
+   458→                direction.x += (Math.random() - 0.5) * weapon.spread;
+   459→                direction.z += (Math.random() - 0.5) * weapon.spread;
+   460→                const bullet = new Bullet(this.position.clone().add(new THREE.Vector3(0, 1.2, 0)), direction, weapon.damage * 0.7, weapon.bulletSpeed, 'enemy');
+   461→                game.bullets.push(bullet);
+   462→            }
+   463→        }
+   464→
+   465→        class Bullet extends Entity {
+   466→            constructor(position, direction, damage, speed, owner) {
+   467→                super(position, 'bullet');
+   468→                this.direction = direction.clone().normalize();
+   469→                this.velocity = this.direction.multiplyScalar(speed);
+   470→                this.damage = damage;
+   471→                this.owner = owner;
+   472→                this.life = 3;
+   473→                this.createMesh();
+   474→            }
+   475→            createMesh() {
+   476→                this.mesh = createDoodleMesh(new THREE.SphereGeometry(0.08, 6, 6), 0x000000, 1);
+   477→                this.mesh.position.copy(this.position);
+   478→                game.scene.add(this.mesh);
+   479→            }
+   480→            update(delta) {
+   481→                super.update(delta);
+   482→                this.life -= delta;
+   483→                if (this.life <= 0) this.destroy();
+   484→            }
+   485→        }
+   486→
+   487→        class Pickup extends Entity {
+   488→            constructor(position, type, subtype) {
+   489→                super(position, 'pickup');
+   490→                this.pickupType = type;
+   491→                this.subtype = subtype;
+   492→                this.createMesh();
+   493→                this.bobOffset = Math.random() * Math.PI * 2;
+   494→            }
+   495→            createMesh() {
+   496→                this.mesh = new THREE.Group();
+   497→                let color = 0xffffff, geometry;
+   498→                switch(this.pickupType) {
+   499→                    case 'health': color = 0xe74c3c; geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4); break;
+   500→                    case 'shield': color = 0x3498db; geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4); break;
+   501→                    case 'ammo': color = 0xf39c12; geometry = new THREE.BoxGeometry(0.5, 0.3, 0.2); break;
+   502→                    case 'weapon': color = 0x9b59b6; geometry = new THREE.BoxGeometry(0.6, 0.3, 0.2); break;
+   503→                    case 'drone': color = 0x00bcd4; geometry = new THREE.BoxGeometry(0.3, 0.3, 0.3); break;
+   504→                    case 'dragon': color = 0xff5722; geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5); break;
+   505→                    case 'epic': color = 0xffd700; geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5); break;
+   506→                    default: color = 0x95a5a6; geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+   507→                }
+   508→                const box = createDoodleMesh(geometry, color);
+   509→                this.mesh.add(box);
+   510→                this.mesh.position.copy(this.position);
+   511→                game.scene.add(this.mesh);
+   512→                this.bbox = new AABB(new THREE.Vector3(-0.25, 0, -0.25), new THREE.Vector3(0.25, 0.5, 0.25));
+   513→            }
+   514→            update(delta) {
+   515→                super.update(delta);
+   516→                if (this.mesh) {
+   517→                    this.mesh.position.y = this.position.y + Math.sin(Date.now() * 0.003 + this.bobOffset) * 0.1;
+   518→                    this.mesh.rotation.y += delta * 2;
+   519→                }
+   520→            }
+   521→            collect() {
+   522→                const player = game.player;
+   523→                switch(this.pickupType) {
+   524→                    case 'health': player.health = Math.min(100, player.health + 25); game.showNotification('❤️ +25 Salud'); break;
+   525→                    case 'shield': player.shield = Math.min(100, player.shield + 50); game.showNotification('🛡️ +50 Escudo'); break;
+   526→                    case 'ammo':
+   527→                        const cw = WEAPONS[player.weapons[player.currentWeapon]];
+   528→                        if (cw) { cw.ammo = Math.min(cw.maxAmmo, cw.ammo + 15); game.showNotification('🔫 +15 Balas'); }
+   529→                        break;
+   530→                    case 'weapon':
+   531→                        if (!player.weapons.includes(this.subtype)) {
+   532→                            if (player.weapons.length < 4) { player.weapons.push(this.subtype); game.showNotification(`🎯 Nueva arma: ${WEAPONS[this.subtype].name}`); }
+   533→                            else { player.weapons[player.currentWeapon] = this.subtype; game.showNotification(`🎯 Reemplazado con: ${WEAPONS[this.subtype].name}`); }
+   534→                        }
+   535→                        break;
+   536→                    case 'drone': player.drones++; game.showNotification('🚁 +1 Dron'); break;
+   537→                    case 'dragon': player.dragonCubes++; game.showNotification('🐉 +1 Cubo de Dragón'); break;
+   538→                    case 'epic':
+   539→                        const epicWeapons = ['minigun', 'rpg', 'sniper'];
+   540→                        const randomEpic = epicWeapons[Math.floor(Math.random() * epicWeapons.length)];
+   541→                        if (!player.weapons.includes(randomEpic)) player.weapons.push(randomEpic);
+   542→                        game.showNotification(`⭐ ARMA ÉPICA: ${WEAPONS[randomEpic].name}`);
+   543→                        break;
+   544→                }
+   545→                this.destroy();
+   546→                game.updateHUD();
+   547→            }
+   548→        }
+   549→
+   550→        class Drone extends Entity {
+   551→            constructor(position) {
+   552→                super(position, 'drone');
+   553→                this.health = 50;
+   554→                this.target = null;
+   555→                this.lifetime = 30;
+   556→                this.createMesh();
+   557→            }
+   558→            createMesh() {
+   559→                this.mesh = createDoodleMesh(new THREE.BoxGeometry(0.5, 0.2, 0.5), 0x00bcd4);
+   560→                this.mesh.position.copy(this.position);
+   561→                game.scene.add(this.mesh);
+   562→            }
+   563→            update(delta) {
+   564→                super.update(delta);
+   565→                this.lifetime -= delta;
+   566→                if (this.lifetime <= 0) { this.destroy(); return; }
+   567→                if (!this.target || !this.target.alive) {
+   568→                    let maxKills = -1;
+   569→                    game.enemies.forEach(enemy => {
+   570→                        if (enemy.alive) {
+   571→                            const kills = Math.floor(Math.random() * 5);
+   572→                            if (kills > maxKills) { maxKills = kills; this.target = enemy; }
+   573→                        }
+   574→                    });
+   575→                }
+   576→                if (this.target && this.target.alive) {
+   577→                    const direction = new THREE.Vector3();
+   578→                    direction.subVectors(this.target.position, this.position);
+   579→                    direction.y = 2;
+   580→                    direction.normalize();
+   581→                    this.velocity.copy(direction.multiplyScalar(15));
+   582→                    if (this.position.distanceTo(this.target.position) < 15) {
+   583→                        const bullet = new Bullet(this.position.clone(), direction.normalize(), 20, 80, 'drone');
+   584→                        game.bullets.push(bullet);
+   585→                    }
+   586→                } else { this.velocity.set(0, 0, 0); }
+   587→                if (this.mesh) {
+   588→                    this.mesh.position.y = this.position.y + Math.sin(Date.now() * 0.005) * 0.2;
+   589→                    this.mesh.rotation.y += delta * 5;
+   590→                }
+   591→            }
+   592→        }
+   593→
+   594→        class Dragon extends Entity {
+   595→            constructor(position) {
+   596→                super(position, 'dragon');
+   597→                this.health = 200;
+   598→                this.lifetime = 30;
+   599→                this.owner = game.player;
+   600→                this.createMesh();
+   601→            }
+   602→            createMesh() {
+   603→                this.mesh = new THREE.Group();
+   604→                const body = createDoodleMesh(new THREE.BoxGeometry(1, 1.5, 2), 0xecf0f1); body.position.y = 1;
+   605→                const head = createDoodleMesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), 0xecf0f1); head.position.set(0, 2, 1.5);
+   606→                const wingGeo = new THREE.BoxGeometry(3, 0.2, 1);
+   607→                const leftWing = createDoodleMesh(wingGeo, 0xbdc3c7); leftWing.position.set(-1.5, 1.5, 0); leftWing.rotation.z = -0.3;
+   608→                const rightWing = createDoodleMesh(wingGeo, 0xbdc3c7); rightWing.position.set(1.5, 1.5, 0); rightWing.rotation.z = 0.3;
+   609→                this.mesh.add(body, head, leftWing, rightWing);
+   610→                this.mesh.position.copy(this.position);
+   611→                game.scene.add(this.mesh);
+   612→            }
+   613→            update(delta) {
+   614→                super.update(delta);
+   615→                this.lifetime -= delta;
+   616→                if (this.lifetime <= 0) { this.destroy(); return; }
+   617→                let closestEnemy = null, closestDistance = Infinity;
+   618→                game.enemies.forEach(enemy => {
+   619→                    if (enemy.alive) {
+   620→                        const distance = this.position.distanceTo(enemy.position);
+   621→                        if (distance < closestDistance) { closestDistance = distance; closestEnemy = enemy; }
+   622→                    }
+   623→                });
+   624→                if (closestEnemy) {
+   625→                    const direction = new THREE.Vector3();
+   626→                    direction.subVectors(closestEnemy.position, this.position);
+   627→                    direction.normalize();
+   628→                    this.velocity.copy(direction.multiplyScalar(10));
+   629→                    if (closestDistance < 8 && Math.random() < 0.05) {
+   630→                        const bullet = new Bullet(this.position.clone().add(new THREE.Vector3(0, 2, 0)), direction, 150, 60, 'dragon');
+   631→                        game.bullets.push(bullet);
+   632→                    }
+   633→                }
+   634→                if (this.mesh) {
+   635→                    this.mesh.position.y = this.position.y + 2;
+   636→                    this.mesh.lookAt(closestEnemy ? closestEnemy.position.x : this.position.x, this.position.y + 2, closestEnemy ? closestEnemy.position.z : this.position.z);
+   637→                }
+   638→            }
+   639→        }
+   640→
+   641→        class GreenMob extends Entity {
+   642→            constructor(position) {
+   643→                super(position, 'greenmob');
+   644→                this.health = 100;
+   645→                this.lifetime = 60;
+   646→                this.invulnerable = 10;
+   647→                this.createMesh();
+   648→            }
+   649→            createMesh() {
+   650→                this.mesh = createDoodleMesh(new THREE.BoxGeometry(0.8, 1.6, 0.8), 0x4caf50);
+   651→                this.mesh.position.copy(this.position);
+   652→                game.scene.add(this.mesh);
+   653→            }
+   654→            update(delta) {
+   655→                super.update(delta);
+   656→                this.lifetime -= delta;
+   657→                this.invulnerable -= delta;
+   658→                if (this.lifetime <= 0) {
+   659→                    this.destroy();
+   660→                    if (this.alive) {
+   661→                        if (!game.player.weapons.includes('rifle')) game.player.weapons.push('rifle');
+   662→                        game.showNotification('🎉 ¡Mob verde sobrevivió! +Rifle y +Balas');
+   663→                        const cw = WEAPONS['rifle'];
+   664→                        if(cw) cw.ammo = cw.maxAmmo;
+   665→                    }
+   666→                    return;
+   667→                }
+   668→                if (Math.random() < 0.02) {
+   669→                    const randomDir = new THREE.Vector3((Math.random() - 0.5) * 10, 0, (Math.random() - 0.5) * 10);
+   670→                    this.velocity.copy(randomDir.normalize().multiplyScalar(5));
+   671→                }
+   672→                if (this.mesh) this.mesh.rotation.y += delta * 2;
+   673→            }
+   674→        }
+   675→
+   676→        class Game {
+   677→            constructor() {
+   678→                this.scene = new THREE.Scene();
+   679→                this.scene.background = new THREE.Color(0xfdfbf7);
+   680→                this.scene.fog = new THREE.Fog(0xfdfbf7, 20, 80);
+   681→                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+   682→                this.camera.position.y = 1.6;
+   683→                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+   684→                this.renderer.setSize(window.innerWidth, window.innerHeight);
+   685→                this.renderer.setPixelRatio(window.devicePixelRatio);
+   686→                document.body.appendChild(this.renderer.domElement);
+   687→                
+   688→                const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+   689→                this.scene.add(ambientLight);
+   690→                const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+   691→                dirLight.position.set(10, 20, 10);
+   692→                this.scene.add(dirLight);
+   693→                
+   694→                this.controls = new PointerLockControls(this.camera, document.body);
+   695→                this.mapGroup = new THREE.Group();
+   696→                this.scene.add(this.mapGroup);
+   697→                
+   698→                this.viewModel = new THREE.Group();
+   699→                this.camera.add(this.viewModel);
+   700→                this.viewModel.position.set(0.3, -0.3, -0.5);
+   701→                const hand = createDoodleMesh(new THREE.BoxGeometry(0.1, 0.1, 0.2), 0xffdbac);
+   702→                this.viewModel.add(hand);
+   703→                this.scene.add(this.camera);
+   704→                
+   705→                this.player = {
+   706→                    health: 100, shield: 0, weapons: ['pistol'], currentWeapon: 0,
+   707→                    killStreak: 0, kills: 0, drones: 0, dragonCubes: 0,
+   708→                    position: new THREE.Vector3(0, 1.6, 0), velocity: new THREE.Vector3(), canJump: false
+   709→                };
+   710→                
+   711→                this.enemies = []; this.bullets = []; this.pickups = [];
+   712→                this.drones = []; this.dragons = []; this.greenMobs = []; this.obstacles = [];
+   713→                this.currentLevel = 1; this.currentMap = null; this.score = 0;
+   714→                this.isPaused = false; this.isGameOver = false;
+   715→                this.lastShot = 0; this.isShooting = false; this.lastFrameTime = performance.now();
+   716→                this.moveState = { forward: false, backward: false, left: false, right: false };
+   717→                
+   718→                this.setupEventListeners();
+   719→                this.initMapSelection();
+   720→            }
+   721→            
+   722→            updateViewModel() {
+   723→                while(this.viewModel.children.length > 1) this.viewModel.remove(this.viewModel.children[this.viewModel.children.length - 1]);
+   724→                const weaponType = this.player.weapons[this.player.currentWeapon];
+   725→                if (!weaponType) return;
+   726→                const weapon = WEAPONS[weaponType];
+   727→                const gunGroup = new THREE.Group();
+   728→                if (weaponType === 'pistol') {
+   729→                    const body = createDoodleMesh(new THREE.BoxGeometry(0.08, 0.12, 0.25), weapon.color);
+   730→                    const barrel = createDoodleMesh(new THREE.BoxGeometry(0.05, 0.05, 0.2), weapon.color);
+   731→                    barrel.position.z = -0.2; gunGroup.add(body, barrel);
+   732→                } else if (weaponType === 'shotgun') {
+   733→                    const body = createDoodleMesh(new THREE.BoxGeometry(0.1, 0.12, 0.4), weapon.color);
+   734→                    const barrel = createDoodleMesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8), weapon.color);
+   735→                    barrel.rotation.x = Math.PI / 2; barrel.position.z = -0.4; gunGroup.add(body, barrel);
+   736→                } else if (weaponType === 'sniper') {
+   737→                    const body = createDoodleMesh(new THREE.BoxGeometry(0.08, 0.1, 0.6), weapon.color);
+   738→                    const barrel = createDoodleMesh(new THREE.BoxGeometry(0.05, 0.05, 0.8), weapon.color);
+   739→                    barrel.position.z = -0.6;
+   740→                    const scope = createDoodleMesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 8), 0x000000);
+   741→                    scope.rotation.x = Math.PI / 2; scope.position.set(0, 0.08, -0.2);
+   742→                    gunGroup.add(body, barrel, scope);
+   743→                } else if (weaponType === 'minigun') {
+   744→                    const body = createDoodleMesh(new THREE.BoxGeometry(0.12, 0.12, 0.5), weapon.color);
+   745→                    const barrels = [];
+   746→                    for(let i = 0; i < 6; i++) {
+   747→                        const barrel = createDoodleMesh(new THREE.CylinderGeometry(0.02, 0.02, 0.6, 6), 0x2c3e50);
+   748→                        barrel.rotation.x = Math.PI / 2;
+   749→                        const angle = (i / 6) * Math.PI * 2;
+   750→                        barrel.position.set(Math.cos(angle) * 0.04, Math.sin(angle) * 0.04, -0.4);
+   751→                        barrels.push(barrel);
+   752→                    }
+   753→                    gunGroup.add(body, ...barrels);
+   754→                } else if (weaponType === 'rpg') {
+   755→                    const body = createDoodleMesh(new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8), weapon.color);
+   756→                    body.rotation.x = Math.PI / 2; gunGroup.add(body);
+   757→                } else {
+   758→                    const body = createDoodleMesh(new THREE.BoxGeometry(0.08, 0.1, 0.5), weapon.color);
+   759→                    const barrel = createDoodleMesh(new THREE.BoxGeometry(0.05, 0.05, 0.6), weapon.color);
+   760→                    barrel.position.z = -0.5; gunGroup.add(body, barrel);
+   761→                }
+   762→                gunGroup.position.set(0, -0.05, 0);
+   763→                this.viewModel.add(gunGroup);
+   764→            }
+   765→            
+   766→            initMapSelection() {
+   767→                const grid = document.getElementById('mapGrid');
+   768→                MAPS.forEach((map, index) => {
+   769→                    const card = document.createElement('div');
+   770→                    card.className = 'map-card';
+   771→                    card.innerHTML = `<h3>${index + 1}. ${map.name}</h3><p>Dificultad: ${index < 5 ? 'Fácil' : index < 10 ? 'Medio' : index < 15 ? 'Difícil' : 'Extremo'}</p>`;
+   772→                    card.onclick = () => this.startGame(map);
+   773→                    grid.appendChild(card);
+   774→                });
+   775→            }
+   776→            
+   777→            startGame(map) {
+   778→                this.currentMap = map;
+   779→                document.getElementById('mainMenu').classList.add('hidden');
+   780→                document.getElementById('mapMenu').classList.add('hidden');
+   781→                document.getElementById('hud').classList.remove('hidden');
+   782→                document.getElementById('crosshair').classList.remove('hidden');
+   783→                document.getElementById('killStreak').classList.remove('hidden');
+   784→                document.getElementById('weaponSlots').classList.remove('hidden');
+   785→                document.getElementById('mapDisplay').innerText = map.name;
+   786→                this.buildMap(map);
+   787→                this.player.weapons.forEach(weaponType => { if(WEAPONS[weaponType]) WEAPONS[weaponType].ammo = WEAPONS[weaponType].maxAmmo; });
+   788→                this.startWave();
+   789→                this.controls.lock();
+   790→                this.lastFrameTime = performance.now();
+   791→                this.gameLoop();
+   792→            }
+   793→            
+   794→            buildMap(map) {
+   795→                while(this.mapGroup.children.length > 0) this.mapGroup.remove(this.mapGroup.children[0]);
+   796→                this.obstacles = [];
+   797→                const ground = createDoodleMesh(new THREE.PlaneGeometry(CONFIG.MAP_SIZE, CONFIG.MAP_SIZE, 10, 10), map.color);
+   798→                ground.rotation.x = -Math.PI / 2;
+   799→                this.mapGroup.add(ground);
+   800→                const obstacleCount = 30 + Math.floor(Math.random() * 20);
+   801→                for(let i = 0; i < obstacleCount; i++) {
+   802→                    const type = Math.random();
+   803→                    let geo, height;
+   804→                    if (type < 0.4) { geo = new THREE.BoxGeometry(2 + Math.random() * 3, 2 + Math.random() * 2, 2 + Math.random() * 3); height = geo.parameters.height; }
+   805→                    else if (type < 0.6) { geo = new THREE.BoxGeometry(4 + Math.random() * 4, 0.5, 6 + Math.random() * 6); height = 0.5; }
+   806→                    else if (type < 0.8) { geo = new THREE.BoxGeometry(0.5, 3 + Math.random() * 2, 4 + Math.random() * 8); height = geo.parameters.height; }
+   807→                    else { geo = new THREE.BoxGeometry(2, 4 + Math.random() * 4, 2); height = geo.parameters.height; }
+   808→                    const obstacle = createDoodleMesh(geo, map.obstacles);
+   809→                    let x, z;
+   810→                    do { x = (Math.random() - 0.5) * (CONFIG.MAP_SIZE - 10); z = (Math.random() - 0.5) * (CONFIG.MAP_SIZE - 10); } 
+   811→                    while(Math.sqrt(x*x + z*z) < 10);
+   812→                    obstacle.position.set(x, height / 2, z);
+   813→                    if (type >= 0.4 && type < 0.6) obstacle.rotation.x = 0.3;
+   814→                    this.mapGroup.add(obstacle);
+   815→                    this.obstacles.push({
+   816→                        bbox: new AABB(new THREE.Vector3(x - geo.parameters.width/2, 0, z - geo.parameters.depth/2), new THREE.Vector3(x + geo.parameters.width/2, height, z + geo.parameters.depth/2)),
+   817→                        mesh: obstacle
+   818→                    });
+   819→                }
+   820→                this.addThematicElements(map);
+   821→            }
+   822→            
+   823→            addThematicElements(map) {
+   824→                if (map.id === 'forest' || map.id === 'park') {
+   825→                    for(let i = 0; i < 15; i++) {
+   826→                        const trunk = createDoodleMesh(new THREE.CylinderGeometry(0.3, 0.4, 4, 6), 0x8b4513);
+   827→                        trunk.position.set((Math.random() - 0.5) * 60, 2, (Math.random() - 0.5) * 60);
+   828→                        const leaves = createDoodleMesh(new THREE.ConeGeometry(2, 3, 6), 0x228b22);
+   829→                        leaves.position.y = 2.5; trunk.add(leaves); this.mapGroup.add(trunk);
+   830→                    }
+   831→                } else if (map.id === 'beach') {
+   832→                    for(let i = 0; i < 10; i++) {
+   833→                        const palm = createDoodleMesh(new THREE.CylinderGeometry(0.2, 0.3, 5, 6), 0x8b4513);
+   834→                        palm.position.set((Math.random() - 0.5) * 60, 2.5, (Math.random() - 0.5) * 60);
+   835→                        palm.rotation.z = (Math.random() - 0.5) * 0.3;
+   836→                        const leaves = createDoodleMesh(new THREE.SphereGeometry(1.5, 6, 6), 0x228b22);
+   837→                        leaves.position.y = 3; palm.add(leaves); this.mapGroup.add(palm);
+   838→                    }
+   839→                } else if (map.id === 'city' || map.id === 'suburb') {
+   840→                    for(let i = 0; i < 8; i++) {
+   841→                        const building = createDoodleMesh(new THREE.BoxGeometry(6, 8 + Math.random() * 8, 6), map.obstacles);
+   842→                        building.position.set((Math.random() - 0.5) * 50, 4 + Math.random() * 4, (Math.random() - 0.5) * 50);
+   843→                        this.mapGroup.add(building);
+   844→                    }
+   845→                }
+   846→            }
+   847→            
+   848→            startWave() {
+   849→                const enemyCount = 5 + (this.currentLevel * 2);
+   850→                for(let i = 0; i < enemyCount; i++) {
+   851→                    setTimeout(() => { if (!this.isGameOver && !this.isPaused) this.spawnEnemy(); }, i * 800);
+   852→                }
+   853→                this.showNotification(`🌊 Oleada ${this.currentLevel} - ${enemyCount} enemigos`);
+   854→            }
+   855→            
+   856→            spawnEnemy() {
+   857→                if (this.enemies.length >= CONFIG.MAX_ENEMIES) return;
+   858→                const angle = Math.random() * Math.PI * 2;
+   859→                const distance = 20 + Math.random() * 20;
+   860→                const x = this.player.position.x + Math.cos(angle) * distance;
+   861→                const z = this.player.position.z + Math.sin(angle) * distance;
+   862→                this.enemies.push(new Enemy(new THREE.Vector3(x, 0, z), this.currentLevel));
+   863→                this.updateHUD();
+   864→            }
+   865→            
+   866→            spawnPickup(position, type, subtype = null) {
+   867→                position.y = 0.5;
+   868→                this.pickups.push(new Pickup(position, type, subtype));
+   869→            }
+   870→            
+   871→            shoot() {
+   872→                if (this.isPaused || this.isGameOver || !this.controls.isLocked) return;
+   873→                const weaponType = this.player.weapons[this.player.currentWeapon];
+   874→                if (!weaponType) return;
+   875→                const weapon = WEAPONS[weaponType];
+   876→                const now = Date.now();
+   877→                if (now - this.lastShot < weapon.fireRate) return;
+   878→                if (weapon.ammo <= 0) { this.showNotification('⚠️ Sin munición - Presiona R'); return; }
+   879→                this.lastShot = now;
+   880→                weapon.ammo--;
+   881→                const pellets = weapon.pellets || 1;
+   882→                for(let i = 0; i < pellets; i++) {
+   883→                    const direction = new THREE.Vector3(0, 0, -1);
+   884→                    direction.applyQuaternion(this.camera.quaternion);
+   885→                    direction.x += (Math.random() - 0.5) * weapon.spread;
+   886→                    direction.y += (Math.random() - 0.5) * weapon.spread;
+   887→                    direction.z += (Math.random() - 0.5) * weapon.spread;
+   888→                    direction.normalize();
+   889→                    this.bullets.push(new Bullet(this.player.position.clone(), direction, weapon.damage, weapon.bulletSpeed, 'player'));
+   890→                }
+   891→                this.viewModel.position.z += 0.05;
+   892→                setTimeout(() => { this.viewModel.position.z = -0.5; }, 50);
+   893→                this.updateHUD();
+   894→            }
+   895→            
+   896→            reload() {
+   897→                const weaponType = this.player.weapons[this.player.currentWeapon];
+   898→                if (!weaponType) return;
+   899→                const weapon = WEAPONS[weaponType];
+   900→                if (weapon.ammo === weapon.maxAmmo) return;
+   901→                this.showNotification('🔄 Recargando...');
+   902→                setTimeout(() => { weapon.ammo = weapon.maxAmmo; this.updateHUD(); }, weapon.reloadTime);
+   903→            }
+   904→            
+   905→            useBomb() {
+   906→                if (this.player.killStreak < 10) return;
+   907→                this.player.killStreak = 0;
+   908→                this.showNotification('💣 ¡BOMBA ACTIVADA!');
+   909→                const explosion = document.createElement('div');
+   910→                explosion.className = 'explosion';
+   911→                explosion.style.width = '200px'; explosion.style.height = '200px';
+   912→                explosion.style.left = '50%'; explosion.style.top = '50%';
+   913→                explosion.style.transform = 'translate(-50%, -50%)';
+   914→                document.body.appendChild(explosion);
+   915→                setTimeout(() => explosion.remove(), 1000);
+   916→                this.enemies.forEach(enemy => {
+   917→                    if (enemy.alive && enemy.position.distanceTo(this.player.position) < 15) enemy.takeDamage(150, false);
+   918→                });
+   919→            }
+   920→            
+   921→            activateDrone() {
+   922→                if (this.player.drones <= 0) return;
+   923→                this.player.drones--;
+   924→                this.drones.push(new Drone(this.player.position.clone()));
+   925→                this.showNotification('🚁 ¡Dron activado!');
+   926→                this.updateHUD();
+   927→            }
+   928→            
+   929→            useDragonCube() {
+   930→                if (this.player.dragonCubes <= 0) return;
+   931→                this.player.dragonCubes--;
+   932→                this.dragons.push(new Dragon(this.player.position.clone()));
+   933→                this.showNotification('🐉 ¡Dragón de huesos invocado!');
+   934→                this.updateHUD();
+   935→            }
+   936→            
+   937→            switchWeapon(index) {
+   938→                if (index < this.player.weapons.length) {
+   939→                    this.player.currentWeapon = index;
+   940→                    this.updateViewModel();
+   941→                    this.updateHUD();
+   942→                }
+   943→            }
+   944→            
+   945→            update(delta) {
+   946→                if (this.isPaused || this.isGameOver) return;
+   947→                this.updatePlayer(delta);
+   948→                for(let i = this.bullets.length - 1; i >= 0; i--) {
+   949→                    this.bullets[i].update(delta);
+   950→                    if (!this.bullets[i].alive) { this.bullets.splice(i, 1); continue; }
+   951→                    this.checkBulletCollisions(this.bullets[i]);
+   952→                }
+   953→                for(let i = this.enemies.length - 1; i >= 0; i--) {
+   954→                    this.enemies[i].update(delta, this.player.position);
+   955→                    if (!this.enemies[i].alive) { this.enemies.splice(i, 1); continue; }
+   956→                    if (this.enemies[i].position.distanceTo(this.player.position) < 1.5) this.damagePlayer(5);
+   957→                }
+   958→                for(let i = this.pickups.length - 1; i >= 0; i--) {
+   959→                    this.pickups[i].update(delta);
+   960→                    if (!this.pickups[i].alive) { this.pickups.splice(i, 1); continue; }
+   961→                    if (this.pickups[i].position.distanceTo(this.player.position) < 2) { this.pickups[i].collect(); this.pickups.splice(i, 1); }
+   962→                }
+   963→                for(let i = this.drones.length - 1; i >= 0; i--) { this.drones[i].update(delta); if (!this.drones[i].alive) this.drones.splice(i, 1); }
+   964→                for(let i = this.dragons.length - 1; i >= 0; i--) { this.dragons[i].update(delta); if (!this.dragons[i].alive) this.dragons.splice(i, 1); }
+   965→                for(let i = this.greenMobs.length - 1; i >= 0; i--) { this.greenMobs[i].update(delta); if (!this.greenMobs[i].alive) this.greenMobs.splice(i, 1); }
+   966→                if (Math.random() < CONFIG.GREEN_MOB_CHANCE) this.greenMobs.push(new GreenMob(new THREE.Vector3((Math.random() - 0.5) * 40, 0, (Math.random() - 0.5) * 40)));
+   967→                if (this.enemies.length === 0 && this.isShooting === false) { // Simple check to ensure wave is truly done
+   968→                    // Defer level up slightly to let last bullets resolve
+   969→                    setTimeout(() => {
+   970→                        if(this.enemies.length === 0 && !this.isGameOver) {
+   971→                            this.currentLevel++;
+   972→                            if (this.currentLevel > 20) this.victory();
+   973→                            else this.startWave();
+   974→                        }
+   975→                    }, 1000);
+   976→                }
+   977→                this.scene.traverse((obj) => {
+   978→                    if (obj.userData && obj.userData.isDoodle && obj.userData.wireframe) {
+   979→                        const t = Date.now() * obj.userData.wobbleSpeed + obj.userData.wobbleOffset;
+   980→                        obj.userData.wireframe.rotation.z = Math.sin(t) * 0.02;
+   981→                    }
+   982→                });
+   983→                this.updateHUD();
+   984→            }
+   985→            
+   986→            updatePlayer(delta) {
+   987→                const speed = CONFIG.PLAYER_SPEED;
+   988→                const velocity = this.player.velocity;
+   989→                velocity.y -= CONFIG.GRAVITY * delta;
+   990→                const direction = new THREE.Vector3();
+   991→                if (this.moveState.forward) direction.z -= 1;
+   992→                if (this.moveState.backward) direction.z += 1;
+   993→                if (this.moveState.left) direction.x -= 1;
+   994→                if (this.moveState.right) direction.x += 1;
+   995→                direction.normalize();
+   996→                if (direction.length() > 0) {
+   997→                    const moveX = direction.x * speed * delta;
+   998→                    const moveZ = direction.z * speed * delta;
+   999→                    const rotatedMove = new THREE.Vector3(moveX, 0, moveZ);
+  1000→                    rotatedMove.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.camera.rotation.y);
+  1001→                    const newPos = this.player.position.clone();
+  1002→                    newPos.x += rotatedMove.x; newPos.z += rotatedMove.z;
+  1003→                    let canMove = true;
+  1004→                    const playerBBox = new AABB(new THREE.Vector3(newPos.x - 0.3, newPos.y - 1.6, newPos.z - 0.3), new THREE.Vector3(newPos.x + 0.3, newPos.y + 0.4, newPos.z + 0.3));
+  1005→                    for(const obstacle of this.obstacles) {
+  1006→                        if (playerBBox.intersects(obstacle.bbox)) { canMove = false; break; }
+  1007→                    }
+  1008→                    if (canMove) { this.player.position.x = newPos.x; this.player.position.z = newPos.z; }
+  1009→                }
+  1010→                this.player.position.y += velocity.y * delta;
+  1011→                if (this.player.position.y < 1.6) { this.player.position.y = 1.6; velocity.y = 0; this.player.canJump = true; }
+  1012→                this.camera.position.copy(this.player.position);
+  1013→                if (this.isShooting) {
+  1014→                    const weaponType = this.player.weapons[this.player.currentWeapon];
+  1015→                    if (weaponType && WEAPONS[weaponType].automatic) this.shoot();
+  1016→                }
+  1017→            }
+  1018→            
+  1019→            checkBulletCollisions(bullet) {
+  1020→                for(let i = 0; i < this.enemies.length; i++) {
+  1021→                    const enemy = this.enemies[i];
+  1022→                    if (!enemy.alive) continue;
+  1023→                    const distance = bullet.position.distanceTo(enemy.position);
+  1024→                    if (distance < 1.5) {
+  1025→                        const headPos = enemy.position.clone(); headPos.y += 1.6;
+  1026→                        const isHeadshot = bullet.position.distanceTo(headPos) < 0.5;
+  1027→                        if (enemy.takeDamage(bullet.damage, isHeadshot)) this.enemies.splice(i, 1);
+  1028→                        bullet.destroy(); return;
+  1029→                    }
+  1030→                }
+  1031→                for(const obstacle of this.obstacles) {
+  1032→                    if (obstacle.bbox.contains(bullet.position)) { bullet.destroy(); return; }
+  1033→                }
+  1034→            }
+  1035→            
+  1036→            damagePlayer(damage) {
+  1037→                let actualDamage = damage;
+  1038→                if (this.player.shield > 0) {
+  1039→                    const shieldDamage = Math.min(this.player.shield, damage);
+  1040→                    this.player.shield -= shieldDamage; actualDamage -= shieldDamage;
+  1041→                }
+  1042→                this.player.health -= actualDamage;
+  1043→                if (this.player.health <= 0) { this.player.health = 0; this.gameOver(); }
+  1044→                this.player.killStreak = 0;
+  1045→                this.updateHUD();
+  1046→            }
+  1047→            
+  1048→            gameOver() {
+  1049→                this.isGameOver = true;
+  1050→                this.controls.unlock();
+  1051→                document.getElementById('finalScore').innerText = this.score;
+  1052→                document.getElementById('finalLevel').innerText = this.currentLevel;
+  1053→                document.getElementById('finalKills').innerText = this.player.kills;
+  1054→                document.getElementById('gameOverScreen').classList.remove('hidden');
+  1055→            }
+  1056→            
+  1057→            victory() {
+  1058→                this.isGameOver = true;
+  1059→                this.controls.unlock();
+  1060→                this.showNotification('🏆 ¡VICTORIA! ¡Has completado los 20 niveles!');
+  1061→                setTimeout(() => this.gameOver(), 3000);
+  1062→            }
+  1063→            
+  1064→            updateScore(points) { this.score += points; }
+  1065→            
+  1066→            updateHUD() {
+  1067→                document.getElementById('levelDisplay').innerText = this.currentLevel;
+  1068→                document.getElementById('health').innerText = Math.max(0, this.player.health);
+  1069→                document.getElementById('shield').innerText = Math.max(0, this.player.shield);
+  1070→                document.getElementById('score').innerText = this.score;
+  1071→                document.getElementById('enemyCount').innerText = this.enemies.length;
+  1072→                document.getElementById('streak').innerText = this.player.killStreak;
+  1073→                const healthFill = document.getElementById('healthFill');
+  1074→                healthFill.style.width = Math.max(0, this.player.health) + '%';
+  1075→                healthFill.className = 'health-fill';
+  1076→                if (this.player.health < 30) healthFill.classList.add('low');
+  1077→                else if (this.player.health < 60) healthFill.classList.add('medium');
+  1078→                const slotsContainer = document.getElementById('weaponSlots');
+  1079→                slotsContainer.innerHTML = '';
+  1080→                this.player.weapons.forEach((weaponType, index) => {
+  1081→                    const slot = document.createElement('div');
+  1082→                    slot.className = 'weapon-slot' + (index === this.player.currentWeapon ? ' active' : '');
+  1083→                    const weapon = WEAPONS[weaponType];
+  1084→                    slot.innerHTML = `<div style="font-size:14px; font-weight:bold;">${index + 1}</div><div style="font-size:10px;">${weapon.name}</div><div style="font-size:11px; color:#d00000; font-weight:bold;">${weapon.ammo}/${weapon.maxAmmo}</div>`;
+  1085→                    slotsContainer.appendChild(slot);
+  1086→                });
+  1087→                const specialDiv = document.getElementById('specialAbility');
+  1088→                let specialText = '';
+  1089→                if (this.player.killStreak >= 10) specialText += '💣 [B] Bomba lista<br>';
+  1090→                if (this.player.drones > 0) specialText += `🚁 [V] Dron (${this.player.drones})<br>`;
+  1091→                if (this.player.dragonCubes > 0) specialText += `🐉 [N] Dragón (${this.player.dragonCubes})<br>`;
+  1092→                specialDiv.innerHTML = specialText;
+  1093→            }
+  1094→            
+  1095→            showNotification(message) {
+  1096→                const notif = document.getElementById('notification');
+  1097→                notif.innerText = message;
+  1098→                notif.classList.remove('hidden');
+  1099→                setTimeout(() => { notif.classList.add('hidden'); }, 2500);
+  1100→            }
+  1101→            
+  1102→            setupEventListeners() {
+  1103→                document.addEventListener('keydown', (e) => {
+  1104→                    if (this.isGameOver) return;
+  1105→                    switch(e.code) {
+  1106→                        case 'KeyW': this.moveState.forward = true; break;
+  1107→                        case 'KeyS': this.moveState.backward = true; break;
+  1108→                        case 'KeyA': this.moveState.left = true; break;
+  1109→                        case 'KeyD': this.moveState.right = true; break;
+  1110→                        case 'Space': if (this.player.canJump) { this.player.velocity.y = CONFIG.PLAYER_JUMP; this.player.canJump = false; } break;
+  1111→                        case 'KeyR': this.reload(); break;
+  1112→                        case 'Digit1': this.switchWeapon(0); break;
+  1113→                        case 'Digit2': this.switchWeapon(1); break;
+  1114→                        case 'Digit3': this.switchWeapon(2); break;
+  1115→                        case 'Digit4': this.switchWeapon(3); break;
+  1116→                        case 'KeyB': this.useBomb(); break;
+  1117→                        case 'KeyV': this.activateDrone(); break;
+  1118→                        case 'KeyN': this.useDragonCube(); break;
+  1119→                        case 'Escape': 
+  1120→                            if (this.controls.isLocked) {
+  1121→                                this.isPaused = true;
+  1122→                                this.controls.unlock();
+  1123→                                document.getElementById('pauseMenu').classList.remove('hidden');
+  1124→                            }
+  1125→                            break;
+  1126→                    }
+  1127→                });
+  1128→                document.addEventListener('keyup', (e) => {
+  1129→                    switch(e.code) {
+  1130→                        case 'KeyW': this.moveState.forward = false; break;
+  1131→                        case 'KeyS': this.moveState.backward = false; break;
+  1132→                        case 'KeyA': this.moveState.left = false; break;
+  1133→                        case 'KeyD': this.moveState.right = false; break;
+  1134→                    }
+  1135→                });
+  1136→                document.addEventListener('mousedown', (e) => {
+  1137→                    if (e.button === 0 && this.controls.isLocked) {
+  1138→                        this.isShooting = true;
+  1139→                        const currentWeapon = WEAPONS[this.player.weapons[this.player.currentWeapon]];
+  1140→                        if (currentWeapon && !currentWeapon.automatic) this.shoot();
+  1141→                    }
+  1142→                });
+  1143→                document.addEventListener('mouseup', (e) => { if (e.button === 0) this.isShooting = false; });
+  1144→                window.addEventListener('resize', () => {
+  1145→                    this.camera.aspect = window.innerWidth / window.innerHeight;
+  1146→                    this.camera.updateProjectionMatrix();
+  1147→                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+  1148→                });
+  1149→                this.controls.addEventListener('unlock', () => {
+  1150→                    if (!this.isGameOver && !this.isPaused) {
+  1151→                        this.isPaused = true;
+  1152→                        document.getElementById('pauseMenu').classList.remove('hidden');
+  1153→                    }
+  1154→                });
+  1155→            }
+  1156→            
+  1157→            gameLoop() {
+  1158→                if (this.isGameOver) return;
+  1159→                requestAnimationFrame(() => this.gameLoop());
+  1160→                const currentTime = performance.now();
+  1161→                const delta = Math.min((currentTime - this.lastFrameTime) / 1000, 0.1);
+  1162→                this.lastFrameTime = currentTime;
+  1163→                this.update(delta);
+  1164→                this.renderer.render(this.scene, this.camera);
+  1165→            }
+  1166→        }
+  1167→
+  1168→        const game = new Game();
+  1169→
+  1170→        window.showMapSelect = () => {
+  1171→            document.getElementById('mainMenu').classList.add('hidden');
+  1172→            document.getElementById('mapMenu').classList.remove('hidden');
+  1173→        };
+  1174→        window.backToMain = () => {
+  1175→            document.getElementById('mapMenu').classList.add('hidden');
+  1176→            document.getElementById('mainMenu').classList.remove('hidden');
+  1177→        };
+  1178→        window.resumeGame = () => {
+  1179→            game.isPaused = false;
+  1180→            document.getElementById('pauseMenu').classList.add('hidden');
+  1181→            game.controls.lock();
+  1182→            game.lastFrameTime = performance.now();
+  1183→        };
+  1184→    </script>
+  1185→</body>
+  1186→</html>

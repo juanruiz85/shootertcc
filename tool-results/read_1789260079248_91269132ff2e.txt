@@ -1,0 +1,664 @@
+     1→<!DOCTYPE html>
+     2→<html lang="es">
+     3→<head>
+     4→    <meta charset="UTF-8">
+     5→    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     6→    <title>Doodle Shooter: Architect Edition</title>
+     7→    <style>
+     8→        /* ESTÉTICA DE CUADERNO ESCOLAR */
+     9→        body {
+    10→            margin: 0;
+    11→            overflow: hidden;
+    12→            background-color: #fdfbf7;
+    13→            background-image: 
+    14→                linear-gradient(#e8e4df 1px, transparent 1px),
+    15→                linear-gradient(90deg, #e8e4df 1px, transparent 1px);
+    16→            background-size: 40px 40px;
+    17→            font-family: 'Comic Sans MS', 'Courier New', cursive;
+    18→            user-select: none;
+    19→        }
+    20→        
+    21→        /* UI GENERAL */
+    22→        .screen {
+    23→            position: absolute;
+    24→            top: 0; left: 0; width: 100%; height: 100%;
+    25→            display: flex;
+    26→            flex-direction: column;
+    27→            align-items: center;
+    28→            justify-content: center;
+    29→            background: rgba(253, 251, 247, 0.95);
+    30→            z-index: 100;
+    31→            transition: opacity 0.3s;
+    32→        }
+    33→        .hidden { display: none !important; }
+    34→        
+    35→        h1 {
+    36→            font-size: 64px;
+    37→            color: #1a1a1a;
+    38→            text-transform: uppercase;
+    39→            letter-spacing: 4px;
+    40→            margin-bottom: 10px;
+    41→            text-shadow: 3px 3px 0px #ccc;
+    42→            transform: rotate(-2deg);
+    43→        }
+    44→        
+    45→        .btn {
+    46→            background: #fff;
+    47→            border: 3px solid #1a1a1a;
+    48→            padding: 15px 40px;
+    49→            margin: 10px;
+    50→            font-size: 24px;
+    51→            font-family: inherit;
+    52→            font-weight: bold;
+    53→            cursor: pointer;
+    54→            box-shadow: 5px 5px 0px #1a1a1a;
+    55→            transition: transform 0.1s, box-shadow 0.1s;
+    56→        }
+    57→        .btn:hover {
+    58→            transform: translate(-2px, -2px);
+    59→            box-shadow: 7px 7px 0px #1a1a1a;
+    60→            background: #f0f0f0;
+    61→        }
+    62→        .btn:active {
+    63→            transform: translate(2px, 2px);
+    64→            box-shadow: 2px 2px 0px #1a1a1a;
+    65→        }
+    66→
+    67→        .map-grid {
+    68→            display: grid;
+    69→            grid-template-columns: repeat(2, 1fr);
+    70→            gap: 20px;
+    71→            margin-top: 20px;
+    72→        }
+    73→        .map-card {
+    74→            border: 3px solid #1a1a1a;
+    75→            padding: 20px;
+    76→            width: 200px;
+    77→            text-align: center;
+    78→            cursor: pointer;
+    79→            background: white;
+    80→            box-shadow: 4px 4px 0px #1a1a1a;
+    81→        }
+    82→        .map-card:hover { background: #f9f9f9; transform: scale(1.05); }
+    83→        .map-tropical { border-color: #2d6a4f; color: #2d6a4f; }
+    84→        .map-suburban { border-color: #457b9d; color: #457b9d; }
+    85→        .map-ancient { border-color: #6c757d; color: #6c757d; }
+    86→        .map-west { border-color: #d4a373; color: #d4a373; }
+    87→
+    88→        /* HUD DEL JUEGO */
+    89→        #hud {
+    90→            position: absolute;
+    91→            top: 20px; left: 20px;
+    92→            color: #1a1a1a;
+    93→            font-size: 20px;
+    94→            font-weight: bold;
+    95→            pointer-events: none;
+    96→            z-index: 10;
+    97→            background: rgba(255,255,255,0.8);
+    98→            padding: 15px;
+    99→            border: 2px solid #1a1a1a;
+   100→            box-shadow: 3px 3px 0px #1a1a1a;
+   101→        }
+   102→        #crosshair {
+   103→            position: absolute;
+   104→            top: 50%; left: 50%;
+   105→            width: 24px; height: 24px;
+   106→            transform: translate(-50%, -50%);
+   107→            pointer-events: none;
+   108→            z-index: 10;
+   109→        }
+   110→        #crosshair::before, #crosshair::after {
+   111→            content: ''; position: absolute; background: #1a1a1a;
+   112→        }
+   113→        #crosshair::before { top: 11px; left: 0; width: 24px; height: 2px; }
+   114→        #crosshair::after { top: 0; left: 11px; width: 2px; height: 24px; }
+   115→
+   116→        .doodle-anim {
+   117→            animation: sketch 0.4s infinite alternate;
+   118→        }
+   119→        @keyframes sketch {
+   120→            0% { transform: rotate(-1deg) translate(0, 0); }
+   121→            100% { transform: rotate(1deg) translate(1px, -1px); }
+   122→        }
+   123→    </style>
+   124→</head>
+   125→<body>
+   126→
+   127→    <!-- MENÚ PRINCIPAL -->
+   128→    <div id="mainMenu" class="screen">
+   129→        <h1 class="doodle-anim">DOODLE SHOOTER</h1>
+   130→        <p style="font-size: 20px; color: #555;">Supervivencia garabateada</p>
+   131→        <button class="btn" onclick="startGame('solo')">🎯 MODO SUPERVIVENCIA (Oleadas)</button>
+   132→        <button class="btn" onclick="showMapSelect()">🌐 MULTIJUGADOR (Hasta 10 Jugadores)</button>
+   133→    </div>
+   134→
+   135→    <!-- SELECCIÓN DE MAPA -->
+   136→    <div id="mapMenu" class="screen hidden">
+   137→        <h2>SELECCIONA EL ESCENARIO</h2>
+   138→        <div class="map-grid">
+   139→            <div class="map-card map-tropical" onclick="startGame('multi', 'tropical')">
+   140→                <h3>🌴 Urbano Tropical</h3>
+   141→                <p>Edificios cúbicos y palmeras geométricas</p>
+   142→            </div>
+   143→            <div class="map-card map-suburban" onclick="startGame('multi', 'suburban')">
+   144→                <h3>🏡 Suburbano</h3>
+   145→                <p>Casa azul, vallas y césped triangular</p>
+   146→            </div>
+   147→            <div class="map-card map-ancient" onclick="startGame('multi', 'ancient')">
+   148→                <h3>🏛️ Ciudad Antigua</h3>
+   149→                <p>Callejones de piedra y arcos modulares</p>
+   150→            </div>
+   151→            <div class="map-card map-west" onclick="startGame('multi', 'west')">
+   152→                <h3>🌵 Viejo Oeste</h3>
+   153→                <p>Calle desértica y edificios de madera</p>
+   154→            </div>
+   155→        </div>
+   156→        <button class="btn" style="margin-top: 30px;" onclick="backToMain()">← Volver</button>
+   157→    </div>
+   158→
+   159→    <!-- HUD -->
+   160→    <div id="hud" class="hidden">
+   161→        <div>Modo: <span id="modeDisplay">-</span></div>
+   162→        <div>Mapa: <span id="mapDisplay">-</span></div>
+   163→        <div>Jugadores: <span id="playerCount">1</span>/10</div>
+   164→        <div style="margin-top: 10px; color: #d00000;">Salud: <span id="health">100</span>%</div>
+   165→        <div>Puntuación: <span id="score">0</span></div>
+   166→    </div>
+   167→
+   168→    <div id="crosshair" class="hidden"></div>
+   169→
+   170→    <div id="instructions" class="screen hidden" style="background: rgba(255,255,255,0.9);">
+   171→        <h2>¡JUEGO TERMINADO!</h2>
+   172→        <p>Puntuación: <span id="finalScore">0</span></p>
+   173→        <button class="btn" onclick="location.reload()">Jugar de Nuevo</button>
+   174→    </div>
+   175→
+   176→    <!-- THREE.JS -->
+   177→    <script type="importmap">
+   178→        {
+   179→            "imports": {
+   180→                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+   181→                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+   182→            }
+   183→        }
+   184→    </script>
+   185→
+   186→    <script type="module">
+   187→        import * as THREE from 'three';
+   188→        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+   189→
+   190→        // ==========================================
+   191→        // 1. SISTEMA DE RENDERIZADO "DOODLE"
+   192→        // ==========================================
+   193→        function createDoodleMesh(geometry, color, scale = 1) {
+   194→            const group = new THREE.Group();
+   195→            
+   196→            // Relleno pastel sólido (Toon para evitar degradados realistas)
+   197→            const material = new THREE.MeshToonMaterial({ color: color });
+   198→            const mesh = new THREE.Mesh(geometry, material);
+   199→            
+   200→            // Contorno de tinta negra irregular (EdgesGeometry)
+   201→            const edges = new THREE.EdgesGeometry(geometry, 20);
+   202→            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+   203→            const wireframe = new THREE.LineSegments(edges, lineMaterial);
+   204→            
+   205→            // Escalar ligeramente el wireframe para evitar z-fighting y dar efecto de "doble trazo"
+   206→            wireframe.scale.set(1.015, 1.015, 1.015);
+   207→            
+   208→            group.add(mesh);
+   209→            group.add(wireframe);
+   210→            group.scale.set(scale, scale, scale);
+   211→            
+   212→            // Datos para animación de "garabato" (vibración de tinta)
+   213→            group.userData = { 
+   214→                wireframe: wireframe,
+   215→                wobbleSpeed: Math.random() * 0.003 + 0.002,
+   216→                wobbleOffset: Math.random() * 100,
+   217→                isDoodle: true
+   218→            };
+   219→            
+   220→            return group;
+   221→        }
+   222→
+   223→        // ==========================================
+   224→        // 2. CONFIGURACIÓN DE ESCENA
+   225→        // ==========================================
+   226→        const scene = new THREE.Scene();
+   227→        scene.background = new THREE.Color(0xfdfbf7); // Coincide con el CSS
+   228→        scene.fog = new THREE.Fog(0xfdfbf7, 15, 60);
+   229→
+   230→        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+   231→        camera.position.y = 1.6;
+   232→
+   233→        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+   234→        renderer.setSize(window.innerWidth, window.innerHeight);
+   235→        renderer.setPixelRatio(window.devicePixelRatio);
+   236→        document.body.appendChild(renderer.domElement);
+   237→
+   238→        // Iluminación plana para mantener el estilo dibujo
+   239→        const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+   240→        scene.add(ambientLight);
+   241→        const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+   242→        dirLight.position.set(10, 20, 10);
+   243→        scene.add(dirLight);
+   244→
+   245→        const controls = new PointerLockControls(camera, document.body);
+   246→        const mapGroup = new THREE.Group();
+   247→        scene.add(mapGroup);
+   248→
+   249→        // ==========================================
+   250→        // 3. VIEW MODEL (MANOS Y ARMA EN PRIMERA PERSONA)
+   251→        // ==========================================
+   252→        const viewModel = new THREE.Group();
+   253→        camera.add(viewModel);
+   254→        viewModel.position.set(0.35, -0.35, -0.6);
+   255→
+   256→        // Mano (bloque rectangular)
+   257→        const handGeo = new THREE.BoxGeometry(0.12, 0.12, 0.25);
+   258→        const hand = createDoodleMesh(handGeo, 0xffdbac, 1); // Color piel pastel
+   259→        viewModel.add(hand);
+   260→
+   261→        // Arma: Rifle de Francotirador Low-Poly
+   262→        const gunGroup = new THREE.Group();
+   263→        
+   264→        const barrel = createDoodleMesh(new THREE.BoxGeometry(0.06, 0.06, 0.7), 0x2d3436);
+   265→        barrel.position.z = -0.35;
+   266→        
+   267→        const body = createDoodleMesh(new THREE.BoxGeometry(0.08, 0.12, 0.3), 0x636e72);
+   268→        body.position.z = 0.1;
+   269→        
+   270→        const grip = createDoodleMesh(new THREE.BoxGeometry(0.07, 0.18, 0.08), 0x5c3a21);
+   271→        grip.position.set(0, -0.12, 0.15);
+   272→        grip.rotation.x = 0.3;
+   273→        
+   274→        const scope = createDoodleMesh(new THREE.CylinderGeometry(0.035, 0.035, 0.25, 8), 0x1a1a1a);
+   275→        scope.rotation.x = Math.PI / 2;
+   276→        scope.position.set(0, 0.09, -0.1);
+   277→
+   278→        // Detalle de "cross-hatching" simulado con líneas cruzadas en el cuerpo del arma
+   279→        const hatchGeo = new THREE.BufferGeometry().setFromPoints([
+   280→            new THREE.Vector3(-0.04, 0.06, 0.15), new THREE.Vector3(0.04, -0.06, 0.15),
+   281→            new THREE.Vector3(0.04, 0.06, 0.15), new THREE.Vector3(-0.04, -0.06, 0.15),
+   282→            new THREE.Vector3(-0.04, 0.06, 0.05), new THREE.Vector3(0.04, -0.06, 0.05),
+   283→            new THREE.Vector3(0.04, 0.06, 0.05), new THREE.Vector3(-0.04, -0.06, 0.05)
+   284→        ]);
+   285→        const hatchLines = new THREE.LineSegments(hatchGeo, new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5 }));
+   286→        body.add(hatchLines);
+   287→
+   288→        gunGroup.add(barrel, body, grip, scope);
+   289→        gunGroup.position.set(0, -0.05, 0);
+   290→        viewModel.add(gunGroup);
+   291→        scene.add(camera);
+   292→
+   293→        // ==========================================
+   294→        // 4. GENERACIÓN DE MAPAS MODULARES
+   295→        // ==========================================
+   296→        function clearMap() {
+   297→            while(mapGroup.children.length > 0){ 
+   298→                mapGroup.remove(mapGroup.children[0]); 
+   299→            }
+   300→        }
+   301→
+   302→        function buildMap(theme) {
+   303→            clearMap();
+   304→            let groundColor, wallColor, obstacleColor;
+   305→            
+   306→            if (theme === 'tropical') {
+   307→                groundColor = 0x98fb98; wallColor = 0x8fbc8f; obstacleColor = 0x2d6a4f;
+   308→            } else if (theme === 'suburban') {
+   309→                groundColor = 0x90ee90; wallColor = 0xadd8e6; obstacleColor = 0xffffff;
+   310→            } else if (theme === 'ancient') {
+   311→                groundColor = 0xd3d3d3; wallColor = 0xa9a9a9; obstacleColor = 0x696969;
+   312→            } else { // west
+   313→                groundColor = 0xf4a460; wallColor = 0xd2b48c; obstacleColor = 0x8b4513;
+   314→            }
+   315→
+   316→            // Suelo
+   317→            const ground = createDoodleMesh(new THREE.PlaneGeometry(80, 80, 10, 10), groundColor, 1);
+   318→            ground.rotation.x = -Math.PI / 2;
+   319→            mapGroup.add(ground);
+   320→
+   321→            // Generación procedural de cobertura (estilo Roblox clásico)
+   322→            for (let i = 0; i < 40; i++) {
+   323→                const w = 2 + Math.random() * 4;
+   324→                const h = 2 + Math.random() * 3;
+   325→                const d = 2 + Math.random() * 4;
+   326→                const geo = new THREE.BoxGeometry(w, h, d);
+   327→                const mesh = createDoodleMesh(geo, Math.random() > 0.5 ? wallColor : obstacleColor);
+   328→                
+   329→                mesh.position.set(
+   330→                    (Math.random() - 0.5) * 60,
+   331→                    h / 2,
+   332→                    (Math.random() - 0.5) * 60
+   333→                );
+   334→                
+   335→                // Evitar spawn encima del jugador
+   336→                if (mesh.position.length() < 8) continue;
+   337→                
+   338→                // Añadir rampas o plataformas elevadas aleatoriamente
+   339→                if (Math.random() > 0.7) {
+   340→                    const ramp = createDoodleMesh(new THREE.BoxGeometry(w, 0.2, d), obstacleColor);
+   341→                    ramp.position.copy(mesh.position);
+   342→                    ramp.position.y += h / 2 + 0.1;
+   343→                    ramp.rotation.x = (Math.random() - 0.5) * 0.5;
+   344→                    mapGroup.add(ramp);
+   345→                }
+   346→                
+   347→                mapGroup.add(mesh);
+   348→            }
+   349→
+   350→            // Elementos temáticos específicos
+   351→            if (theme === 'tropical') {
+   352→                for(let i=0; i<8; i++) {
+   353→                    const trunk = createDoodleMesh(new THREE.CylinderGeometry(0.3, 0.4, 4, 6), 0x8b4513);
+   354→                    trunk.position.set((Math.random()-0.5)*50, 2, (Math.random()-0.5)*50);
+   355→                    const leaves = createDoodleMesh(new THREE.ConeGeometry(2.5, 2, 6), 0x228b22);
+   356→                    leaves.position.y = 2.5;
+   357→                    trunk.add(leaves);
+   358→                    mapGroup.add(trunk);
+   359→                }
+   360→            } else if (theme === 'west') {
+   361→                for(let i=0; i<6; i++) {
+   362→                    const cactus = createDoodleMesh(new THREE.CylinderGeometry(0.4, 0.4, 3, 6), 0x2e8b57);
+   363→                    cactus.position.set((Math.random()-0.5)*50, 1.5, (Math.random()-0.5)*50);
+   364→                    mapGroup.add(cactus);
+   365→                }
+   366→            }
+   367→        }
+   368→
+   369→        // ==========================================
+   370→        // 5. LÓGICA DE JUEGO Y MULTIJUGADOR
+   371→        // ==========================================
+   372→        let gameMode = 'solo';
+   373→        let currentMap = 'tropical';
+   374→        let score = 0;
+   375→        let health = 100;
+   376→        let isGameOver = false;
+   377→        let lastShot = 0;
+   378→        let recoil = 0;
+   379→
+   380→        // Sistema de "Red" Simulado (Arquitectura para 10 jugadores)
+   381→        const remotePlayers = [];
+   382→        class RemotePlayer {
+   383→            constructor(id) {
+   384→                this.id = id;
+   385→                // Monigote 3D sencillo (cabeza + cuerpo)
+   386→                this.group = new THREE.Group();
+   387→                const body = createDoodleMesh(new THREE.BoxGeometry(0.6, 1.2, 0.4), 0xff6b6b);
+   388→                body.position.y = 0.6;
+   389→                const head = createDoodleMesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), 0xffdbac);
+   390→                head.position.y = 1.4;
+   391→                this.group.add(body, head);
+   392→                
+   393→                this.group.position.set((Math.random()-0.5)*40, 0, (Math.random()-0.5)*40);
+   394→                this.targetPos = this.group.position.clone();
+   395→                this.health = 100;
+   396→                scene.add(this.group);
+   397→            }
+   398→
+   399→            update() {
+   400→                // SIMULACIÓN DE RED: Interpolación de posición (lerp) para suavizar el movimiento
+   401→                // NOTA: En producción, reemplazar esto con: socket.on('playerMoved', data => { this.targetPos.set(...) })
+   402→                if (Math.random() < 0.03) {
+   403→                    this.targetPos.set(
+   404→                        this.group.position.x + (Math.random() - 0.5) * 8,
+   405→                        0,
+   406→                        this.group.position.z + (Math.random() - 0.5) * 8
+   407→                    );
+   408→                    // Mantener dentro de límites
+   409→                    this.targetPos.x = THREE.MathUtils.clamp(this.targetPos.x, -35, 35);
+   410→                    this.targetPos.z = THREE.MathUtils.clamp(this.targetPos.z, -35, 35);
+   411→                }
+   412→
+   413→                this.group.position.lerp(this.targetPos, 0.05);
+   414→                this.group.lookAt(camera.position.x, 0, camera.position.z);
+   415→                
+   416→                // Animación de "garabato" en los oponentes
+   417→                this.group.children.forEach(child => {
+   418→                    if (child.userData.isDoodle) {
+   419→                        child.userData.wireframe.rotation.z = Math.sin(Date.now() * 0.005 + this.id) * 0.05;
+   420→                    }
+   421→                });
+   422→            }
+   423→
+   424→            destroy() {
+   425→                scene.remove(this.group);
+   426→            }
+   427→        }
+   428→
+   429→        function initMultiplayer() {
+   430→            // Crear 9 bots para simular 10 jugadores en total
+   431→            for (let i = 0; i < 9; i++) {
+   432→                remotePlayers.push(new RemotePlayer(i));
+   433→            }
+   434→            document.getElementById('playerCount').innerText = 10;
+   435→        }
+   436→
+   437→        // Balas
+   438→        const bullets = [];
+   439→        const bulletGeo = new THREE.SphereGeometry(0.08, 6, 6);
+   440→        const bulletMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+   441→
+   442→        function shoot() {
+   443→            if (!controls.isLocked || isGameOver) return;
+   444→            const now = Date.now();
+   445→            if (now - lastShot < 150) return; // Cadencia de tiro
+   446→            lastShot = now;
+   447→
+   448→            const bullet = new THREE.Mesh(bulletGeo, bulletMat);
+   449→            bullet.position.copy(camera.position);
+   450→            
+   451→            const vector = new THREE.Vector3(0, 0, -1);
+   452→            vector.applyQuaternion(camera.quaternion);
+   453→            bullet.userData = { velocity: vector.multiplyScalar(2.0), life: 60 };
+   454→            
+   455→            scene.add(bullet);
+   456→            bullets.push(bullet);
+   457→
+   458→            // Animación de retroceso del View Model
+   459→            recoil = 0.15;
+   460→        }
+   461→
+   462→        document.addEventListener('mousedown', (e) => {
+   463→            if (e.button === 0 && controls.isLocked) shoot();
+   464→        });
+   465→
+   466→        // ==========================================
+   467→        // 6. CONTROL DE MOVIMIENTO
+   468→        // ==========================================
+   469→        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+   470→        let canJump = false;
+   471→        const velocity = new THREE.Vector3();
+   472→        const direction = new THREE.Vector3();
+   473→
+   474→        document.addEventListener('keydown', (e) => {
+   475→            switch(e.code) {
+   476→                case 'KeyW': moveForward = true; break;
+   477→                case 'KeyA': moveLeft = true; break;
+   478→                case 'KeyS': moveBackward = true; break;
+   479→                case 'KeyD': moveRight = true; break;
+   480→                case 'Space': if (canJump) { velocity.y += 12; canJump = false; } break;
+   481→            }
+   482→        });
+   483→
+   484→        document.addEventListener('keyup', (e) => {
+   485→            switch(e.code) {
+   486→                case 'KeyW': moveForward = false; break;
+   487→                case 'KeyA': moveLeft = false; break;
+   488→                case 'KeyS': moveBackward = false; break;
+   489→                case 'KeyD': moveRight = false; break;
+   490→            }
+   491→        });
+   492→
+   493→        // ==========================================
+   494→        // 7. BUCLE PRINCIPAL (ANIMACIÓN)
+   495→        // ==========================================
+   496→        let prevTime = performance.now();
+   497→
+   498→        function animate() {
+   499→            requestAnimationFrame(animate);
+   500→            if (isGameOver) return;
+   501→
+   502→            const time = performance.now();
+   503→            const delta = (time - prevTime) / 1000;
+   504→            prevTime = time;
+   505→
+   506→            if (controls.isLocked) {
+   507→                // Física de movimiento
+   508→                velocity.x -= velocity.x * 10.0 * delta;
+   509→                velocity.z -= velocity.z * 10.0 * delta;
+   510→                velocity.y -= 25.0 * delta; // Gravedad
+   511→
+   512→                direction.z = Number(moveForward) - Number(moveBackward);
+   513→                direction.x = Number(moveRight) - Number(moveLeft);
+   514→                direction.normalize();
+   515→
+   516→                if (moveForward || moveBackward) velocity.z -= direction.z * 80.0 * delta;
+   517→                if (moveLeft || moveRight) velocity.x -= direction.x * 80.0 * delta;
+   518→
+   519→                controls.moveRight(-velocity.x * delta);
+   520→                controls.moveForward(-velocity.z * delta);
+   521→                camera.position.y += velocity.y * delta;
+   522→
+   523→                // Colisión con suelo
+   524→                if (camera.position.y < 1.6) {
+   525→                    velocity.y = 0;
+   526→                    camera.position.y = 1.6;
+   527→                    canJump = true;
+   528→                }
+   529→
+   530→                // Animación de balanceo del arma al caminar
+   531→                if (moveForward || moveBackward || moveLeft || moveRight) {
+   532→                    viewModel.position.y = -0.35 + Math.sin(time * 0.015) * 0.02;
+   533→                    viewModel.position.x = 0.35 + Math.cos(time * 0.015) * 0.01;
+   534→                }
+   535→
+   536→                // Recuperación de retroceso
+   537→                if (recoil > 0) {
+   538→                    viewModel.position.z = -0.6 + recoil;
+   539→                    viewModel.rotation.x = -recoil * 1.5;
+   540→                    recoil -= delta * 1.5;
+   541→                } else {
+   542→                    viewModel.position.z = -0.6;
+   543→                    viewModel.rotation.x = 0;
+   544→                }
+   545→
+   546→                // Actualizar balas y colisiones
+   547→                for (let i = bullets.length - 1; i >= 0; i--) {
+   548→                    const b = bullets[i];
+   549→                    b.position.add(b.userData.velocity);
+   550→                    b.userData.life--;
+   551→                    
+   552→                    if (b.userData.life <= 0) {
+   553→                        scene.remove(b);
+   554→                        bullets.splice(i, 1);
+   555→                        continue;
+   556→                    }
+   557→
+   558→                    // Colisión con jugadores remotos (simulación de hit)
+   559→                    for (let j = remotePlayers.length - 1; j >= 0; j--) {
+   560→                        const rp = remotePlayers[j];
+   561→                        if (b.position.distanceTo(rp.group.position) < 1.0) {
+   562→                            rp.health -= 34; // 3 disparos para matar
+   563→                            scene.remove(b);
+   564→                            bullets.splice(i, 1);
+   565→                            
+   566→                            if (rp.health <= 0) {
+   567→                                rp.destroy();
+   568→                                remotePlayers.splice(j, 1);
+   569→                                score += 100;
+   570→                                document.getElementById('score').innerText = score;
+   571→                                
+   572→                                // Respawn simulado
+   573→                                setTimeout(() => {
+   574→                                    if (!isGameOver) remotePlayers.push(new RemotePlayer(Date.now()));
+   575→                                }, 2000);
+   576→                            }
+   577→                            break;
+   578→                        }
+   579→                    }
+   580→                }
+   581→
+   582→                // Actualizar jugadores remotos (Simulación de red)
+   583→                remotePlayers.forEach(rp => rp.update());
+   584→                document.getElementById('playerCount').innerText = remotePlayers.length + 1;
+   585→
+   586→                // Modo Supervivencia: Oleadas (si aplica)
+   587→                if (gameMode === 'solo' && remotePlayers.length < 3 + Math.floor(score/50)) {
+   588→                    if (Math.random() < 0.02) remotePlayers.push(new RemotePlayer(Date.now()));
+   589→                }
+   590→            }
+   591→
+   592→            // Animación global de "garabato" en todos los objetos doodle
+   593→            scene.traverse((obj) => {
+   594→                if (obj.userData && obj.userData.isDoodle) {
+   595→                    const t = Date.now() * obj.userData.wobbleSpeed + obj.userData.wobbleOffset;
+   596→                    obj.userData.wireframe.rotation.z = Math.sin(t) * 0.03;
+   597→                    obj.userData.wireframe.scale.setScalar(1.015 + Math.sin(t*2) * 0.005);
+   598→                }
+   599→            });
+   600→
+   601→            renderer.render(scene, camera);
+   602→        }
+   603→
+   604→        // ==========================================
+   605→        // 8. GESTIÓN DE UI Y ESTADOS
+   606→        // ==========================================
+   607→        window.showMapSelect = () => {
+   608→            document.getElementById('mainMenu').classList.add('hidden');
+   609→            document.getElementById('mapMenu').classList.remove('hidden');
+   610→        };
+   611→
+   612→        window.backToMain = () => {
+   613→            document.getElementById('mapMenu').classList.add('hidden');
+   614→            document.getElementById('mainMenu').classList.remove('hidden');
+   615→        };
+   616→
+   617→        window.startGame = (mode, map = 'tropical') => {
+   618→            gameMode = mode;
+   619→            currentMap = map;
+   620→            
+   621→            document.getElementById('mainMenu').classList.add('hidden');
+   622→            document.getElementById('mapMenu').classList.add('hidden');
+   623→            document.getElementById('hud').classList.remove('hidden');
+   624→            document.getElementById('crosshair').classList.remove('hidden');
+   625→            
+   626→            document.getElementById('modeDisplay').innerText = mode === 'solo' ? 'Supervivencia' : 'Multijugador';
+   627→            document.getElementById('mapDisplay').innerText = map.toUpperCase();
+   628→
+   629→            buildMap(map);
+   630→            if (mode === 'multi') {
+   631→                initMultiplayer();
+   632→            } else {
+   633→                document.getElementById('playerCount').innerText = "1 (vs IA)";
+   634→            }
+   635→
+   636→            controls.lock();
+   637→            animate();
+   638→        };
+   639→
+   640→        // Game Over por daño (simulado si un bot se acerca demasiado)
+   641→        setInterval(() => {
+   642→            if (!controls.isLocked || isGameOver) return;
+   643→            remotePlayers.forEach(rp => {
+   644→                if (rp.group.position.distanceTo(camera.position) < 1.5) {
+   645→                    health -= 5;
+   646→                    document.getElementById('health').innerText = Math.max(0, health);
+   647→                    if (health <= 0) {
+   648→                        isGameOver = true;
+   649→                        controls.unlock();
+   650→                        document.getElementById('finalScore').innerText = score;
+   651→                        document.getElementById('instructions').classList.remove('hidden');
+   652→                    }
+   653→                }
+   654→            });
+   655→        }, 500);
+   656→
+   657→        window.addEventListener('resize', () => {
+   658→            camera.aspect = window.innerWidth / window.innerHeight;
+   659→            camera.updateProjectionMatrix();
+   660→            renderer.setSize(window.innerWidth, window.innerHeight);
+   661→        });
+   662→    </script>
+   663→</body>
+   664→</html>
