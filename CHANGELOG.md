@@ -263,3 +263,26 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/).
 - Proyecto Next.js inicializado
 - Dependencias instaladas: three, socket.io, socket.io-client
 - Cron job de revisión cada 15 minutos
+
+---
+
+## [v0.17.0] — 2026-09-13 — Oficinas rediseñado como edificio de 6 pisos
+
+### Agregado
+- **Mapa Oficinas completamente rediseñado** (308 obstáculos) como edificio de 40×40 de 6 pisos (h=24):
+  - **Piso 1 (Lobby)**: recepción con escritorio y computadora, sofa, mesa de café, 4 plantas, escritorio de seguridad, botes de basura
+  - **Piso 2 (Oficinas abiertas)**: 6 escritorios con computadoras y sillas, 3 archivadores, dispensador de agua, impresora
+  - **Piso 3 (Salas de reuniones)**: 4 salas divididas por paredes, cada una con mesa grande, 4 sillas, proyector, pizarra blanca
+  - **Piso 4 (Cubículos)**: 9 cubículos con particiones en L, cada uno con escritorio, monitor, silla, teléfono
+  - **Piso 5 (Sala de servidores)**: 6 racks con LEDs verdes/rojos, bandejas de cables, 2 unidades de enfriamiento, 2 baterías UPS
+  - **Piso 6 (Terraza/Azotea)**: barandillas perimetrales, jacuzzi con agua, bar con botellas, 3 sillones, mesa con sombrilla, parrilla, plantas
+  - **Escaleras**: 7 escalones por piso + landing, conectan los 6 pisos desde planta baja
+  - **Plataformas de piso**: cada piso tiene hueco para escaleras (techos de piso N = piso de piso N+1)
+  - **Exterior**: estacionamiento con 6 coches, 4 lámparas de calle, 4 árboles, 2 botes de basura en entrada
+
+### Corregido
+- Mapa Oficinas era casi idéntico al Barrio (solo casas pequeñas). Ahora es un edificio único de 6 pisos.
+- Escaleras ahora empiezan desde el primer piso y conectan todos los pisos
+
+### Pruebas
+- Lint: limpio ✅ | Servidores estables ✅ | Server sincronizado (308 obstáculos) ✅ | Push GitHub ✅
