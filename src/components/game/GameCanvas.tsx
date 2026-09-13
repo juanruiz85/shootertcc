@@ -156,10 +156,10 @@ function buildAvatar(skinId: string, name: string, team: string): Avatar {
     const pup = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.05, 0.02), pupMat)
     pup.position.set(sx, 1.8, 0.23); group.add(pup)
   }
-  // weapon held in right hand
+  // weapon held in right hand — rotated 180° so barrel points forward (+z)
   const weapon = buildWeaponMesh('pistol')
   weapon.position.set(0.42, 1.15, 0.28)
-  weapon.rotation.y = -0.1
+  weapon.rotation.y = Math.PI - 0.1
   group.add(weapon)
   // team ring under feet
   const ringGeo = new THREE.RingGeometry(0.42, 0.62, 20)
@@ -184,7 +184,7 @@ function setAvatarWeapon(a: Avatar, weaponId: string) {
   a.group.remove(a.weapon)
   a.weapon.geometry?.dispose?.()
   const nw = buildWeaponMesh(weaponId)
-  nw.position.set(0.42, 1.15, 0.28); nw.rotation.y = -0.1
+  nw.position.set(0.42, 1.15, 0.28); nw.rotation.y = Math.PI - 0.1
   a.group.add(nw)
   a.weapon = nw
 }

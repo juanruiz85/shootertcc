@@ -295,22 +295,208 @@ const MAPS: GameMap[] = [
       ob(0,-10,2,0.4,2,true,0x3498db,'water',0,true),
     ],
     spawns: [[0,-60],[0,60],[-60,0],[60,0],[-24,-24],[24,24]] },
-  { id: 'escuela', name: 'Escuela', theme: 'Escuela con salones', ground: 0xd5d8de, fog: 0xe0e3e8, accent: 0xa0a8b0,
+  {
+    id: 'escuela', name: 'Escuela', theme: 'Escuela 2 pisos', ground: 0xd5d8de, fog: 0xe0e3e8, accent: 0xa0a8b0,
     obstacles: [
-      ...buildHouse(0,0,60,60,6,0xe8e0d0,0xc0392b,'S'),
-      ...[-22,-15,15,22].flatMap(x => [-22,-15,15,22].map(z => ob(x,z,1.5,0.8,1,true,0xe8d5b7,'box'))),
-      ob(-28,0,0.3,2,4,false,0x1a1a1a,'wall'), ob(28,0,0.3,2,4,false,0x1a1a1a,'wall'),
-      ob(0,-28,4,2,0.3,false,0x1a1a1a,'wall'),
-      ob(-28,-22,0.8,2.5,1,true,0x3498db,'box'), ob(-28,-15,0.8,2.5,1,true,0xe74c3c,'box'),
-      ob(28,-22,0.8,2.5,1,true,0x27ae60,'box'), ob(28,-15,0.8,2.5,1,true,0xf1c40f,'box'),
-      ob(-28,15,0.8,2.5,1,true,0x9b59b6,'box'), ob(-28,22,0.8,2.5,1,true,0xe67e22,'box'),
-      ob(28,15,0.8,2.5,1,true,0x1abc9c,'box'), ob(28,22,0.8,2.5,1,true,0x3498db,'box'),
-      ob(0,-45,0.3,3,0.3,false,0xe74c3c,'box'), ob(0,-45,1.5,0.1,0.8,false,0xe74c3c,'box'),
-      ob(0,45,0.3,3,0.3,false,0x3498db,'box'), ob(0,45,1.5,0.1,0.8,false,0x3498db,'box'),
-      ob(-20,-10,1,1.2,1,true,0x555555,'box'), ob(20,-10,1,1.2,1,true,0x555555,'box'),
-      ...buildStairs(-25,5,6,'E',0xd5c4a0),
+      // ============ OUTER WALLS (70×70, h=8, 2 stories) ============
+      // South wall with door gap (2 wide) at center — main entrance
+      ob(-18, 35, 34, 8, 0.3, false, 0xe8e0d0, 'wall'),
+      ob(18, 35, 34, 8, 0.3, false, 0xe8e0d0, 'wall'),
+      // Door lintel above entrance (no collision, decorative)
+      ob(0, 35, 2, 5.8, 0.3, false, 0xe8e0d0, 'wall', 0, true, 2.2),
+      // North, East, West walls (full height)
+      ob(0, -35, 70, 8, 0.3, false, 0xe8e0d0, 'wall'),
+      ob(35, 0, 0.3, 8, 70, false, 0xe8e0d0, 'wall'),
+      ob(-35, 0, 0.3, 8, 70, false, 0xe8e0d0, 'wall'),
+      // Accent stripe near top of exterior walls (decorative band, no collide)
+      ob(0, 35, 70, 0.3, 0.3, false, 0xc0392b, 'wall', 0, true, 6.5),
+      ob(0, -35, 70, 0.3, 0.3, false, 0xc0392b, 'wall', 0, true, 6.5),
+      ob(35, 0, 0.3, 0.3, 70, false, 0xc0392b, 'wall', 0, true, 6.5),
+      ob(-35, 0, 0.3, 0.3, 70, false, 0xc0392b, 'wall', 0, true, 6.5),
+
+      // ============ INTERIOR CLASSROOM WALLS (h=4, ground floor) ============
+      // 4 classrooms in corners (NW, NE, SW, SE), each 30×30
+      // Cross-shaped hallway: NS (x∈[-5,5]) and EW (z∈[-5,5])
+      // Each classroom has 2 door gaps (2 wide) facing the hallways
+      // NW classroom (x∈[-35,-5], z∈[-35,-5]): east + south walls
+      ob(-5, -28, 0.3, 4, 14, false, 0xcdb98a, 'wall'),
+      ob(-5, -12, 0.3, 4, 14, false, 0xcdb98a, 'wall'),
+      ob(-28, -5, 14, 4, 0.3, false, 0xcdb98a, 'wall'),
+      ob(-12, -5, 14, 4, 0.3, false, 0xcdb98a, 'wall'),
+      // NE classroom (x∈[5,35], z∈[-35,-5]): west + south walls
+      ob(5, -28, 0.3, 4, 14, false, 0xcdb98a, 'wall'),
+      ob(5, -12, 0.3, 4, 14, false, 0xcdb98a, 'wall'),
+      ob(12, -5, 14, 4, 0.3, false, 0xcdb98a, 'wall'),
+      ob(28, -5, 14, 4, 0.3, false, 0xcdb98a, 'wall'),
+      // SW classroom (x∈[-35,-5], z∈[5,35]): east + north walls
+      ob(-5, 12, 0.3, 4, 14, false, 0xcdb98a, 'wall'),
+      ob(-5, 28, 0.3, 4, 14, false, 0xcdb98a, 'wall'),
+      ob(-28, 5, 14, 4, 0.3, false, 0xcdb98a, 'wall'),
+      ob(-12, 5, 14, 4, 0.3, false, 0xcdb98a, 'wall'),
+      // SE classroom (x∈[5,35], z∈[5,35]): west + north walls
+      ob(5, 12, 0.3, 4, 14, false, 0xcdb98a, 'wall'),
+      ob(5, 28, 0.3, 4, 14, false, 0xcdb98a, 'wall'),
+      ob(12, 5, 14, 4, 0.3, false, 0xcdb98a, 'wall'),
+      ob(28, 5, 14, 4, 0.3, false, 0xcdb98a, 'wall'),
+
+      // ============ CLASSROOM FURNITURE ============
+      // --- NW classroom (center -20, -20) ---
+      ob(-20, -34.5, 5, 2, 0.2, false, 0x1a1a1a, 'wall', 0, false, 1),     // pizarrón on N wall
+      ob(-20, -31, 2, 1, 1, true, 0x8b4513, 'box'),                          // escritorio del maestro
+      ob(-21, -31, 0.8, 0.5, 0.8, true, 0x5d4037, 'box'),                    // teacher chair
+      ...[-26, -20, -14].flatMap(x => [-25, -15].map(z => ob(x, z, 1.5, 0.8, 1, true, 0xe8d5b7, 'box'))),       // 6 pupitres
+      ...[-26, -20, -14].flatMap(x => [-23.5, -13.5].map(z => ob(x, z, 0.6, 0.5, 0.6, true, 0x8b4513, 'box'))),  // 6 sillas
+      // --- NE classroom (center 20, -20) ---
+      ob(20, -34.5, 5, 2, 0.2, false, 0x1a1a1a, 'wall', 0, false, 1),
+      ob(20, -31, 2, 1, 1, true, 0x8b4513, 'box'),
+      ob(21, -31, 0.8, 0.5, 0.8, true, 0x5d4037, 'box'),
+      ...[14, 20, 26].flatMap(x => [-25, -15].map(z => ob(x, z, 1.5, 0.8, 1, true, 0xe8d5b7, 'box'))),
+      ...[14, 20, 26].flatMap(x => [-23.5, -13.5].map(z => ob(x, z, 0.6, 0.5, 0.6, true, 0x8b4513, 'box'))),
+      // --- SW classroom (center -20, 20) ---
+      ob(-20, 34.5, 5, 2, 0.2, false, 0x1a1a1a, 'wall', 0, false, 1),
+      ob(-20, 31, 2, 1, 1, true, 0x8b4513, 'box'),
+      ob(-21, 31, 0.8, 0.5, 0.8, true, 0x5d4037, 'box'),
+      ...[-26, -20, -14].flatMap(x => [25, 15].map(z => ob(x, z, 1.5, 0.8, 1, true, 0xe8d5b7, 'box'))),
+      ...[-26, -20, -14].flatMap(x => [23.5, 13.5].map(z => ob(x, z, 0.6, 0.5, 0.6, true, 0x8b4513, 'box'))),
+      // --- SE classroom (center 20, 20) ---
+      ob(20, 34.5, 5, 2, 0.2, false, 0x1a1a1a, 'wall', 0, false, 1),
+      ob(20, 31, 2, 1, 1, true, 0x8b4513, 'box'),
+      ob(21, 31, 0.8, 0.5, 0.8, true, 0x5d4037, 'box'),
+      ...[14, 20, 26].flatMap(x => [25, 15].map(z => ob(x, z, 1.5, 0.8, 1, true, 0xe8d5b7, 'box'))),
+      ...[14, 20, 26].flatMap(x => [23.5, 13.5].map(z => ob(x, z, 0.6, 0.5, 0.6, true, 0x8b4513, 'box'))),
+
+      // ============ LOCKERS along NS hallway walls ============
+      ob(-4.5, -32, 0.8, 2.5, 1, true, 0x3498db, 'box'),   // blue
+      ob(-4.5, -28, 0.8, 2.5, 1, true, 0xe74c3c, 'box'),   // red
+      ob(-4.5, 28, 0.8, 2.5, 1, true, 0x27ae60, 'box'),    // green
+      ob(-4.5, 32, 0.8, 2.5, 1, true, 0xf1c40f, 'box'),    // yellow
+      ob(4.5, -32, 0.8, 2.5, 1, true, 0x9b59b6, 'box'),    // purple
+      ob(4.5, -28, 0.8, 2.5, 1, true, 0xe67e22, 'box'),    // orange
+      ob(4.5, 28, 0.8, 2.5, 1, true, 0x1abc9c, 'box'),     // teal
+      ob(4.5, 32, 0.8, 2.5, 1, true, 0x3498db, 'box'),     // blue
+
+      // ============ BATHROOMS (small rooms in EW hallway ends) ============
+      // East bathroom (x∈[28,35], z∈[-5,5]) — partition walls + sink
+      ob(28, -1.5, 0.3, 4, 7, false, 0xcdb98a, 'wall'),    // west wall seg 1 (door gap at z∈[2,5])
+      ob(28, 4, 0.3, 4, 2, false, 0xcdb98a, 'wall'),        // west wall seg 2
+      ob(31.5, 0, 0.1, 2, 10, false, 0xcdb98a, 'wall'),     // partition wall
+      ob(33, -3, 1, 0.5, 0.5, true, 0xb8d4e3, 'box'),       // sink 1
+      ob(33, 3, 1, 0.5, 0.5, true, 0xb8d4e3, 'box'),        // sink 2
+      // West bathroom (x∈[-35,-28], z∈[-5,5])
+      ob(-28, -1.5, 0.3, 4, 7, false, 0xcdb98a, 'wall'),
+      ob(-28, 4, 0.3, 4, 2, false, 0xcdb98a, 'wall'),
+      ob(-31.5, 0, 0.1, 2, 10, false, 0xcdb98a, 'wall'),
+      ob(-33, -3, 1, 0.5, 0.5, true, 0xb8d4e3, 'box'),
+      ob(-33, 3, 1, 0.5, 0.5, true, 0xb8d4e3, 'box'),
+
+      // ============ STAIRS TO 2ND FLOOR (in NS hallway, west side) ============
+      // 7 steps going N, top at z=6.8, y=4.2 (top of last step)
+      ...buildStairs(-3, 11, 7, 'N', 0xd5c4a0),
+
+      // ============ 2ND FLOOR PLATFORM (y=4.2, walkable roof slabs) ============
+      // Stairwell gap at x∈[-5,0], z∈[7,12] so stairs aren't covered
+      // East half (x∈[0,35], full z)
+      ob(17.5, 0, 35, 0.2, 70, true, 0xe8e0d0, 'roof', 0, false, 4.2),
+      // West north (x∈[-35,0], z∈[-35,7]) — south edge meets top of stairs
+      ob(-17.5, -14, 35, 0.2, 42, true, 0xe8e0d0, 'roof', 0, false, 4.2),
+      // West south (x∈[-35,0], z∈[12,35])
+      ob(-17.5, 23.5, 35, 0.2, 23, true, 0xe8e0d0, 'roof', 0, false, 4.2),
+
+      // ============ 2ND FLOOR: open plan, areas defined by furniture ============
+      // (No interior walls on 2nd floor — bookshelves and tables define areas)
+
+      // ============ 2ND FLOOR: BIBLIOTECA (library, NE area) ============
+      ob(15, -32, 0.5, 3, 4, false, 0x8b4513, 'box', 0, false, 4.2),        // bookshelf
+      ob(22, -32, 0.5, 3, 4, false, 0x8b4513, 'box', 0, false, 4.2),
+      ob(30, -28, 4, 3, 0.5, false, 0x8b4513, 'box', 0, false, 4.2),
+      ob(30, -18, 4, 3, 0.5, false, 0x8b4513, 'box', 0, false, 4.2),
+      ob(15, -15, 3, 0.8, 1.5, true, 0xe8d5b7, 'box', 0, false, 4.2),       // reading table
+      ob(22, -15, 3, 0.8, 1.5, true, 0xe8d5b7, 'box', 0, false, 4.2),
+      ob(15, -13, 0.6, 0.5, 0.6, true, 0x8b4513, 'box', 0, false, 5),       // reading chair
+      ob(22, -13, 0.6, 0.5, 0.6, true, 0x8b4513, 'box', 0, false, 5),
+      ob(22, -34.5, 5, 2, 0.2, false, 0x1a1a1a, 'wall', 0, false, 5),       // library pizarrón
+
+      // ============ 2ND FLOOR: LABORATORIO (SE area) ============
+      ob(15, 15, 3, 0.8, 1.5, true, 0xd5c4a0, 'box', 0, false, 4.2),        // lab table
+      ob(22, 15, 3, 0.8, 1.5, true, 0xd5c4a0, 'box', 0, false, 4.2),
+      ob(15, 25, 3, 0.8, 1.5, true, 0xd5c4a0, 'box', 0, false, 4.2),
+      ob(22, 25, 3, 0.8, 1.5, true, 0xd5c4a0, 'box', 0, false, 4.2),
+      ob(15, 15, 1, 1, 1, true, 0x95a5a6, 'box', 0, false, 5),              // microscope
+      ob(22, 15, 1, 1, 1, true, 0x95a5a6, 'box', 0, false, 5),
+      ob(15, 25, 0.8, 0.8, 0.8, true, 0xe74c3c, 'box', 0, false, 5),        // beaker (red)
+      ob(22, 25, 0.8, 0.8, 0.8, true, 0x27ae60, 'box', 0, false, 5),        // beaker (green)
+      ob(30, 20, 0.5, 3, 4, false, 0x8b4513, 'box', 0, false, 4.2),         // equipment shelf
+
+      // ============ 2ND FLOOR: NW study area ============
+      ob(-15, -15, 3, 0.8, 1.5, true, 0xe8d5b7, 'box', 0, false, 4.2),
+      ob(-25, -15, 3, 0.8, 1.5, true, 0xe8d5b7, 'box', 0, false, 4.2),
+      ob(-15, -25, 3, 0.8, 1.5, true, 0xe8d5b7, 'box', 0, false, 4.2),
+      ob(-25, -25, 3, 0.8, 1.5, true, 0xe8d5b7, 'box', 0, false, 4.2),
+      // ============ 2ND FLOOR: SW study area ============
+      ob(-15, 15, 3, 0.8, 1.5, true, 0xe8d5b7, 'box', 0, false, 4.2),
+      ob(-25, 15, 3, 0.8, 1.5, true, 0xe8d5b7, 'box', 0, false, 4.2),
+      ob(-15, 25, 3, 0.8, 1.5, true, 0xe8d5b7, 'box', 0, false, 4.2),
+      ob(-25, 25, 3, 0.8, 1.5, true, 0xe8d5b7, 'box', 0, false, 4.2),
+
+      // ============ STAIRS TO ROOF (2nd floor → roof, NE area) ============
+      // 7 steps going N, starting at y=4.2, top at y=8.4
+      ...buildStairs(3, 11, 7, 'N', 0xd5c4a0).map(s => ({ ...s, y: (s.y || 0) + 4.2 })),
+
+      // ============ ROOF (y=8, with stairwell gap at x∈[0,6], z∈[7,12]) ============
+      ob(-17.5, 0, 35, 0.3, 70, true, 0xc0392b, 'roof', 0, false, 8),         // west part (x∈[-35,0])
+      ob(20.5, 0, 29, 0.3, 70, true, 0xc0392b, 'roof', 0, false, 8),          // east part (x∈[6,35])
+      ob(3, -14, 6, 0.3, 42, true, 0xc0392b, 'roof', 0, false, 8),            // north of stairwell (x∈[0,6], z∈[-35,7])
+      ob(3, 23.5, 6, 0.3, 23, true, 0xc0392b, 'roof', 0, false, 8),           // south of stairwell (x∈[0,6], z∈[12,35])
+      // Roof parapet (low decorative walls around roof edge)
+      ob(0, -34.5, 70, 0.6, 0.3, false, 0xa0a8b0, 'wall', 0, false, 8.3),
+      ob(0, 34.5, 70, 0.6, 0.3, false, 0xa0a8b0, 'wall', 0, false, 8.3),
+      ob(-34.5, 0, 0.3, 0.6, 70, false, 0xa0a8b0, 'wall', 0, false, 8.3),
+      ob(34.5, 0, 0.3, 0.6, 70, false, 0xa0a8b0, 'wall', 0, false, 8.3),
+
+      // ============ BASKETBALL COURT (outside, south of school z∈[40,58]) ============
+      // Hoops at north and south ends
+      ob(0, 42, 0.3, 4, 0.3, false, 0xe74c3c, 'box'),                         // north hoop pole
+      ob(0, 42, 1.5, 0.1, 0.8, false, 0xe74c3c, 'box', 0, false, 3.5),        // backboard
+      ob(0, 42, 1.2, 0.4, 1.2, true, 0xe67e22, 'cyl', 0, false, 4),           // rim (orange)
+      ob(0, 58, 0.3, 4, 0.3, false, 0x3498db, 'box'),                         // south hoop pole
+      ob(0, 58, 1.5, 0.1, 0.8, false, 0x3498db, 'box', 0, false, 3.5),
+      ob(0, 58, 1.2, 0.4, 1.2, true, 0xe67e22, 'cyl', 0, false, 4),
+      // Court boundary lines (low walls, no collide for gameplay)
+      ob(-15, 50, 0.3, 0.1, 18, false, 0xf1c40f, 'wall', 0, true),            // west line
+      ob(15, 50, 0.3, 0.1, 18, false, 0xf1c40f, 'wall', 0, true),             // east line
+      ob(0, 41, 30, 0.1, 0.3, false, 0xf1c40f, 'wall', 0, true),              // north line
+      ob(0, 59, 30, 0.1, 0.3, false, 0xf1c40f, 'wall', 0, true),              // south line
+      // Center line + circle
+      ob(0, 50, 30, 0.1, 0.3, false, 0xf1c40f, 'wall', 0, true),
+      ob(0, 50, 4, 0.1, 4, false, 0xf1c40f, 'wall', 0, true),
+
+      // ============ COURTYARD (north of school + sides) ============
+      ...buildTree(-50, -50, 1.8), ...buildTree(50, -50, 1.8),
+      ...buildTree(-50, 50, 1.5), ...buildTree(50, 50, 1.5),
+      ...buildTree(-55, 0, 1.3), ...buildTree(55, 0, 1.3),
+      ...buildTree(-50, -20, 1.5), ...buildTree(50, -20, 1.5),
+      // Park benches
+      ob(-45, -45, 2, 0.5, 0.6, true, 0x7a5230, 'box'),
+      ob(45, -45, 2, 0.5, 0.6, true, 0x7a5230, 'box'),
+      ob(-45, 45, 2, 0.5, 0.6, true, 0x7a5230, 'box'),
+      ob(45, 45, 2, 0.5, 0.6, true, 0x7a5230, 'box'),
+      ob(-55, -20, 2, 0.5, 0.6, true, 0x7a5230, 'box'),
+      ob(55, -20, 2, 0.5, 0.6, true, 0x7a5230, 'box'),
+      // Decorative fountain (north courtyard)
+      ob(0, -50, 3, 0.4, 3, true, 0xb8c5d6, 'cyl'),
+      ob(0, -50, 2, 0.3, 2, false, 0x3498db, 'water', 0, true, 0.4),
+
+      // ============ TRASH CANS (corners, for climbing to roof) ============
+      ob(-32, 32, 1, 1.2, 1, true, 0x555555, 'box'),
+      ob(32, 32, 1, 1.2, 1, true, 0x555555, 'box'),
+      ob(-32, -32, 1, 1.2, 1, true, 0x555555, 'box'),
+      ob(32, -32, 1, 1.2, 1, true, 0x555555, 'box'),
+      // Flagpole in front of school
+      ob(0, 38, 0.2, 5, 0.2, false, 0xc0c0c0, 'cyl'),
+      ob(0, 38, 1.5, 0.05, 1, false, 0xe74c3c, 'box', 0, false, 4.5),
     ],
-    spawns: [[0,-60],[0,60],[-60,0],[60,0]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]],
+  },
   { id: 'oficinas', name: 'Oficinas', theme: 'Edificio corporativo', ground: 0xc8ccd0, fog: 0xd0d4d8, accent: 0x9098a0,
     obstacles: [
       ...buildHouse(-45,-30,6,6,4,0xa3c8e0,0x2c3e50,'S'),
@@ -331,22 +517,155 @@ const MAPS: GameMap[] = [
       ob(0,30,12,0.3,2,true,0x8a92a0,'roof',0,false,4),
     ],
     spawns: [[0,-60],[0,60],[-60,0],[60,0]] },
-  { id: 'bosque', name: 'Bosque', theme: 'Bosque con río', ground: 0x4a7a3a, fog: 0x6a9a5a, accent: 0x3a5a2a, waterLevel: 0.3,
+  {
+    id: 'bosque', name: 'Bosque', theme: 'Bosque denso con río y lago', ground: 0x4a7a3a, fog: 0x6a9a5a, accent: 0x3a5a2a,
+    waterLevel: 0.3,
     obstacles: [
-      ...buildTree(-30,-30,1.5), ...buildTree(30,-30,1.5),
-      ...buildTree(-30,30,1.5), ...buildTree(30,30,1.5),
-      ...buildTree(0,-45,2), ...buildTree(0,45,2),
-      ...buildTree(-45,0,1.2), ...buildTree(45,0,1.2),
-      ob(0,0,8,0.3,24,false,0x3498db,'water',0,true),
-      ob(-23,-23,2,2,2,true,0x95a5a6,'box'), ob(23,-23,2,2,2,true,0x95a5a6,'box'),
-      ob(-23,23,2,2,2,true,0x7f8c8d,'box'), ob(23,23,2,2,2,true,0x7f8c8d,'box'),
-      ob(-13,-13,5,1,1,true,0x7a5230,'box'), ob(13,13,5,1,1,true,0x7a5230,'box'),
-      ob(-45,-10,3,2.5,3,true,0x95a5a6,'box'), ob(45,10,3,2.5,3,true,0x7f8c8d,'box'),
-      ob(0,0,3,0.5,6,true,0x7a5230,'box'),
-      ob(-20,0,3,0.8,2,false,0x27ae60,'box'), ob(20,0,3,0.8,2,false,0x27ae60,'box'),
-      ob(-38,15,1.5,1,1.5,true,0x7a5230,'box'), ob(38,-15,1.5,1,1.5,true,0x7a5230,'box'),
+      // ============ WATER FEATURES ============
+      // Large lake (NW corner) — 20×30
+      ob(-40, -40, 20, 0.3, 30, false, 0x2980b9, 'water', 0, true),
+      // River crossing the map north-south (x=0, z∈[-40,40])
+      ob(0, 0, 6, 0.3, 80, false, 0x2980b9, 'water', 0, true),
+      // Small pond (SE corner)
+      ob(45, 45, 10, 0.3, 10, false, 0x2980b9, 'water', 0, true),
+
+      // ============ BRIDGES over river ============
+      // Wooden bridge at z=0 (crossing river east-west)
+      ob(0, 0, 8, 0.5, 3, true, 0x7a5230, 'box'),
+      // Bridge at z=20
+      ob(0, 20, 8, 0.5, 3, true, 0x7a5230, 'box'),
+      // Bridge at z=-20
+      ob(0, -20, 8, 0.5, 3, true, 0x7a5230, 'box'),
+      // Bridge railings (low walls, no collide) — north & south edges of each bridge
+      ob(0, -1.5, 8, 0.6, 0.2, false, 0x5d4037, 'wall', 0, true, 0.5),
+      ob(0, 1.5, 8, 0.6, 0.2, false, 0x5d4037, 'wall', 0, true, 0.5),
+      ob(0, 18.5, 8, 0.6, 0.2, false, 0x5d4037, 'wall', 0, true, 0.5),
+      ob(0, 21.5, 8, 0.6, 0.2, false, 0x5d4037, 'wall', 0, true, 0.5),
+      ob(0, -21.5, 8, 0.6, 0.2, false, 0x5d4037, 'wall', 0, true, 0.5),
+      ob(0, -18.5, 8, 0.6, 0.2, false, 0x5d4037, 'wall', 0, true, 0.5),
+
+      // ============ TREES (27 total, clustered + scattered) ============
+      // NE cluster (dense)
+      ...buildTree(38, -25, 1.8), ...buildTree(25, -38, 1.3),
+      ...buildTree(45, -35, 2.0), ...buildTree(50, -45, 2.2),
+      ...buildTree(33, -45, 1.5),
+      // SE cluster
+      ...buildTree(38, 25, 1.8), ...buildTree(25, 38, 1.3),
+      ...buildTree(45, 35, 2.0), ...buildTree(33, 45, 1.5),
+      // SW cluster
+      ...buildTree(-38, 25, 1.8), ...buildTree(-25, 38, 1.3),
+      ...buildTree(-45, 35, 2.0), ...buildTree(-50, 45, 2.2),
+      ...buildTree(-33, 45, 1.5),
+      // NW cluster (near lake, avoiding water)
+      ...buildTree(-25, -25, 1.5), ...buildTree(-20, -30, 1.2),
+      ...buildTree(-15, -45, 1.5),
+      // Scattered edges
+      ...buildTree(0, -50, 2.0), ...buildTree(0, 50, 2.0),
+      ...buildTree(-50, 0, 1.5), ...buildTree(50, 0, 1.5),
+      ...buildTree(-55, -25, 1.3), ...buildTree(55, 25, 1.3),
+      ...buildTree(15, -45, 1.5), ...buildTree(-15, 45, 1.5),
+      ...buildTree(50, -20, 1.4), ...buildTree(-50, 20, 1.4),
+
+      // ============ BOULDERS (large rocks, 8 total) ============
+      ob(-35, -10, 3, 2.5, 3, true, 0x95a5a6, 'box'),
+      ob(35, 10, 3, 2.5, 3, true, 0x7f8c8d, 'box'),
+      ob(-20, 20, 3, 2.5, 3, true, 0x95a5a6, 'box'),
+      ob(20, -20, 3, 2.5, 3, true, 0x7f8c8d, 'box'),
+      ob(-45, 15, 3, 2.5, 3, true, 0x95a5a6, 'box'),
+      ob(45, -15, 3, 2.5, 3, true, 0x7f8c8d, 'box'),
+      ob(15, 45, 3, 2.5, 3, true, 0x95a5a6, 'box'),
+      ob(-10, -50, 3, 2.5, 3, true, 0x7f8c8d, 'box'),
+
+      // ============ SMALL ROCKS (climbing stones, 12 total) ============
+      ob(-33, -8, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'),
+      ob(33, 8, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+      ob(-18, 18, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'),
+      ob(18, -18, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+      ob(-43, 13, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'),
+      ob(43, -13, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+      ob(13, 43, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'),
+      ob(-8, -48, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+      ob(25, 5, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'),
+      ob(-25, -5, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+      ob(8, 25, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'),
+      ob(-8, -25, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+
+      // ============ FALLEN LOGS (5 total, climbable low cover) ============
+      ob(-30, 5, 5, 1, 1, true, 0x7a5230, 'box'),
+      ob(30, -5, 5, 1, 1, true, 0x7a5230, 'box'),
+      ob(10, 35, 5, 1, 1, true, 0x7a5230, 'box'),
+      ob(-10, -35, 5, 1, 1, true, 0x7a5230, 'box'),
+      ob(40, 0, 5, 1, 1, true, 0x5d4037, 'box'),
+
+      // ============ BUSHES (10 total, low non-climbable) ============
+      ob(-28, 28, 2, 0.8, 2, false, 0x27ae60, 'box'),
+      ob(28, -28, 2, 0.8, 2, false, 0x27ae60, 'box'),
+      ob(-28, -28, 2, 0.8, 2, false, 0x1e8449, 'box'),
+      ob(28, 28, 2, 0.8, 2, false, 0x1e8449, 'box'),
+      ob(10, 10, 2, 0.8, 2, false, 0x27ae60, 'box'),
+      ob(-10, -10, 2, 0.8, 2, false, 0x1e8449, 'box'),
+      ob(10, -10, 2, 0.8, 2, false, 0x27ae60, 'box'),
+      ob(-10, 10, 2, 0.8, 2, false, 0x1e8449, 'box'),
+      ob(48, -25, 2, 0.8, 2, false, 0x27ae60, 'box'),
+      ob(-48, 25, 2, 0.8, 2, false, 0x1e8449, 'box'),
+
+      // ============ TREE STUMPS (5 total, climbable) ============
+      ob(-25, -20, 1.5, 1, 1.5, true, 0x7a5230, 'box'),
+      ob(25, 20, 1.5, 1, 1.5, true, 0x7a5230, 'box'),
+      ob(-20, 25, 1.5, 1, 1.5, true, 0x5d4037, 'box'),
+      ob(20, -25, 1.5, 1, 1.5, true, 0x5d4037, 'box'),
+      ob(5, -35, 1.5, 1, 1.5, true, 0x7a5230, 'box'),
+
+      // ============ WOODEN CABIN (enterable, NE area) ============
+      ...buildHouse(30, -30, 8, 8, 4, 0x8b4513, 0xc0392b, 'S'),
+      // Cabin details: bed + table inside
+      ob(28, -33, 1.5, 0.5, 2, true, 0x5d4037, 'box'),     // bed
+      ob(33, -28, 2, 0.6, 1, true, 0xe8d5b7, 'box'),       // table
+
+      // ============ WATCHTOWER (3-floor, SW area) ============
+      ...buildTower(-30, 30, 6, 6, 3, 0x8b4513, 0x2c3e50),
+
+      // ============ ROPE BRIDGES between trees (high up) ============
+      ob(42.5, 32.5, 12, 0.2, 1, true, 0x7a5230, 'roof', 0, false, 5),    // SE rope bridge
+      ob(-42.5, 32.5, 12, 0.2, 1, true, 0x7a5230, 'roof', 0, false, 5),   // SW rope bridge
+      // Rope bridge posts (anchors)
+      ob(36, 32.5, 0.3, 6, 0.3, false, 0x5d4037, 'box'),
+      ob(48, 32.5, 0.3, 6, 0.3, false, 0x5d4037, 'box'),
+      ob(-36, 32.5, 0.3, 6, 0.3, false, 0x5d4037, 'box'),
+      ob(-48, 32.5, 0.3, 6, 0.3, false, 0x5d4037, 'box'),
+
+      // ============ CAMPFIRE (circle of rocks + central fire) ============
+      ob(15, -15, 1, 0.5, 1, true, 0xe67e22, 'box'),        // fire (orange)
+      ob(15, -15, 0.6, 0.3, 0.6, true, 0xf1c40f, 'box', 0, false, 0.5),  // flame top (yellow)
+      ob(13, -15, 0.6, 0.5, 0.6, true, 0x95a5a6, 'box'),    // rock 1 (west)
+      ob(17, -15, 0.6, 0.5, 0.6, true, 0x7f8c8d, 'box'),    // rock 2 (east)
+      ob(15, -13, 0.6, 0.5, 0.6, true, 0x95a5a6, 'box'),    // rock 3 (south)
+      ob(15, -17, 0.6, 0.5, 0.6, true, 0x7f8c8d, 'box'),    // rock 4 (north)
+      ob(15, -15, 2, 0.3, 0.4, true, 0x7a5230, 'box'),      // log under fire
+
+      // ============ MUSHROOMS (small red domes, scattered) ============
+      ob(12, 12, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
+      ob(-12, -12, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
+      ob(22, 8, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
+      ob(-22, -8, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
+      ob(8, 22, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
+      ob(-8, -22, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
+      ob(35, 0, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
+      ob(-35, 0, 0.5, 0.3, 0.5, true, 0xe74c3c, 'cyl'),
+
+      // ============ WOODEN SIGNPOSTS ============
+      ob(-5, 30, 0.2, 2, 0.2, false, 0x7a5230, 'box'),                      // post
+      ob(-5, 30, 1.5, 0.8, 0.1, false, 0xe8d5b7, 'box', 0, false, 1.5),     // sign board
+      ob(5, -30, 0.2, 2, 0.2, false, 0x7a5230, 'box'),
+      ob(5, -30, 1.5, 0.8, 0.1, false, 0xe8d5b7, 'box', 0, false, 1.5),
+      ob(20, 0, 0.2, 2, 0.2, false, 0x7a5230, 'box'),
+      ob(20, 0, 1.5, 0.8, 0.1, false, 0xe8d5b7, 'box', 0, false, 1.5),
+
+      // ============ FALLEN TREE (climbable, near river) ============
+      ob(0, 35, 0.8, 1, 6, true, 0x5d4037, 'box'),
     ],
-    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]],
+  },
   { id: 'paisaje', name: 'Paisaje', theme: 'Río y montañas', ground: 0x5a8a4a, fog: 0x7aa85a, accent: 0x4a6a3a, waterLevel: 0.3,
     obstacles: [
       ob(-35,-25,4,4,4,true,0x95a5a6,'box'), ob(35,25,4,4,4,true,0x7f8c8d,'box'),

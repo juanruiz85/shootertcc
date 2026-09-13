@@ -1289,3 +1289,186 @@ Verification:
 - Player at 100 HP ✅
 - VLM: "no overhead obstructions" ✅
 - No console errors ✅
+
+---
+Task ID: d-maps
+Agent: main (map redesigner)
+Task: Redesign escuela (school) and bosque (forest) maps with much more detail
+
+## Summary
+Completely redesigned the `escuela` and `bosque` maps in
+`/home/z/my-project/src/lib/game/constants.ts` with extensive detail per
+the task spec. The escuela is now a full 2-story building (70×70, h=8)
+with 4 classrooms, 2 bathrooms, library, lab, stairs to roof, basketball
+court, and courtyard. The bosque is now a dense forest with 27 trees,
+lake + river + pond, 3 bridges, cabin, watchtower, campfire, mushrooms,
+and many terrain features.
+
+## Files changed
+- `/home/z/my-project/src/lib/game/constants.ts` — replaced the `escuela`
+  map (was ~28 lines / 46 obstacles) and `bosque` map (was ~24 lines /
+  ~20 obstacles) with much larger detailed definitions.
+
+## Escuela redesign (197 obstacles, was 46)
+
+### Building shell (70×70, 2 stories, h=8)
+- Outer walls: south (with 2-wide door gap at center + decorative door
+  lintel above), north, east, west — all h=8
+- Red accent stripe band near top of exterior walls (decorative, noCollide)
+- Roof parapet (low walls around roof edge)
+
+### Ground floor (y=0 to y=4)
+- 4 classrooms in corners (NW, NE, SW, SE), each 30×30, with 2 door
+  gaps (2 wide) per classroom facing the cross-shaped hallways
+- Cross-shaped hallway: NS (x∈[-5,5]) + EW (z∈[-5,5]) — south entrance
+  path is fully clear from (0,35) north to (0,-35)
+- Each classroom has:
+  - 1 pizarrón (blackboard) on exterior wall
+  - 1 escritorio del maestro (teacher's desk, 2×1×1, brown)
+  - 1 teacher chair
+  - 6 pupitres (student desks, 1.5×0.8×1) in 2 rows of 3
+  - 6 sillas (chairs, 0.6×0.5×0.6) next to desks
+- 8 colored lockers along NS hallway walls (blue, red, green, yellow,
+  purple, orange, teal, blue) — positioned at x=±4.5, z=±28/±32
+- 2 bathrooms (east + west ends of EW hallway): partition walls + 2
+  sinks each, with door gaps
+
+### Stairs to 2nd floor
+- 7 steps going N at (x=-3, z=11), top at z=6.8, y=4.2
+
+### 2nd floor (y=4.2 to y=8)
+- Walkable platform (kind='roof') at y=4.2 with stairwell gap at
+  x∈[-5,0], z∈[7,12] so stairs aren't covered
+- 3 platform segments: east half, west-north, west-south
+- Open plan (no interior walls) — areas defined by furniture:
+  - Biblioteca (NE): 4 bookshelves along walls, 2 reading tables, 2
+    chairs, 1 blackboard
+  - Laboratorio (SE): 4 lab tables, 2 microscopes, 2 beakers (red +
+    green), 1 equipment shelf
+  - NW study area: 4 tables
+  - SW study area: 4 tables
+
+### Stairs to roof
+- 7 steps going N at (x=3, z=11), starting at y=4.2, top at y=8.4
+
+### Roof (y=8)
+- Red roof (kind='roof') with stairwell gap at x∈[0,6], z∈[7,12]
+- 4 roof segments + parapet walls around edge
+
+### Outside
+- Basketball court south of school (z∈[40,58]): 2 hoops (red + blue)
+  with poles, backboards, orange rims; court boundary lines (yellow,
+  noCollide); center line + circle
+- Courtyard: 8 trees, 6 benches, decorative fountain (cyl + water)
+- 4 trash cans at building corners (for climbing to roof)
+- Flagpole with flag in front of entrance
+
+## Bosque redesign (163 obstacles, was ~20)
+
+### Water features (3)
+- Large lake (20×30) in NW corner at (-40,-40)
+- River crossing north-south (6×80) at x=0, z∈[-40,40]
+- Small pond (10×10) in SE corner at (45,45)
+
+### Bridges (3 wooden + 6 railings)
+- Bridges at z=0, z=20, z=-20 (8×0.5×3, climbable)
+- 6 railing segments (low walls, noCollide) at bridge edges
+
+### Trees (27 total, was 8)
+- NE cluster (5 trees, scales 1.3–2.2)
+- SE cluster (4 trees, scales 1.3–2.0)
+- SW cluster (5 trees, scales 1.3–2.2)
+- NW cluster near lake (3 trees, avoiding water)
+- 10 scattered edge trees at ±50/±55
+
+### Terrain features
+- 8 large boulders (3×2.5×3, climbable, gray)
+- 12 small climbing rocks (1.5×1.5×1.5)
+- 5 fallen logs (5×1×1, climbable)
+- 10 bushes (2×0.8×2, non-climbable, two greens)
+- 5 tree stumps (1.5×1×1.5, climbable)
+
+### Structures
+- Wooden cabin (buildHouse, 8×8×4) at (30,-30) with bed + table inside
+- 3-floor watchtower (buildTower, 6×6×3) at (-30,30) with internal stairs
+- 2 rope bridges (kind='roof' at y=5) between trees in SE + SW
+- 4 rope bridge anchor posts
+
+### Details
+- Campfire at (15,-15): central orange fire + yellow flame top + 4
+  surrounding rocks + log underneath
+- 8 red mushroom props (small cyls)
+- 3 wooden signposts (post + sign board) at (-5,30), (5,-30), (20,0)
+- 1 fallen tree near river (climbable)
+
+## Verification
+- `bun run lint`: clean ✅ (exit 0, no errors, no warnings)
+- Dev server compiles successfully ✅ (✓ Compiled in 277ms)
+- Obstacle counts: escuela 197 (was 46), bosque 163 (was ~20)
+- South entrance path clear: door gap x∈[-1,1] at z=35, NS hallway
+  x∈[-5,5] clear from z=35 to z=-35 ✅
+- Spawns unobstructed: all 6 spawns at ±60 edges, no obstacles within
+  spawn radius ✅
+- Stairwell gaps in 2nd floor platform + roof aligned with stairs ✅
+
+## Notes for future agents
+- The server's copy of these maps in
+  `/home/z/my-project/mini-services/game-server/index.ts` will need to be
+  synced separately (similar to prior task `c-details-server`).
+- The escuela 2nd floor is open-plan (no interior walls) to avoid
+  blocking movement; library/lab areas are defined by furniture clusters.
+- The bosque river at x=0 (z∈[-40,40]) does NOT reach spawns at
+  z=±60, and the 3 bridges allow east-west crossing.
+- All water uses color 0x2980b9 per task spec (was 0x3498db before).
+
+---
+
+## Task ID: d-maps-server — Sync server escuela & bosque to redesigned client maps
+
+**Agent:** main (server map syncer)
+**Date:** 2026-09-13
+**Status:** ✅ Completed
+**Depends on:** `d-maps` (client redesign)
+
+### Summary
+The client's `escuela` and `bosque` maps were completely redesigned in task
+`d-maps` (197 and 163 obstacles respectively). The server at
+`mini-services/game-server/index.ts` still had the old small versions
+(`escuela` ~15 entries, `bosque` ~20 entries). Replaced both server-side
+obstacle arrays with the EXACT same data as the client so server-side
+collision/visibility checks match the client's rendering.
+
+### Files changed
+- `mini-services/game-server/index.ts`
+  - `escuela` map (was ~16 lines inline) → replaced with 197-obstacle
+    2-story building version (outer walls, 4 classrooms with furniture,
+    lockers, bathrooms, 2nd-floor library/lab/study areas, roof with
+    parapet, basketball court, courtyard with trees/benches/fountain,
+    trash cans, flagpole). Theme updated to `'Escuela 2 pisos'`,
+    spawns extended to 6 (`[-55,-55]`,`[55,55]` added).
+  - `bosque` map (was ~16 lines inline) → replaced with 163-obstacle
+    forest version (lake + river + pond, 3 wooden bridges with railings,
+    27 trees in clusters, 8 boulders, 12 small rocks, 5 fallen logs,
+    10 bushes, 5 stumps, wooden cabin, 3-floor watchtower, 2 rope
+    bridges, campfire, 8 mushrooms, 3 signposts, fallen tree). Theme
+    updated to `'Bosque denso con río y lago'`.
+
+### Verification
+- `bun run lint`: clean ✅ (exit 0, no errors/warnings)
+- `bun build mini-services/game-server/index.ts`: bundled OK (no syntax errors) ✅
+- Wrote a sandbox verification script that eval'd both the client and
+  server `MAPS` arrays using identical `ob`/`buildHouse`/`buildStairs`/
+  `buildTree`/`buildCar`/`buildTower` helper implementations, then
+  compared every obstacle's signature
+  `[x,z,w,h,d,climbable,color,kind,rotation,noCollide,y]`:
+  - **escuela**: client=197, server=197 → ✅ all 197 match exactly
+  - **bosque**: client=163, server=163 → ✅ all 163 match exactly
+- Dev server (`dev.log`) shows continued clean `GET /` 200 responses ✅
+
+### Notes
+- Server's helper functions (`ob`, `buildHouse`, `buildStairs`, `buildTree`,
+  `buildCar`, `buildTower`) already had identical signatures/behavior to
+  the client's, so no helper changes were needed — only the obstacle
+  arrays were swapped.
+- Both maps kept `waterLevel: 0.3` (bosque) and same ground/fog/accent
+  colors as before, matching the client exactly.
