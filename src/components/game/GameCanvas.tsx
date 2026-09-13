@@ -255,7 +255,7 @@ type ItemEnt = { id: string; type: string; group: THREE.Group; pos: THREE.Vector
 type Tracer = { line: THREE.Line; born: number; ttl: number }
 type Particle = { mesh: THREE.Mesh; vel: THREE.Vector3; born: number; ttl: number }
 type DroneEnt = { group: THREE.Group; targetPos: THREE.Vector3; targetYaw: number; active: boolean; spin: number }
-type ObstacleBox = { box: THREE.Box3; top: number; climbable: boolean; x: number; z: number; hw: number; hd: number; isRoof?: boolean }
+type ObstacleBox = { box: THREE.Box3; top: number; climbable: boolean; x: number; z: number; hw: number; hd: number; isRoof?: boolean; isStair?: boolean }
 
 /* ---------- doodle cloud (decorative) ---------- */
 function makeCloud(): THREE.Group {
@@ -533,7 +533,7 @@ export default function GameCanvas() {
           if (!c.noCollide) {
             const box = new THREE.Box3().setFromObject(mesh)
             box.expandByScalar(PLAYER_RADIUS * 0.3)
-            obstacles.push({ box, top: yOff + c.h, climbable: true, x: c.x, z: c.z, hw: c.w/2, hd: c.d/2 })
+            obstacles.push({ box, top: yOff + c.h, climbable: true, x: c.x, z: c.z, hw: c.w/2, hd: c.d/2, isStair: true })
           }
           continue
         } else {
@@ -1063,37 +1063,47 @@ export default function GameCanvas() {
     // ---------- collision (with climbable tops) ----------
     function horizontalBlocked(x: number, z: number, feetY: number): boolean {
       if (Math.abs(x) > boundLim || Math.abs(z) > boundLim) return true
-      const headY = feetY + 1.8  // player head height
-      const p = new THREE.Vector3(x, feetY + 0.1, z)
+      const headY = feetY + 2.0  // player total height (feet to top of head)
       for (let i = 0; i < obstacles.length; i++) {
         const o = obstacles[i]
-        // roofs NEVER block horizontal movement — you can walk under them and stand on them from above
+        // roofs NEVER block horizontal movement
         if (o.isRoof) continue
-        // skip thin slabs (floor platforms) unless body intersects
-        const oBottom = o.top - (o.box.max.y - o.box.min.y)
-        if (o.box.max.y - o.box.min.y < 0.6) {
-          if (feetY >= o.top - 0.1 || headY <= oBottom + 0.1) continue
-        }
+        // stairs NEVER block horizontal movement — you walk UP them via the standingOnBox landing logic
+        if (o.isStair) continue
+        // compute obstacle bottom and top
+        const oH = o.box.max.y - o.box.min.y
+        const oBottom = o.top - oH
+        const oTop = o.top
+        // skip if obstacle is entirely above player's head (can walk under)
+        if (oBottom >= headY - 0.05) continue
+        // skip if obstacle is entirely below player's feet (standing on top)
+        if (oTop <= feetY + 0.05) continue
+        // now check XZ overlap
         if (!o.climbable) {
-          if (o.box.containsPoint(p)) return true
+          // non-climbable: use exact box check
+          if (Math.abs(x - o.x) < o.hw + PLAYER_RADIUS && Math.abs(z - o.z) < o.hd + PLAYER_RADIUS) return true
           continue
         }
-        // climbable: only block if player's body intersects box vertically (feet below top)
-        if (feetY < o.top - 0.15) {
-          if (Math.abs(x - o.x) < o.hw + PLAYER_RADIUS && Math.abs(z - o.z) < o.hd + PLAYER_RADIUS) return true
-        }
+        // climbable: block if player body overlaps vertically
+        if (Math.abs(x - o.x) < o.hw + PLAYER_RADIUS && Math.abs(z - o.z) < o.hd + PLAYER_RADIUS) return true
       }
       return false
     }
     function standingOnBox(x: number, z: number, feetY: number): { idx: number; top: number } | null {
+      let best: { idx: number; top: number } | null = null
       for (let i = 0; i < obstacles.length; i++) {
         const o = obstacles[i]
         if (!o.climbable) continue
         if (Math.abs(x - o.x) < o.hw + PLAYER_RADIUS * 0.6 && Math.abs(z - o.z) < o.hd + PLAYER_RADIUS * 0.6) {
-          if (Math.abs(feetY - o.top) < 0.25) return { idx: i, top: o.top }
+          // for stairs, use a more generous landing range (0.4 instead of 0.25)
+          const range = o.isStair ? 0.4 : 0.25
+          if (Math.abs(feetY - o.top) < range) {
+            // pick the highest step the player is standing on
+            if (!best || o.top > best.top) best = { idx: i, top: o.top }
+          }
         }
       }
-      return null
+      return best
     }
 
     // ---------- loop ----------
@@ -1156,6 +1166,26 @@ export default function GameCanvas() {
       const prevFeet = local.pos.y - EYE_HEIGHT
       local.pos.y += local.vel.y * dt
       const feetY = local.pos.y - EYE_HEIGHT
+      const headY = feetY + 2.0  // player total height
+
+      // CEILING collision: if moving up and head hits a roof/floor platform, stop
+      if (local.vel.y > 0) {
+        for (let i = 0; i < obstacles.length; i++) {
+          const o = obstacles[i]
+          if (!o.isRoof && !o.isStair) continue  // only roofs and stairs block from below
+          const oH = o.box.max.y - o.box.min.y
+          const oBottom = o.top - oH
+          // check if player's head is hitting the bottom of this obstacle
+          if (headY >= oBottom && prevFeet + 2.0 <= oBottom + 0.1) {
+            // check XZ overlap
+            if (Math.abs(local.pos.x - o.x) < o.hw + PLAYER_RADIUS && Math.abs(local.pos.z - o.z) < o.hd + PLAYER_RADIUS) {
+              local.pos.y = oBottom - 2.0 + EYE_HEIGHT - 0.01
+              local.vel.y = 0
+              break
+            }
+          }
+        }
+      }
 
       let landed = false
       // box tops
