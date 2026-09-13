@@ -349,3 +349,31 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/).
 
 ### Pruebas
 - Lint: limpio ✅ | Server sincronizado ✅ | Push GitHub ✅
+
+---
+
+## [v0.21.0] — 2026-09-13 — Escaleras fix + armas mejoradas + francotirador + drops raros
+
+### Corregido
+- **Escaleras**: hueco del piso ahora cubre toda el área de la escalera (8×8), centrado en el punto medio de la escalera (no en el último escalón). Ancho de escalera aumentado a 4.0.
+
+### Agregado
+- **6 armas con diseños mejorados**:
+  - Pistola: corredera, marco, cañón, empuñadura, guardamonte, miras
+  - SMG: cuerpo, cañón, cargador curvo, culata plegable, mango frontal
+  - Rifle: cuerpo, guardamanos, cañón largo, culata, cargador, mira telescópica
+  - Escopeta: cuerpo, doble cañón, bombeo, culata
+  - **Francotirador** (NUEVO): cuerpo largo, cañón muy largo con freno, mira telescópica grande, bípode, culata
+  - **Lanzacohetes** (NUEVO, raro): tubo, ojiva cónica, empuñadura, mira
+- **Apuntado con clic derecho**: 
+  - Francotirador: FOV 30 + overlay de mira telescópica (viñeta + cruz + mil-dot)
+  - Rifle: FOV 50 (ADS)
+  - Other armas: zoom mínimo
+- **Armas raras que solo dropean mobs o al morir**:
+  - 5% probabilidad de drop raro al matar mob (2% lanzacohetes, 3% francotirador)
+  - Al morir con racha ≥ 5, el jugador dropea su arma actual
+  - Nuevo tipo de item 'weapon' para armas específicas
+- **HUD actualizado**: 6 slots de armas, overlay de mira telescópica, controles actualizados
+
+### Pruebas
+- Lint: limpio ✅ | Server sincronizado ✅ | Push GitHub ✅
