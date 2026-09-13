@@ -638,205 +638,201 @@ export const MAPS: GameMap[] = [
     id: 'oficinas', name: 'Oficinas', theme: 'Edificio corporativo 6 pisos', ground: 0xc8ccd0, fog: 0xd0d4d8, accent: 0x9098a0,
     obstacles: ((): MapObstacle[] => {
       const W = 40, D = 40, FH = 4, FLOORS = 6
-      const TOT = FH * FLOORS  // 24
+      const TOT = FH * FLOORS
       const wallT = 0.3, doorW = 2
       const cWall = 0x9098a0, cFloor = 0xb8c0c8, cGlass = 0xb8d4e3, cDesk = 0xe8d5b7, cChair = 0x555555, cPC = 0x2c3e50, cDark = 0x4a4a4a
       const r: MapObstacle[] = []
 
-      // ════════ EXTERIOR WALLS (full height) ════════
-      // North wall (z = -D/2) — solid
-      r.push(ob(0, -D/2, W, TOT, wallT, false, cWall, 'wall'))
-      // East wall (x = W/2) — glass with window gaps
-      r.push(ob(W/2, 0, wallT, TOT, D, false, cGlass, 'wall'))
-      // West wall (x = -W/2) — glass
-      r.push(ob(-W/2, 0, wallT, TOT, D, false, cGlass, 'wall'))
-      // South wall — door gap on ground floor only, solid above
+      // ════════ HELPERS ════════
+      // Build a solid floor platform with a hole at (hx, hz) for stairwell
+      const holeSize = 4 // 4×4 hole
+      const hs = holeSize / 2
+      const buildFloor = (y: number, hx: number, hz: number) => {
+        const z1 = hz - hs, z2 = hz + hs, x1 = hx - hs, x2 = hx + hs
+        const xMin = -W/2 + wallT, xMax = W/2 - wallT, zMin = -D/2 + wallT, zMax = D/2 - wallT
+        // North piece (z from zMin to z1, full width)
+        if (z1 > zMin) r.push(ob(0, (zMin + z1)/2, xMax - xMin, 0.25, z1 - zMin, true, cFloor, 'roof', 0, false, y))
+        // South piece (z from z2 to zMax, full width)
+        if (zMax > z2) r.push(ob(0, (z2 + zMax)/2, xMax - xMin, 0.25, zMax - z2, true, cFloor, 'roof', 0, false, y))
+        // West piece (z from z1 to z2, x from xMin to x1)
+        if (x1 > xMin) r.push(ob((xMin + x1)/2, hz, x1 - xMin, 0.25, z2 - z1, true, cFloor, 'roof', 0, false, y))
+        // East piece (z from z1 to z2, x from x2 to xMax)
+        if (xMax > x2) r.push(ob((x2 + xMax)/2, hz, xMax - x2, 0.25, z2 - z1, true, cFloor, 'roof', 0, false, y))
+      }
+
+      // Build stairs going UP from floor baseY, starting at (sx, sz), direction dir
+      // 7 steps × 0.57 = 3.99 ≈ 4.0 (floor height)
+      const stepH = 0.57, stepD = 0.7, stepW = 3.5
+      const buildStaircase = (sx: number, sz: number, dir: 'N'|'S'|'E'|'W', baseY: number) => {
+        for (let s = 0; s < 7; s++) {
+          let x = sx, z = sz
+          if (dir === 'N') z = sz + s * stepD
+          if (dir === 'S') z = sz - s * stepD
+          if (dir === 'E') x = sx - s * stepD
+          if (dir === 'W') x = sx + s * stepD
+          r.push(ob(x, z, stepW, stepH, stepD, true, 0x8a7a5a, 'stair', dir === 'E' || dir === 'W' ? Math.PI/2 : 0, false, baseY + s * stepH))
+        }
+      }
+
+      // Stair positions per floor (different corners)
+      // Floor 0→1: NW corner, going N. Hole on floor 1 at top of stairs
+      // Floor 1→2: NE corner, going N. Hole on floor 2 at top
+      // Floor 2→3: SE corner, going S. Hole on floor 3 at top
+      // Floor 3→4: SW corner, going S. Hole on floor 4 at top
+      // Floor 4→5: center-N, going N. Hole on floor 5 at top
+      const stairs = [
+        { sx: -14, sz: -14, dir: 'N' as const }, // 0→1
+        { sx: 14, sz: -14, dir: 'N' as const },  // 1→2
+        { sx: 14, sz: 14, dir: 'S' as const },   // 2→3
+        { sx: -14, sz: 14, dir: 'S' as const },  // 3→4
+        { sx: -14, sz: -14, dir: 'N' as const }, // 4→5
+      ]
+      // Hole positions on each floor (where stairs from below emerge)
+      // Top of stairs going N from (sx,sz): position = (sx, sz + 6*stepD) ≈ (sx, sz+4.2)
+      // Top of stairs going S from (sx,sz): position = (sx, sz - 6*stepD) ≈ (sx, sz-4.2)
+      const getHolePos = (s: typeof stairs[0]) => {
+        if (s.dir === 'N') return { hx: s.sx, hz: s.sz + 6 * stepD }
+        if (s.dir === 'S') return { hx: s.sx, hz: s.sz - 6 * stepD }
+        if (s.dir === 'E') return { hx: s.sx - 6 * stepD, hz: s.sz }
+        return { hx: s.sx + 6 * stepD, hz: s.sz }
+      }
+
+      // ════════ EXTERIOR WALLS ════════
+      r.push(ob(0, -D/2, W, TOT, wallT, false, cWall, 'wall')) // North
+      r.push(ob(W/2, 0, wallT, TOT, D, false, cGlass, 'wall')) // East (glass)
+      r.push(ob(-W/2, 0, wallT, TOT, D, false, cGlass, 'wall')) // West (glass)
+      // South wall: door gap ground floor, solid above
       r.push(ob(-W/4 - doorW/4, D/2, W/2 - doorW/2, FH - 0.1, wallT, false, cWall, 'wall'))
       r.push(ob(W/4 + doorW/4, D/2, W/2 - doorW/2, FH - 0.1, wallT, false, cWall, 'wall'))
       for (let f = 1; f < FLOORS; f++) r.push(ob(0, D/2, W, FH - 0.1, wallT, false, cWall, 'wall', 0, false, f * FH))
 
-      // ════════ FLOOR PLATFORMS (techos de piso N = piso de piso N+1) ════════
-      // Each floor platform has a gap for the stairwell (stairwell at x=10..16, z=-8..0)
+      // ════════ FLOOR PLATFORMS (floors 1-5, each with hole for stairs from below) ════════
       for (let f = 1; f < FLOORS; f++) {
-        const fy = f * FH
-        // West half of floor (full)
-        r.push(ob(-W/4 - 2, 0, W/2 - 4, 0.25, D - wallT*2, true, cFloor, 'roof', 0, false, fy))
-        // East half of floor, split to leave stairwell gap (x=8 to x=18)
-        r.push(ob(W/4 + 8, 0, W/2 - 16, 0.25, D - wallT*2, true, cFloor, 'roof', 0, false, fy))
-        // Small piece connecting to stairwell landing
-        r.push(ob(8, 0, 4, 0.25, 6, true, cFloor, 'roof', 0, false, fy))
+        const hp = getHolePos(stairs[f - 1])
+        buildFloor(f * FH, hp.hx, hp.hz)
       }
 
-      // ════════ STAIRWELL (connects all 6 floors) ════════
-      // Stairs at x=12, going from south to north (upward), 7 steps per floor
+      // ════════ STAIRCASES (connect all floors) ════════
       for (let f = 0; f < FLOORS - 1; f++) {
-        const fy = f * FH
-        // 7 steps, each 0.55 high, 0.7 deep, going north (upward)
-        for (let s = 0; s < 7; s++) {
-          r.push(ob(12, -6 + s * 0.7, 3, 0.55, 0.7, true, 0x8a7a5a, 'stair', 0, false, fy + s * 0.55))
-        }
-        // Landing platform at top of stairs (connects to next floor)
-        r.push(ob(12, -1, 3, 0.25, 2, true, cFloor, 'roof', 0, false, fy + 7 * 0.55))
+        const s = stairs[f]
+        buildStaircase(s.sx, s.sz, s.dir, f * FH)
       }
 
-      // ════════ PISO 1 (y=0..4): LOBBY / RECEPCIÓN ════════
-      // Reception desk
-      r.push(ob(0, 10, 6, 1, 1.5, true, cDesk, 'box'))
-      r.push(ob(0, 10.8, 6, 0.8, 0.3, false, cPC, 'box', 0, false, 1))
-      // Reception chairs
-      r.push(ob(-5, 12, 1, 0.5, 1, true, cChair, 'box'))
-      r.push(ob(5, 12, 1, 0.5, 1, true, cChair, 'box'))
-      r.push(ob(-5, 14, 1, 0.5, 1, true, cChair, 'box'))
-      r.push(ob(5, 14, 1, 0.5, 1, true, cChair, 'box'))
-      // Sofa
-      r.push(ob(-12, 10, 4, 0.8, 1.5, true, 0x8e44ad, 'box'))
-      // Coffee table
-      r.push(ob(-12, 13, 2, 0.5, 1, true, cDesk, 'box'))
-      // Potted plants
-      r.push(ob(-15, -10, 1, 1.5, 1, false, 0x27ae60, 'cyl'))
-      r.push(ob(15, -10, 1, 1.5, 1, false, 0x27ae60, 'cyl'))
-      r.push(ob(-15, 15, 1, 1.5, 1, false, 0x27ae60, 'cyl'))
-      r.push(ob(15, 15, 1, 1.5, 1, false, 0x27ae60, 'cyl'))
-      // Security desk
-      r.push(ob(0, 17, 3, 1, 1, true, cDark, 'box'))
-      r.push(ob(0, 17.5, 2, 0.3, 0.5, false, cPC, 'box', 0, false, 1))
-      // Trash cans
-      r.push(ob(-10, -5, 0.8, 1, 0.8, true, 0x555555, 'box'))
-      r.push(ob(10, 5, 0.8, 1, 0.8, true, 0x555555, 'box'))
+      // ════════ PISO 1 (y=0..4): LOBBY ════════
+      r.push(ob(0, 12, 6, 1, 1.5, true, cDesk, 'box')) // reception desk
+      r.push(ob(0, 12.8, 4, 0.3, 0.5, false, cPC, 'box', 0, false, 1)) // PC on desk
+      r.push(ob(-8, 12, 1, 0.5, 1, true, cChair, 'box')) // chairs
+      r.push(ob(8, 12, 1, 0.5, 1, true, cChair, 'box'))
+      r.push(ob(-12, 8, 4, 0.8, 1.5, true, 0x8e44ad, 'box')) // sofa
+      r.push(ob(-12, 11, 2, 0.5, 1, true, cDesk, 'box')) // coffee table
+      r.push(ob(-16, -12, 1, 1.5, 1, false, 0x27ae60, 'cyl')) // plants
+      r.push(ob(16, -12, 1, 1.5, 1, false, 0x27ae60, 'cyl'))
+      r.push(ob(0, 17, 3, 1, 1, true, cDark, 'box')) // security desk
+      r.push(ob(-5, -5, 0.8, 1, 0.8, true, 0x555555, 'box')) // trash
+      r.push(ob(5, 5, 0.8, 1, 0.8, true, 0x555555, 'box'))
 
       // ════════ PISO 2 (y=4..8): OFICINAS ABIERTAS ════════
-      const f2 = 1 * FH
-      // Desk rows (6 desks with PCs)
-      for (let i = 0; i < 3; i++) {
-        const dx = -12 + i * 8
-        r.push(ob(dx, -8, 3, 0.8, 1.5, true, cDesk, 'box', 0, false, f2))  // desk
-        r.push(ob(dx, -8.6, 1.5, 0.4, 0.5, false, cPC, 'box', 0, false, f2 + 0.8))  // monitor
-        r.push(ob(dx, -7, 1, 0.5, 1, true, cChair, 'box', 0, false, f2))  // chair
-        r.push(ob(dx, 8, 3, 0.8, 1.5, true, cDesk, 'box', 0, false, f2))  // desk
-        r.push(ob(dx, 8.6, 1.5, 0.4, 0.5, false, cPC, 'box', 0, false, f2 + 0.8))  // monitor
-        r.push(ob(dx, 7, 1, 0.5, 1, true, cChair, 'box', 0, false, f2))  // chair
+      const f2 = FH
+      for (let i = 0; i < 4; i++) {
+        const dx = -12 + i * 8, dz = -10 + (i % 2) * 16
+        r.push(ob(dx, dz, 3, 0.8, 1.5, true, cDesk, 'box', 0, false, f2))
+        r.push(ob(dx, dz - 0.5, 1.5, 0.4, 0.5, false, cPC, 'box', 0, false, f2 + 0.8))
+        r.push(ob(dx, dz + 1.5, 1, 0.5, 1, true, cChair, 'box', 0, false, f2))
       }
-      // Filing cabinets along walls
-      r.push(ob(-W/2 + 1, 0, 1, 2, 1, true, cDark, 'box', 0, false, f2))
-      r.push(ob(-W/2 + 1, 5, 1, 2, 1, true, cDark, 'box', 0, false, f2))
-      r.push(ob(-W/2 + 1, -5, 1, 2, 1, true, cDark, 'box', 0, false, f2))
-      // Water cooler
-      r.push(ob(W/2 - 2, -12, 0.8, 1.5, 0.8, true, 0x3498db, 'box', 0, false, f2))
-      // Printer
-      r.push(ob(W/2 - 2, 12, 1.5, 1, 1, true, cDark, 'box', 0, false, f2))
+      for (let i = 0; i < 4; i++) {
+        const dx = 4 + i * 4
+        r.push(ob(dx, 0, 1, 2, 1, true, cDark, 'box', 0, false, f2)) // filing cabinets
+      }
+      r.push(ob(16, -8, 0.8, 1.5, 0.8, true, 0x3498db, 'box', 0, false, f2)) // water cooler
+      r.push(ob(16, 8, 1.5, 1, 1, true, cDark, 'box', 0, false, f2)) // printer
 
       // ════════ PISO 3 (y=8..12): SALAS DE REUNIONES ════════
       const f3 = 2 * FH
-      // Partition walls dividing into 4 meeting rooms
-      r.push(ob(0, 0, W - wallT*2, FH - 0.5, wallT, false, cWall, 'wall', 0, false, f3))  // horizontal divider
-      r.push(ob(0, 0, wallT, FH - 0.5, D - wallT*2, false, cWall, 'wall', 0, false, f3))  // vertical divider
-      // Meeting tables (large) in each quadrant
-      for (const [tx, tz] of [[-10, -10], [10, -10], [-10, 10], [10, 10]] as const) {
-        r.push(ob(tx, tz, 5, 0.8, 2.5, true, cDesk, 'box', 0, false, f3))  // table
-        r.push(ob(tx, tz - 3, 1, 0.5, 1, true, cChair, 'box', 0, false, f3))  // chair
-        r.push(ob(tx, tz + 3, 1, 0.5, 1, true, cChair, 'box', 0, false, f3))
-        r.push(ob(tx - 3, tz, 1, 0.5, 1, true, cChair, 'box', 0, false, f3))
-        r.push(ob(tx + 3, tz, 1, 0.5, 1, true, cChair, 'box', 0, false, f3))
-        // Projector
-        r.push(ob(tx, tz, 1, 0.3, 1, false, cDark, 'box', 0, false, f3 + 3))
-        // Whiteboard
-        r.push(ob(tx + (tx > 0 ? -6 : 6), tz, 0.2, 2, 3, false, 0xffffff, 'wall', 0, false, f3))
+      // Partition walls with door gaps (cross shape, gap in center of each arm)
+      r.push(ob(0, -D/4 - 2, W - wallT*2 - 4, FH - 0.5, wallT, false, cWall, 'wall', 0, false, f3)) // NW→NE horizontal
+      r.push(ob(0, D/4 + 2, W - wallT*2 - 4, FH - 0.5, wallT, false, cWall, 'wall', 0, false, f3)) // SW→SE horizontal
+      r.push(ob(-W/4 - 2, 0, wallT, FH - 0.5, D - wallT*2 - 4, false, cWall, 'wall', 0, false, f3)) // N→S vertical left
+      r.push(ob(W/4 + 2, 0, wallT, FH - 0.5, D - wallT*2 - 4, false, cWall, 'wall', 0, false, f3)) // N→S vertical right
+      // Meeting tables in 4 quadrants
+      for (const [tx, tz] of [[-12, -12], [12, -12], [-12, 12], [12, 12]] as const) {
+        r.push(ob(tx, tz, 4, 0.8, 2, true, cDesk, 'box', 0, false, f3))
+        r.push(ob(tx, tz - 2.5, 1, 0.5, 1, true, cChair, 'box', 0, false, f3))
+        r.push(ob(tx, tz + 2.5, 1, 0.5, 1, true, cChair, 'box', 0, false, f3))
+        r.push(ob(tx - 2.5, tz, 1, 0.5, 1, true, cChair, 'box', 0, false, f3))
+        r.push(ob(tx + 2.5, tz, 1, 0.5, 1, true, cChair, 'box', 0, false, f3))
+        r.push(ob(tx, tz, 1, 0.3, 1, false, cDark, 'box', 0, false, f3 + 3)) // projector
       }
 
       // ════════ PISO 4 (y=12..16): CUBÍCULOS ════════
       const f4 = 3 * FH
-      // Cubicle partitions (low walls, climbable)
       for (let cx = -12; cx <= 12; cx += 8) {
         for (let cz = -12; cz <= 12; cz += 8) {
-          // Cubicle walls (L-shaped)
-          r.push(ob(cx + 2, cz, 0.15, 1.5, 3, false, 0xc8ccd0, 'wall', 0, false, f4))
-          r.push(ob(cx, cz + 2, 3, 1.5, 0.15, false, 0xc8ccd0, 'wall', 0, false, f4))
-          // Desk in each cubicle
-          r.push(ob(cx, cz, 2, 0.8, 1, true, cDesk, 'box', 0, false, f4))
-          // Monitor
-          r.push(ob(cx, cz - 0.4, 1, 0.3, 0.4, false, cPC, 'box', 0, false, f4 + 0.8))
-          // Chair
-          r.push(ob(cx, cz + 1.5, 0.8, 0.5, 0.8, true, cChair, 'box', 0, false, f4))
-          // Phone
-          r.push(ob(cx + 0.8, cz, 0.3, 0.1, 0.3, false, cDark, 'box', 0, false, f4 + 0.8))
+          r.push(ob(cx + 1.5, cz, 0.15, 1.5, 2.5, false, 0xc8ccd0, 'wall', 0, false, f4)) // partition N
+          r.push(ob(cx, cz + 1.5, 2.5, 1.5, 0.15, false, 0xc8ccd0, 'wall', 0, false, f4)) // partition W
+          r.push(ob(cx, cz, 2, 0.8, 1, true, cDesk, 'box', 0, false, f4)) // desk
+          r.push(ob(cx, cz - 0.4, 1, 0.3, 0.4, false, cPC, 'box', 0, false, f4 + 0.8)) // monitor
+          r.push(ob(cx, cz + 1.5, 0.8, 0.5, 0.8, true, cChair, 'box', 0, false, f4)) // chair
         }
       }
 
-      // ════════ PISO 5 (y=16..20): SALA DE SERVIDORES ════════
+      // ════════ PISO 5 (y=16..20): SERVIDORES ════════
       const f5 = 4 * FH
-      // Server racks (tall narrow boxes)
       for (let i = 0; i < 6; i++) {
-        const sx = -12 + (i % 3) * 8
-        const sz = -8 + Math.floor(i / 3) * 16
-        r.push(ob(sx, sz, 1.5, 3, 1, true, 0x2c3e50, 'box', 0, false, f5))  // rack body
-        r.push(ob(sx, sz, 1.2, 2.8, 0.8, false, 0x1a1a1a, 'box', 0, false, f5 + 0.1))  // rack interior
-        // LED lights on rack
+        const sx = -12 + (i % 3) * 8, sz = -8 + Math.floor(i / 3) * 16
+        r.push(ob(sx, sz, 1.5, 3, 1, true, 0x2c3e50, 'box', 0, false, f5))
+        r.push(ob(sx, sz, 1.2, 2.8, 0.8, false, 0x1a1a1a, 'box', 0, false, f5 + 0.1))
         r.push(ob(sx, sz, 1.3, 0.1, 0.9, false, 0x27ae60, 'box', 0, false, f5 + 1))
         r.push(ob(sx, sz, 1.3, 0.1, 0.9, false, 0xe74c3c, 'box', 0, false, f5 + 1.5))
       }
-      // Cable trays on floor
-      r.push(ob(0, 0, 30, 0.15, 1, false, 0x555555, 'box', 0, false, f5))
-      r.push(ob(0, 0, 1, 0.15, 30, false, 0x555555, 'box', 0, false, f5))
-      // Cooling units
-      r.push(ob(-15, 15, 2, 1.5, 2, true, 0x95a5a6, 'box', 0, false, f5))
+      r.push(ob(-15, 15, 2, 1.5, 2, true, 0x95a5a6, 'box', 0, false, f5)) // cooling
       r.push(ob(15, 15, 2, 1.5, 2, true, 0x95a5a6, 'box', 0, false, f5))
-      // UPS battery
-      r.push(ob(-15, -15, 2, 1.5, 1, true, cDark, 'box', 0, false, f5))
+      r.push(ob(-15, -15, 2, 1.5, 1, true, cDark, 'box', 0, false, f5)) // UPS
       r.push(ob(15, -15, 2, 1.5, 1, true, cDark, 'box', 0, false, f5))
 
-      // ════════ PISO 6 / AZOTEA (y=20..24): TERRAZA ════════
+      // ════════ PISO 6 (y=20..24): TERRAZA ════════
       const f6 = 5 * FH
-      // Rooftop railing (low wall around perimeter)
+      // Railings
       r.push(ob(0, D/2 - 1, W - 2, 1.2, 0.15, false, cWall, 'wall', 0, false, f6))
       r.push(ob(0, -D/2 + 1, W - 2, 1.2, 0.15, false, cWall, 'wall', 0, false, f6))
       r.push(ob(W/2 - 1, 0, 0.15, 1.2, D - 2, false, cWall, 'wall', 0, false, f6))
       r.push(ob(-W/2 + 1, 0, 0.15, 1.2, D - 2, false, cWall, 'wall', 0, false, f6))
-      // Jacuzzi (water)
+      // Jacuzzi
       r.push(ob(-10, -10, 4, 0.8, 4, false, 0x2980b9, 'water', 0, true, f6))
-      r.push(ob(-10, -10, 4.5, 1, 4.5, false, 0x95a5a6, 'box', 0, true, f6))  // jacuzzi rim (no collide)
       // Bar
-      r.push(ob(10, -10, 5, 1.2, 1.5, true, cDesk, 'box', 0, false, f6))  // bar counter
-      r.push(ob(10, -11, 5, 0.5, 0.5, false, cChair, 'box', 0, false, f6))  // bar stools
-      r.push(ob(12, -10, 1, 0.3, 0.5, false, 0x27ae60, 'box', 0, false, f6 + 1.2))  // bottle
-      r.push(ob(8, -10, 1, 0.3, 0.5, false, 0xe74c3c, 'box', 0, false, f6 + 1.2))  // bottle
+      r.push(ob(10, -10, 5, 1.2, 1.5, true, cDesk, 'box', 0, false, f6))
+      r.push(ob(12, -10, 0.5, 0.3, 0.5, false, 0x27ae60, 'box', 0, false, f6 + 1.2))
+      r.push(ob(8, -10, 0.5, 0.3, 0.5, false, 0xe74c3c, 'box', 0, false, f6 + 1.2))
       // Lounge chairs
       r.push(ob(10, 10, 1.5, 0.6, 2, true, 0xe67e22, 'box', 0, false, f6))
       r.push(ob(13, 10, 1.5, 0.6, 2, true, 0xe67e22, 'box', 0, false, f6))
       r.push(ob(10, 13, 1.5, 0.6, 2, true, 0xe67e22, 'box', 0, false, f6))
-      // Potted plants (large)
+      // Plants
       r.push(ob(-15, 15, 1.5, 2, 1.5, false, 0x27ae60, 'cyl', 0, false, f6))
       r.push(ob(15, 15, 1.5, 2, 1.5, false, 0x27ae60, 'cyl', 0, false, f6))
-      r.push(ob(-15, -15, 1.5, 2, 1.5, false, 0x27ae60, 'cyl', 0, false, f6))
-      // Umbrella table
-      r.push(ob(0, 5, 2, 0.8, 2, true, cDesk, 'box', 0, false, f6))  // table
-      r.push(ob(0, 5, 0.2, 2.5, 0.2, false, 0xe74c3c, 'box', 0, false, f6 + 0.8))  // umbrella pole
-      r.push(ob(0, 5, 3, 0.1, 3, false, 0xe74c3c, 'box', 0, true, f6 + 3))  // umbrella top (no collide)
-      // BBQ grill
+      // Table with umbrella
+      r.push(ob(0, 5, 2, 0.8, 2, true, cDesk, 'box', 0, false, f6))
+      r.push(ob(0, 5, 0.2, 2.5, 0.2, false, 0xe74c3c, 'box', 0, false, f6 + 0.8))
+      r.push(ob(0, 5, 3, 0.1, 3, false, 0xe74c3c, 'box', 0, true, f6 + 3))
+      // BBQ
       r.push(ob(-12, 8, 1.5, 1, 1.5, true, 0x2c3e50, 'box', 0, false, f6))
-      r.push(ob(-12, 8, 1, 0.2, 1, false, 0xe74c3c, 'box', 0, false, f6 + 1))  // hot coals
+      r.push(ob(-12, 8, 1, 0.2, 1, false, 0xe74c3c, 'box', 0, false, f6 + 1))
 
-      // ════════ ROOF (y=24) ════════
+      // ════════ ROOF ════════
       r.push(ob(0, 0, W + 0.6, 0.3, D + 0.6, true, 0x2c3e50, 'roof', 0, false, TOT))
 
-      // ════════ EXTERIOR DETAILS ════════
-      // Parking lot cars
+      // ════════ EXTERIOR ════════
       r.push(...buildCar(-30, -40, 0xe74c3c, 0))
       r.push(...buildCar(-20, -40, 0x3498db, 0))
       r.push(...buildCar(20, -40, 0x27ae60, 0))
       r.push(...buildCar(30, -40, 0xf1c40f, 0))
       r.push(...buildCar(-30, 40, 0xe67e22, 0))
       r.push(...buildCar(30, 40, 0x9b59b6, 0))
-      // Street lamps
       r.push(ob(-40, 0, 0.3, 5, 0.3, false, 0x2c3e50, 'cyl'))
       r.push(ob(40, 0, 0.3, 5, 0.3, false, 0x2c3e50, 'cyl'))
-      r.push(ob(0, -50, 0.3, 5, 0.3, false, 0x2c3e50, 'cyl'))
-      r.push(ob(0, 50, 0.3, 5, 0.3, false, 0x2c3e50, 'cyl'))
-      // Trees in landscaping
       r.push(...buildTree(-50, -50, 1.5))
       r.push(...buildTree(50, -50, 1.5))
       r.push(...buildTree(-50, 50, 1.5))
       r.push(...buildTree(50, 50, 1.5))
-      // Trash cans at entrance
       r.push(ob(-3, 22, 0.8, 1.2, 0.8, true, 0x555555, 'box'))
       r.push(ob(3, 22, 0.8, 1.2, 0.8, true, 0x555555, 'box'))
 
