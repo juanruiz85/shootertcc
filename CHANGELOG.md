@@ -139,3 +139,39 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/).
 - Sala cooperativa creada → juego cargado, "Cooperativo · Nivel 1 · Arena Doodle" ✅
 - Jugador a 100 HP (vivo, no atascado) ✅
 - Sin errores en consola ✅
+
+---
+
+## [v0.7.0] — 2026-09-13 — Corrección de orientación + torres + mapas más grandes
+
+### Corregido
+- **Objetos volteados**: árboles invertidos (foliage dentro del tronco), puertas arriba (ventanas mal posicionadas), coches con cabina dentro de la carrocería
+  - Causa: todos los obstáculos se renderizaban desde y=0 sin offset vertical
+  - Solución: añadido campo `y` a MapObstacle para offset vertical
+  - buildTree: foliage ahora en y=trunkH (encima del tronco)
+  - buildHouse: ventana encima de puerta en y=doorH (2.2), techo en y=h
+  - buildCar: cabina en y=0.8 (encima de la carrocería)
+  - buildStairs: cada escalón en y=i*stepH (apilados hacia arriba)
+- **Altura de salto limitada**: JUMP_V 9.5 → 13 (altura máx ~1.7 → ~3.25 unidades)
+  - Ahora se puede saltar entre bloques y subir estructuras
+
+### Agregado
+- **buildTower**: función para crear torres de múltiples pisos entrables
+  - Paredes externas completas con huecos de puerta en cada piso
+  - Plataformas de piso (caminables) para pisos superiores
+  - Escaleras internas que conectan cada piso
+  - Techo en la parte superior
+  - Soporte para N pisos (usado 5 pisos en barrio y oficinas)
+- **Mapa Barrio ampliado**: 4 → 8 casas entrables + torre central de 5 pisos
+  - 8 botes de basura junto a casas (para subir al techo)
+  - 4 coches, 2 lámparas de calle, vallas, cajas, fuente de agua
+- **Mapa Oficinas ampliado**: 4 → 8 edificios de oficinas + torre central de 5 pisos
+  - Paredes de cristal, botes de basura, escritorios, rampas, puentes
+
+### Pruebas
+- Lint: limpio ✅
+- Servidores estables ✅
+- VLM: árboles correctamente orientados ("green crown on top, brown trunk on bottom") ✅
+- VLM: sin objetos invertidos ✅
+- Jugador a 88 HP (vivo, no atascado) ✅
+- Sin errores en consola ✅

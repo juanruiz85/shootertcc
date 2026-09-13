@@ -745,3 +745,148 @@ Stage Summary:
 - 5 maps completely redesigned with enterable buildings, water, stairs, complex structures
 - New obstacle system supports walls, stairs, water, roofs with rotation
 - 21 total maps, 6 game modes
+
+---
+
+## Task ID: z-server — Game Server Vertical `y` Offset + Tower Sync
+
+### Agent
+game-server-updater
+
+### Task Summary
+Mirrored the client `constants.ts` vertical-offset changes into the multiplayer server (`mini-services/game-server/index.ts`) so the authoritative spawn/collision logic on port 3003 stays in lock-step with the visual layout the renderer shows. Without this, players spawning under the new tower's elevated floor platforms were being marked as "blocked" and shoved to fallback positions, and obstacles floating above ground (roofs, cabin, foliage) were treated as collidable on the ground plane.
+
+### Files Modified
+- `mini-services/game-server/index.ts` (1185 → 1293 lines, +108)
+
+### Key Changes
+
+#### 1. `MapObstacle` type
+- Added `y?: number` field — vertical offset from ground (default 0 = on the floor).
+- Matches client `MapObstacle` interface exactly.
+
+#### 2. `ob` helper
+- Signature extended: `(x, z, w, h, d, climbable = true, color = 0xe8d5b7, kind = 'box', rotation = 0, noCollide = false, y = 0)`.
+- The new `y` is the last positional parameter so existing call sites that omit it keep working.
+
+#### 3. `buildHouse` fix
+- Replaced `winH = 1.0, winY = 1.2` with `doorH = 2.2` (door height).
+- Window above door (both N and S sides) now: `ob(cx, cz ± d/2, doorW, h - doorH, wallT, false, color, 'wall', 0, true, doorH)` — sits at y = doorH so it floats above the door opening.
+- Roof now: `ob(cx, cz, w + 0.6, 0.3, d + 0.6, true, roofColor, 'roof', 0, false, h)` — sits on top of the walls at y = h.
+
+#### 4. `buildStairs` fix
+- Bumped step dimensions: `stepH = 0.6` (was 0.5), `stepD = 0.7` (was 0.6), `stepW = 2.5` (was 2).
+- Each step now carries `y = i * stepH` so they stack upward instead of all sitting on the ground.
+- Removed the `+0.01` height fudge — no longer needed.
+
+#### 5. `buildTree` fix
+- Trunk stays at y = 0 (cyl, height = `3 * scale`).
+- Foliage now sits on top: `ob(cx, cz, 2.5 * scale, 2.5 * scale, 2.5 * scale, true, 0x27ae60, 'box', 0, false, trunkH)` where `trunkH = 3 * scale`. Previously the foliage was embedded inside the trunk.
+
+#### 6. `buildCar` fix
+- Body at y = 0 (unchanged).
+- Cabin now: `ob(cx, cz, 1.8, 0.6, 2, false, 0x2c3e50, 'box', rotation, false, 0.8)` — sits on top of the body at y = 0.8 (was previously inside the body).
+
+#### 7. New `buildTower` function
+- Multi-floor enterable tower with internal stairs.
+- Params: `(cx, cz, w, d, floors, color, roofColor)`.
+- Constants: `floorH = 3.0`, `wallT = 0.3`, `doorW = 1.5`, `totalH = floors * floorH`.
+- Structure:
+  - North, East, West outer walls: full `totalH` height.
+  - For each floor `f`:
+    - Two south-wall segments flanking the door, at `y = f * floorH`.
+    - Window above door (noCollide) at `y = f * floorH + 2.0`.
+    - For `f > 0`: floor platform (`roof` kind, walkable, noCollide) at `y = f * floorH`, plus internal stairs (4 steps, N direction) shifted up by `fy`.
+  - Final roof on top at `y = totalH`.
+
+#### 8. `barrio` map rebuilt
+- 8 houses (4 south-facing at z=-16, 4 north-facing at z=16) along x = -20, -8, 8, 20.
+- 5-floor tower at center: `buildTower(0, 0, 8, 8, 5, 0xa0a8b0, 0x2c3e50)`.
+- 8 trash cans (climbable) next to each house.
+- 4 cars on the streets (2 axis-aligned, 2 rotated 90°).
+- 2 street lamps (cyl), 2 crates, 4 low fences, 1 central water fountain.
+- 6 spawns: corners + mid-edges.
+
+#### 9. `oficinas` map rebuilt
+- 8 office buildings (4 south + 4 north) along x = -18, -6, 6, 18.
+- 5-floor tower at center: `buildTower(0, 0, 7, 7, 5, 0x9098a0, 0x2c3e50)`.
+- 2 glass partitions, 4 trash cans, 2 office desks, 2 ramps.
+- 2 elevated bridges at y=4 connecting north/south sides (`ob(..., 'roof', 0, false, 4)`).
+- 4 spawns: mid-edges.
+
+#### 10. `spawnBlocked` updated
+- Skips obstacles where `(o.y ?? 0) > 1.0` — they're elevated (roofs, bridges, tower floors) and shouldn't block ground spawns.
+- Threshold of 1.0 chosen because player spawn y is 1.7; obstacles above ~1.0 don't intersect the spawn capsule.
+- Still skips `water` and `noCollide` obstacles as before.
+
+### Verification
+- `bun run lint`: clean ✅ (no ESLint errors)
+- `bun build index.ts`: bundled successfully (61 modules, 0.52 MB) ✅
+- Pre-existing `downlevelIteration` tsc errors are unrelated (server runs via Bun, which handles TS natively) — same as previous agent noted.
+- Server's `escuela`, `bosque`, `paisaje` maps unchanged — already match client definitions.
+
+### Sync Check (server ↔ client)
+| Item | Client `constants.ts` | Server `index.ts` | Match |
+|------|----------------------|-------------------|-------|
+| `MapObstacle.y` | `y?: number` | `y?: number` | ✅ |
+| `ob` signature | `(..., y = 0)` | `(..., y = 0)` | ✅ |
+| `buildHouse` doorH/roof y | `doorH=2.2`, roof `y=h` | `doorH=2.2`, roof `y=h` | ✅ |
+| `buildStairs` dims + y | `stepH=0.6,stepD=0.7,stepW=2.5`, `y=i*stepH` | same | ✅ |
+| `buildTree` foliage y | `y=trunkH` | `y=trunkH` | ✅ |
+| `buildCar` cabin y | `y=0.8` | `y=0.8` | ✅ |
+| `buildTower` | present | present, identical | ✅ |
+| `barrio` map | 8 houses + tower | 8 houses + tower | ✅ |
+| `oficinas` map | 8 houses + tower | 8 houses + tower | ✅ |
+
+### Notes for Future Agents
+- The `y` field is purely positional metadata — the server doesn't simulate vertical physics, it only uses `y` to filter ground-blocking obstacles in `spawnBlocked`. Actual collision/z-fighting resolution happens client-side in `GameCanvas.tsx`.
+- If you add more elevated obstacles (roofs, bridges, floating platforms) to any map, they will now correctly *not* block ground spawns as long as `y > 1.0`.
+- The tower's internal stairs are offset by adding to their existing `y` (`s.y + fy`) — this works because `buildStairs` now always sets `y = i * stepH`, so the per-floor shift correctly stacks each floor's staircase.
+
+---
+Task ID: 12
+Agent: main (user request)
+Task: Fix flipped objects (trees/doors/cars), increase jump height, add 5-floor towers, bigger maps
+
+Work Log:
+- User reported: objects flipped (door gaps at top, trees upside down), jump height limited (can't jump between blocks), need 5-floor enterable towers, maps need more detail
+
+Root Cause:
+- All obstacles rendered from y=0 (ground) with no vertical offset
+- Trees: foliage (h=2) positioned at y=1 (center), trunk (h=3) at y=1.5 → foliage INSIDE trunk
+- House doors: window above door positioned at y=0.9 instead of y=2.2 (door height)
+- Cars: cabin positioned at y=0.3 instead of y=0.8 (on top of body)
+- Stairs: all steps at y=0 (flat, not stacked)
+- Jump: JUMP_V=9.5, GRAVITY=26 → max height 1.74 units (too low to jump between blocks)
+
+Bug Fixes:
+1. Added `y?: number` field to MapObstacle interface for vertical offset
+2. Updated `ob` helper to accept `y` as last parameter (default 0)
+3. Fixed buildTree: foliage at y=trunkH (on top of trunk) — VLM confirmed: "green crown on top, brown trunk on bottom"
+4. Fixed buildHouse: window above door at y=doorH (2.2), roof at y=h (wall height)
+5. Fixed buildCar: cabin at y=0.8 (on top of body)
+6. Fixed buildStairs: each step at y=i*stepH (stacking upward), stepH=0.6, stepD=0.7, stepW=2.5
+7. Increased JUMP_V from 9.5 to 13 (max jump height ~3.25 units, can now jump between blocks)
+8. Updated GameCanvas rendering to use yOff = c.y || 0 for all mesh positions and collision boxes
+
+New Features:
+1. buildTower function: creates multi-floor enterable towers
+   - Outer walls (full height) with door gaps at each floor
+   - Floor platforms (walkable) for upper floors
+   - Internal stairs connecting each floor
+   - Roof at top
+2. Barrio map expanded: 4→8 houses, 5-floor central tower, 8 trash cans, 4 cars, 2 street lamps, fences, crates, water fountain
+3. Oficinas map expanded: 4→8 office buildings, 5-floor central tower, glass partitions, trash cans, desks, ramps, elevated bridges
+
+Server updates (via subagent):
+- Mirrored all type changes (y field), helper function fixes, buildTower, updated maps
+- Updated spawnBlocked to skip obstacles with y > 1.0 (elevated obstacles don't block ground spawns)
+
+Verification:
+- Lint: clean ✅
+- Servers stable ✅
+- VLM: "trees correctly oriented (green crown on top, brown trunk on bottom)" ✅
+- VLM: "no objects upside down or misplaced" ✅
+- Player at 88 HP (alive, not stuck) ✅
+- No console errors ✅
+- Jump height increased (can now jump between blocks and up structures)

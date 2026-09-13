@@ -24,7 +24,7 @@ const WALL_T = 2
 const PLAYER_RADIUS = 0.5
 const EYE_HEIGHT = 1.7
 const GRAVITY = 26
-const JUMP_V = 9.5
+const JUMP_V = 13
 const MOVE_SPEED = 7.5
 const SPRINT_SPEED = 11
 const AIR_CONTROL = 0.55
@@ -514,33 +514,33 @@ export default function GameCanvas() {
 
       // obstacles
       for (const c of map.obstacles) {
+        const yOff = c.y || 0
         let mesh: THREE.Mesh
         if (c.kind === 'cyl') {
           mesh = new THREE.Mesh(new THREE.CylinderGeometry(c.w/2, c.w/2, c.h, 12), doodleMat(c.color))
         } else if (c.kind === 'water') {
           // water: semi-transparent blue, no edges, no collision
           mesh = new THREE.Mesh(new THREE.BoxGeometry(c.w, c.h, c.d), new THREE.MeshLambertMaterial({ color: c.color, transparent: true, opacity: 0.6 }))
-          mesh.position.set(c.x, c.h/2, c.z)
+          mesh.position.set(c.x, yOff + c.h/2, c.z)
           arenaGroup.add(mesh)
           continue // no collision for water
         } else if (c.kind === 'stair') {
-          // stairs: each step is a thin box at increasing height
-          const stepH = 0.5
+          // stairs: each step is a box at increasing height
           mesh = new THREE.Mesh(new THREE.BoxGeometry(c.w, c.h, c.d), doodleMat(c.color))
-          mesh.position.set(c.x, c.h/2, c.z)
+          mesh.position.set(c.x, yOff + c.h/2, c.z)
           if (c.rotation) mesh.rotation.y = c.rotation
           mesh.castShadow = true; mesh.receiveShadow = true; addEdges(mesh); arenaGroup.add(mesh)
           if (!c.noCollide) {
             const box = new THREE.Box3().setFromObject(mesh)
             box.expandByScalar(PLAYER_RADIUS * 0.3)
-            obstacles.push({ box, top: c.h, climbable: true, x: c.x, z: c.z, hw: c.w/2, hd: c.d/2 })
+            obstacles.push({ box, top: yOff + c.h, climbable: true, x: c.x, z: c.z, hw: c.w/2, hd: c.d/2 })
           }
           continue
         } else {
           // box, wall, ramp, roof
           mesh = new THREE.Mesh(new THREE.BoxGeometry(c.w, c.h, c.d), doodleMat(c.color))
         }
-        mesh.position.set(c.x, c.h/2, c.z)
+        mesh.position.set(c.x, yOff + c.h/2, c.z)
         if (c.rotation) mesh.rotation.y = c.rotation
         mesh.castShadow = true; mesh.receiveShadow = true
         if (c.kind !== 'roof') addEdges(mesh)
@@ -548,7 +548,7 @@ export default function GameCanvas() {
         if (!c.noCollide) {
           const box = new THREE.Box3().setFromObject(mesh)
           box.expandByScalar(PLAYER_RADIUS * 0.5)
-          obstacles.push({ box, top: c.h, climbable: c.climbable, x: c.x, z: c.z, hw: c.w/2, hd: c.d/2 })
+          obstacles.push({ box, top: yOff + c.h, climbable: c.climbable, x: c.x, z: c.z, hw: c.w/2, hd: c.d/2 })
         }
       }
       // procedural cover blocks (small, climbable) to densify the arena

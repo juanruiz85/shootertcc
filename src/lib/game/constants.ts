@@ -64,6 +64,7 @@ export interface MapObstacle {
   kind: 'box' | 'cyl' | 'ramp' | 'wall' | 'stair' | 'water' | 'roof'
   rotation?: number  // y-rotation in radians
   noCollide?: boolean  // if true, no collision (for roofs you can stand on via stairs)
+  y?: number  // vertical offset from ground (default 0 = on the floor)
 }
 export interface GameMap {
   id: string
@@ -92,7 +93,7 @@ const C_RED = 0xe0a3a0
 const C_BLUE = 0xa3c8e0
 
 // helper to build obstacle
-const ob = (x: number, z: number, w: number, h: number, d: number, climbable = true, color = C_WOOD, kind: 'box'|'cyl'|'ramp'|'wall'|'stair'|'water'|'roof' = 'box', rotation = 0, noCollide = false): MapObstacle => ({ x, z, w, h, d, climbable, color, kind, rotation, noCollide })
+const ob = (x: number, z: number, w: number, h: number, d: number, climbable = true, color = C_WOOD, kind: 'box'|'cyl'|'ramp'|'wall'|'stair'|'water'|'roof' = 'box', rotation = 0, noCollide = false, y = 0): MapObstacle => ({ x, z, w, h, d, climbable, color, kind, rotation, noCollide, y })
 
 // Build a house: 4 walls with a door gap on one side, windows, optional roof
 // Returns array of obstacles (wall segments)
@@ -100,16 +101,16 @@ function buildHouse(cx: number, cz: number, w: number, d: number, h: number, col
   const walls: MapObstacle[] = []
   const wallT = 0.3
   const doorW = 1.5
-  const winH = 1.0, winY = 1.2
+  const doorH = 2.2  // door height
+  const winH = 1.0
   // North wall (z = cz - d/2)
   if (doorSide !== 'N') {
     walls.push(ob(cx, cz - d/2, w, h, wallT, false, color, 'wall'))
   } else {
-    // door gap in center
     walls.push(ob(cx - w/4 - doorW/4, cz - d/2, w/2 - doorW/2, h, wallT, false, color, 'wall'))
     walls.push(ob(cx + w/4 + doorW/4, cz - d/2, w/2 - doorW/2, h, wallT, false, color, 'wall'))
-    // window above door
-    walls.push(ob(cx, cz - d/2, doorW, h - winY - 0.5, wallT, false, color, 'wall', 0, true))
+    // window above door (positioned at doorH, no collision)
+    walls.push(ob(cx, cz - d/2, doorW, h - doorH, wallT, false, color, 'wall', 0, true, doorH))
   }
   // South wall (z = cz + d/2)
   if (doorSide !== 'S') {
@@ -117,7 +118,7 @@ function buildHouse(cx: number, cz: number, w: number, d: number, h: number, col
   } else {
     walls.push(ob(cx - w/4 - doorW/4, cz + d/2, w/2 - doorW/2, h, wallT, false, color, 'wall'))
     walls.push(ob(cx + w/4 + doorW/4, cz + d/2, w/2 - doorW/2, h, wallT, false, color, 'wall'))
-    walls.push(ob(cx, cz + d/2, doorW, h - winY - 0.5, wallT, false, color, 'wall', 0, true))
+    walls.push(ob(cx, cz + d/2, doorW, h - doorH, wallT, false, color, 'wall', 0, true, doorH))
   }
   // East wall (x = cx + w/2)
   if (doorSide !== 'E') {
@@ -133,41 +134,82 @@ function buildHouse(cx: number, cz: number, w: number, d: number, h: number, col
     walls.push(ob(cx - w/2, cz - d/4 - doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall'))
     walls.push(ob(cx - w/2, cz + d/4 + doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall'))
   }
-  // Roof (noCollide so player can stand on it via stairs/crates)
-  walls.push(ob(cx, cz, w + 0.6, 0.3, d + 0.6, true, roofColor, 'roof', 0, false))
+  // Roof at top of walls (player can stand on it)
+  walls.push(ob(cx, cz, w + 0.6, 0.3, d + 0.6, true, roofColor, 'roof', 0, false, h))
   return walls
 }
 
-// Build stairs: a series of steps going up
+// Build stairs: a series of steps going up, each at increasing height
 function buildStairs(cx: number, cz: number, steps: number, dir: 'N'|'S'|'E'|'W', color: number): MapObstacle[] {
   const result: MapObstacle[] = []
-  const stepH = 0.5, stepD = 0.6, stepW = 2
+  const stepH = 0.6, stepD = 0.7, stepW = 2.5
   for (let i = 0; i < steps; i++) {
-    const y = i * stepH
     let x = cx, z = cz
     if (dir === 'N') z = cz - i * stepD
     if (dir === 'S') z = cz + i * stepD
     if (dir === 'E') x = cx + i * stepD
     if (dir === 'W') x = cx - i * stepD
-    result.push(ob(x, z, stepW, stepH + 0.01, stepD, true, color, 'stair'))
+    // each step is positioned at y = i * stepH (stacking upward)
+    result.push(ob(x, z, stepW, stepH, stepD, true, color, 'stair', 0, false, i * stepH))
   }
   return result
 }
 
-// Build a tree (trunk + foliage spheres)
+// Build a tree (trunk + foliage on top)
 function buildTree(cx: number, cz: number, scale: number = 1): MapObstacle[] {
+  const trunkH = 3 * scale
+  const foliageH = 2.5 * scale
   return [
-    ob(cx, cz, 0.4 * scale, 3 * scale, 0.4 * scale, false, 0x7a5230, 'cyl'),
-    ob(cx, cz, 2.5 * scale, 2 * scale, 2.5 * scale, true, 0x27ae60, 'box'),
+    // trunk at ground level
+    ob(cx, cz, 0.4 * scale, trunkH, 0.4 * scale, false, 0x7a5230, 'cyl'),
+    // foliage on top of trunk
+    ob(cx, cz, 2.5 * scale, foliageH, 2.5 * scale, true, 0x27ae60, 'box', 0, false, trunkH),
   ]
 }
 
-// Build a car
+// Build a car (body + cabin on top)
 function buildCar(cx: number, cz: number, color: number, rotation: number = 0): MapObstacle[] {
   return [
-    ob(cx, cz, 2, 0.8, 4, true, color, 'box', rotation),
-    ob(cx, cz, 1.8, 0.6, 2, false, 0x2c3e50, 'box', rotation),
+    ob(cx, cz, 2, 0.8, 4, true, color, 'box', rotation),           // body at ground
+    ob(cx, cz, 1.8, 0.6, 2, false, 0x2c3e50, 'box', rotation, false, 0.8), // cabin on top
   ]
+}
+
+// Build a multi-floor tower: enterable, with internal stairs
+// floors = number of stories, each floor has walls with a door + stairs inside
+function buildTower(cx: number, cz: number, w: number, d: number, floors: number, color: number, roofColor: number): MapObstacle[] {
+  const result: MapObstacle[] = []
+  const floorH = 3.0  // height per floor
+  const wallT = 0.3
+  const doorW = 1.5
+  const totalH = floors * floorH
+  // Outer walls (full height, with door gap on south side at ground floor only)
+  // North wall (full)
+  result.push(ob(cx, cz - d/2, w, totalH, wallT, false, color, 'wall'))
+  // East wall (full)
+  result.push(ob(cx + w/2, cz, wallT, totalH, d, false, color, 'wall'))
+  // West wall (full)
+  result.push(ob(cx - w/2, cz, wallT, totalH, d, false, color, 'wall'))
+  // South wall with door gaps at each floor
+  for (let f = 0; f < floors; f++) {
+    const fy = f * floorH
+    // wall segments on either side of door
+    result.push(ob(cx - w/4 - doorW/4, cz + d/2, w/2 - doorW/2, floorH - 0.1, wallT, false, color, 'wall', 0, false, fy))
+    result.push(ob(cx + w/4 + doorW/4, cz + d/2, w/2 - doorW/2, floorH - 0.1, wallT, false, color, 'wall', 0, false, fy))
+    // window above door
+    result.push(ob(cx, cz + d/2, doorW, 0.8, wallT, false, color, 'wall', 0, true, fy + 2.0))
+    // floor platform (roof type, walkable) for upper floors
+    if (f > 0) {
+      result.push(ob(cx, cz, w - wallT * 2, 0.2, d - wallT * 2, true, color, 'roof', 0, false, fy))
+      // stairs inside (going up to next floor)
+      if (f < floors) {
+        result.push(...buildStairs(cx - w/4, cz, 4, 'N', 0x8a7a5a).map(s => ({ ...s, y: (s.y || 0) + fy })))
+      }
+    }
+  }
+  // Roof at top
+  result.push(ob(cx, cz, w + 0.6, 0.3, d + 0.6, true, roofColor, 'roof', 0, false, totalH))
+  return result
 }
 
 // 16 themed maps
@@ -357,25 +399,36 @@ export const MAPS: GameMap[] = [
   {
     id: 'barrio', name: 'Barrio', theme: 'Conjunto residencial', ground: 0xb0b8c0, fog: 0xc8d0d8, accent: 0x8a92a0,
     obstacles: [
-      // 4 enterable houses with doors + windows + roofs
-      ...buildHouse(-14, -12, 6, 6, 3.5, 0xe8d5b7, 0xc0392b, 'S'),
-      ...buildHouse(14, -12, 6, 6, 3.5, 0xd5c4a0, 0x2980b9, 'S'),
-      ...buildHouse(-14, 12, 6, 6, 3.5, 0xcdb98a, 0x27ae60, 'N'),
-      ...buildHouse(14, 12, 6, 6, 3.5, 0xe8d5b7, 0xf1c40f, 'N'),
+      // 8 enterable houses with doors + windows + roofs (bigger neighborhood)
+      ...buildHouse(-20, -16, 6, 6, 3.5, 0xe8d5b7, 0xc0392b, 'S'),
+      ...buildHouse(-8, -16, 6, 6, 3.5, 0xd5c4a0, 0x2980b9, 'S'),
+      ...buildHouse(8, -16, 6, 6, 3.5, 0xcdb98a, 0x27ae60, 'S'),
+      ...buildHouse(20, -16, 6, 6, 3.5, 0xe8d5b7, 0xf1c40f, 'S'),
+      ...buildHouse(-20, 16, 6, 6, 3.5, 0xd5c4a0, 0x8e44ad, 'N'),
+      ...buildHouse(-8, 16, 6, 6, 3.5, 0xe8d5b7, 0xe67e22, 'N'),
+      ...buildHouse(8, 16, 6, 6, 3.5, 0xcdb98a, 0x1abc9c, 'N'),
+      ...buildHouse(20, 16, 6, 6, 3.5, 0xe8d5b7, 0xe74c3c, 'N'),
+      // 5-floor tower in center (enterable, with internal stairs)
+      ...buildTower(0, 0, 8, 8, 5, 0xa0a8b0, 0x2c3e50),
       // trash cans next to houses (for climbing to roof)
-      ob(-10, -8, 1, 1.2, 1, true, 0x555555), ob(10, -8, 1, 1.2, 1, true, 0x555555),
-      ob(-10, 8, 1, 1.2, 1, true, 0x555555), ob(10, 8, 1, 1.2, 1, true, 0x555555),
+      ob(-17, -12, 1, 1.2, 1, true, 0x555555), ob(-5, -12, 1, 1.2, 1, true, 0x555555),
+      ob(11, -12, 1, 1.2, 1, true, 0x555555), ob(23, -12, 1, 1.2, 1, true, 0x555555),
+      ob(-17, 12, 1, 1.2, 1, true, 0x555555), ob(-5, 12, 1, 1.2, 1, true, 0x555555),
+      ob(11, 12, 1, 1.2, 1, true, 0x555555), ob(23, 12, 1, 1.2, 1, true, 0x555555),
       // cars on the street
-      ...buildCar(-4, -18, 0xe74c3c, 0), ...buildCar(4, 18, 0x3498db, 0),
-      ...buildCar(18, 0, 0x27ae60, Math.PI/2), ...buildCar(-18, 0, 0xf1c40f, Math.PI/2),
-      // low fences
-      ob(0, -6, 4, 1, 0.3, true, 0x8a92a0, 'wall'), ob(0, 6, 4, 1, 0.3, true, 0x8a92a0, 'wall'),
+      ...buildCar(-14, 0, 0xe74c3c, 0), ...buildCar(14, 0, 0x3498db, 0),
+      ...buildCar(0, -8, 0x27ae60, Math.PI/2), ...buildCar(0, 8, 0xf1c40f, Math.PI/2),
+      // street lamps
+      ob(-12, -4, 0.2, 3, 0.2, false, 0x2c3e50, 'cyl'), ob(12, 4, 0.2, 3, 0.2, false, 0x2c3e50, 'cyl'),
       // crates for climbing
-      ob(-6, 0, 1.5, 1.5, 1.5, true, 0xe8d5b7), ob(6, 0, 1.5, 1.5, 1.5, true, 0xe8d5b7),
+      ob(-6, -4, 1.5, 1.5, 1.5, true, 0xe8d5b7), ob(6, 4, 1.5, 1.5, 1.5, true, 0xe8d5b7),
+      // low fences between houses
+      ob(-14, -16, 0.3, 1.5, 4, false, 0x8a92a0, 'wall'), ob(14, -16, 0.3, 1.5, 4, false, 0x8a92a0, 'wall'),
+      ob(-14, 16, 0.3, 1.5, 4, false, 0x8a92a0, 'wall'), ob(14, 16, 0.3, 1.5, 4, false, 0x8a92a0, 'wall'),
       // central water fountain (decorative)
-      ob(0, 0, 3, 0.5, 3, true, 0x3498db, 'water', 0, true),
+      ob(0, -4, 2, 0.4, 2, true, 0x3498db, 'water', 0, true),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-20,-20],[20,20]],
+    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-24,-24],[24,24]],
   },
   {
     id: 'escuela', name: 'Escuela', theme: 'Escuela con salones', ground: 0xd5d8de, fog: 0xe0e3e8, accent: 0xa0a8b0,
@@ -413,26 +466,29 @@ export const MAPS: GameMap[] = [
   {
     id: 'oficinas', name: 'Oficinas', theme: 'Edificio corporativo', ground: 0xc8ccd0, fog: 0xd0d4d8, accent: 0x9098a0,
     obstacles: [
-      // 4 office buildings (enterable)
-      ...buildHouse(-12, -10, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
-      ...buildHouse(12, -10, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
-      ...buildHouse(-12, 10, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
-      ...buildHouse(12, 10, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
-      // Glass partitions (low, climbable)
-      ob(-6, 0, 0.3, 2, 8, true, 0xb8d4e3, 'wall'), ob(6, 0, 0.3, 2, 8, true, 0xb8d4e3, 'wall'),
+      // 6 office buildings (enterable) — bigger map
+      ...buildHouse(-18, -12, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
+      ...buildHouse(-6, -12, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
+      ...buildHouse(6, -12, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
+      ...buildHouse(18, -12, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
+      ...buildHouse(-18, 12, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
+      ...buildHouse(-6, 12, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
+      ...buildHouse(6, 12, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
+      ...buildHouse(18, 12, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
+      // 5-floor office tower in center
+      ...buildTower(0, 0, 7, 7, 5, 0x9098a0, 0x2c3e50),
+      // Glass partitions
+      ob(-10, 0, 0.3, 2, 8, true, 0xb8d4e3, 'wall'), ob(10, 0, 0.3, 2, 8, true, 0xb8d4e3, 'wall'),
       // Trash cans for climbing
-      ob(-8, -6, 1, 1.2, 1, true, 0x555555), ob(8, -6, 1, 1.2, 1, true, 0x555555),
-      ob(-8, 6, 1, 1.2, 1, true, 0x555555), ob(8, 6, 1, 1.2, 1, true, 0x555555),
+      ob(-14, -8, 1, 1.2, 1, true, 0x555555), ob(-2, -8, 1, 1.2, 1, true, 0x555555),
+      ob(10, -8, 1, 1.2, 1, true, 0x555555), ob(14, 8, 1, 1.2, 1, true, 0x555555),
       // Office desks
-      ob(-3, -14, 3, 0.8, 1.5, true, 0xe8d5b7, 'box'), ob(3, 14, 3, 0.8, 1.5, true, 0xe8d5b7, 'box'),
-      // Central elevator shaft (tall tower with stairs)
-      ob(0, 0, 3, 8, 3, true, 0x2c3e50, 'box'),
-      ...buildStairs(0, 0, 5, 'N', 0x555555),
+      ob(-14, 0, 3, 0.8, 1.5, true, 0xe8d5b7, 'box'), ob(14, 0, 3, 0.8, 1.5, true, 0xe8d5b7, 'box'),
       // Ramps to second level
-      ob(-4, 0, 2, 1, 4, true, 0xd5c4a0, 'ramp'), ob(4, 0, 2, 1, 4, true, 0xd5c4a0, 'ramp'),
-      // Bridge connecting two buildings
-      ob(0, -10, 12, 0.3, 2, true, 0x8a92a0, 'roof'),
-      ob(0, 10, 12, 0.3, 2, true, 0x8a92a0, 'roof'),
+      ob(-4, -6, 2, 1, 4, true, 0xd5c4a0, 'ramp'), ob(4, 6, 2, 1, 4, true, 0xd5c4a0, 'ramp'),
+      // Bridges connecting buildings
+      ob(0, -12, 12, 0.3, 2, true, 0x8a92a0, 'roof', 0, false, 4),
+      ob(0, 12, 12, 0.3, 2, true, 0x8a92a0, 'roof', 0, false, 4),
     ],
     spawns: [[0,-24],[0,24],[-24,0],[24,0]],
   },
