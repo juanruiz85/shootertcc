@@ -136,10 +136,20 @@
   background-color: #fdfbf7;
   background-image:
     linear-gradient(rgba(26, 26, 26, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(26, 26, 26, 0.05) 1px, transparent 1px);
-  background-size: 28px 28px;
-  background-position: -1px -1px;
+    linear-gradient(90deg, rgba(26, 26, 26, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at 15% 25%, rgba(231, 76, 60, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at 85% 75%, rgba(52, 152, 219, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(241, 196, 15, 0.03) 0%, transparent 50%);
+  background-size: 28px 28px, 28px 28px, 100% 100%, 100% 100%, 100% 100%;
+  background-position: -1px -1px, -1px -1px, 0 0, 0 0, 0 0;
 }
+
+/* floating doodle scribbles animation */
+@keyframes float-scribble {
+  0%, 100% { transform: translateY(0) rotate(0); opacity: 0.3; }
+  50% { transform: translateY(-8px) rotate(5deg); opacity: 0.5; }
+}
+.float-scribble { animation: float-scribble 6s ease-in-out infinite; }
 
 /* hand-drawn card: thick black border + offset shadow */
 .doodle-card {

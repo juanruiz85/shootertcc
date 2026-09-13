@@ -257,6 +257,16 @@ function Minimap() {
           })}
           {me && (
             <div className="absolute" style={{ left: me.x-5, top: me.y-5, width: 0, height: 0, transform: `rotate(${yaw}rad)` }}>
+              {/* FOV cone */}
+              <div style={{
+                position: 'absolute', top: 0, left: -18,
+                width: 0, height: 0,
+                borderLeft: '18px solid transparent',
+                borderRight: '18px solid transparent',
+                borderTop: '28px solid rgba(26,26,26,0.12)',
+                transformOrigin: 'bottom center',
+                transform: 'translateY(-10px)',
+              }} />
               <div style={{ width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderBottom: '10px solid #1a1a1a' }} />
             </div>
           )}

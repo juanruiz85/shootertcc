@@ -317,3 +317,47 @@ Unresolved issues / next phase recommendations:
 - Could improve: spawn orientation (face toward arena center instead of wall)
 - Could add: friend invites, persistent stats, ranked mode
 - Next dev server stable via dev.sh
+
+---
+Task ID: 7
+Agent: webDevReview (cron)
+Task: Fix spawn orientation (face arena center), sprint FOV widening, minimap FOV cone, lobby background polish
+
+Work Log:
+- Reviewed worklog: project has procedural cover, wall textures, damage numbers, kill toast, shadows, props
+- QA tested with agent-browser + VLM screenshot analysis
+- VLM identified: player spawns facing a wall — can't see the arena
+- Fixed spawn orientation to face arena center
+
+Bug Fixes:
+1. Spawn orientation: Player spawned with yaw=0 (facing -Z). At spawn points on the arena edge (e.g. (0,-22)), this meant looking at the wall behind them. Fixed: yaw is now computed as atan2(pos.x, pos.z) which points the forward vector toward (0,0) — the arena center. Applied in both onRoomJoined and onPlayerRespawned handlers. VLM confirmed: "player faces toward the open arena", "excellent orientation", rated 9/10.
+
+New Features:
+1. Sprint FOV widening: camera.fov smoothly transitions from 75 to 85 when sprinting, giving a speed sensation. Returns to 75 when not sprinting. Uses lerp with dt*8 for smooth transition, calls camera.updateProjectionMatrix().
+2. Minimap FOV cone: Added a semi-transparent triangle (rgba 0.12 alpha) on the minimap showing the player's field of view direction. Rotates with the player's yaw. Styled as a CSS border-triangle.
+3. Lobby background polish: Added 3 radial gradient color blobs (red, blue, yellow) to the doodle-bg CSS for a more vibrant, atmospheric lobby. Added float-scribble keyframe animation for floating decorative elements.
+
+Verification:
+- Lint: clean ✅
+- Servers stable (next:3000 + game-server:3003) ✅
+- Game loads, PvE Nivel 1 Arena Doodle ✅
+- VLM: "player faces toward the open arena" ✅
+- VLM: "trees and red blocks visible in the distance" ✅
+- VLM: "shadows visible (tree, blocks, wall)" ✅
+- VLM: rated 9/10 for orientation improvement ✅
+- No console errors ✅
+
+Stage Summary:
+- 1 critical bug fix (spawn orientation) + 3 new features (sprint FOV, minimap cone, lobby bg)
+- Player now spawns facing the arena center — can immediately see obstacles, props, and enemies
+- Sprint FOV widening adds speed sensation
+- Minimap FOV cone improves spatial awareness
+- Lobby background more vibrant with radial gradient blobs
+- VLM rated the spawn fix 9/10
+
+Unresolved issues / next phase recommendations:
+- PCFSoftShadowMap warning still appears in stale browser cache (code is fixed to PCFShadowMap)
+- FOV cone on minimap may be too subtle (VLM didn't notice it) — could make it more visible
+- Could add: boss mobs, power-ups, weather effects
+- Could improve: floor texture detail, more map-specific props
+- Could add: friend invites, persistent stats, ranked mode

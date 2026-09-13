@@ -770,7 +770,8 @@ export default function GameCanvas() {
         })
         buildArena(data.room.mapId)
         local.pos.set(data.me.pos[0], EYE_HEIGHT, data.me.pos[2])
-        local.yaw = data.me.yaw; local.pitch = data.me.pitch
+        // face toward arena center (0,0) so player sees the arena, not the wall
+        local.yaw = Math.atan2(data.me.pos[0], data.me.pos[2]); local.pitch = 0
         local.health = data.me.health; local.shield = data.me.shield
         local.alive = data.me.state === 'alive'; local.weapon = data.me.weapon; local.ammo = data.me.ammo
         local.streak = data.me.streak
@@ -878,6 +879,7 @@ export default function GameCanvas() {
         if (d.id === meId) {
           local.alive = true; local.health = PLAYER_MAX_HP; local.shield = 0
           local.pos.set(d.pos[0], EYE_HEIGHT, d.pos[2]); local.vel.set(0,0,0)
+          local.yaw = Math.atan2(d.pos[0], d.pos[2]) // face arena center
           local.ammo = getWeapon(local.weapon).magazine
           setStore({ alive: true, health: PLAYER_MAX_HP, shield: 0, respawnIn: 0, ammo: local.ammo })
         } else {
@@ -1047,6 +1049,10 @@ export default function GameCanvas() {
           (animate as any)._lastStamina = now
           setStore({ stamina: Math.round(local.stamina), sprinting: local.sprinting })
         }
+        // FOV widening when sprinting
+        const targetFov = local.sprinting ? 85 : 75
+        camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 8)
+        camera.updateProjectionMatrix()
       }
 
       // gravity + ground / box-top collision
