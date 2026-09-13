@@ -57,6 +57,8 @@ export type HudState = {
   streakRewardAt: number
   // pickup toast
   pickupToast: { type: string; name: string; at: number } | null
+  // kill confirmation toast
+  killToast: { victim: string; points: number; headshot: boolean; at: number } | null
   // match summary (PvP round end)
   matchSummary: { winner: string; at: number } | null
   // round/level transition banner
@@ -124,6 +126,7 @@ const initial = {
   streakReward: null,
   streakRewardAt: 0,
   pickupToast: null,
+  killToast: null as { victim: string; points: number; headshot: boolean; at: number } | null,
   matchSummary: null as { winner: string; at: number } | null,
   banner: null as BannerState,
   damageDir: null as DamageDirState,

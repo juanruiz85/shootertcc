@@ -324,6 +324,33 @@ function PickupToast() {
   )
 }
 
+/* ============================ Kill confirmation toast ============================ */
+function KillToast() {
+  const toast = useGameStore((s) => s.killToast)
+  useGameStore((s) => s.myPosSnapshot)
+  if (!toast) return null
+  const age = performance.now() - toast.at
+  if (age > 2500) return null
+  const opacity = age > 2000 ? 1 - (age - 2000) / 500 : 1
+  return (
+    <div className="pointer-events-none fixed top-1/3 right-8 z-40" style={{ opacity }}>
+      <div key={toast.at} className="doodle-card px-5 py-3 flex items-center gap-3" style={{ animation: 'hit-pop 0.4s ease-out' }}>
+        <Skull className={`w-7 h-7 ${toast.headshot ? 'text-red-500' : 'text-black'}`} />
+        <div>
+          <p className="font-doodle text-xl font-black leading-tight">
+            {toast.headshot ? '¡HEADSHOT!' : '¡Baja!'}
+          </p>
+          <p className="text-sm font-bold text-black/60">{toast.victim}</p>
+        </div>
+        <div className="flex items-center gap-1 ml-2 pl-2 border-l-2 border-black/20">
+          <Zap className="w-4 h-4 text-yellow-500" />
+          <span className="font-doodle font-black text-lg">+{toast.points}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ============================ Scoreboard ============================ */
 function Scoreboard() {
   const show = useGameStore((s) => s.showScoreboard)
@@ -638,6 +665,7 @@ export default function Hud({ onLeave }: { onLeave: () => void }) {
       <BannerOverlay />
       <StreakToast />
       <PickupToast />
+      <KillToast />
       <QuickChat />
       <PauseOverlay onLeave={onLeave} />
     </>

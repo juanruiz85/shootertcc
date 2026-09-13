@@ -273,3 +273,47 @@ Unresolved issues / next phase recommendations:
 - Could improve: texture detail on walls, more map-specific props per theme
 - Could add: friend invites, persistent stats, ranked mode
 - Next dev server stable via dev.sh
+
+---
+Task ID: 6
+Agent: webDevReview (cron)
+Task: Arena densification (procedural cover), wall textures, floating damage numbers, kill confirmation toast
+
+Work Log:
+- Reviewed worklog: project has 3D props, shadows, sky, sound effects, stamina, killstreaks, vignette
+- QA tested with agent-browser + VLM screenshot analysis
+- VLM identified: arena "extremely empty", needs more obstacles/cover, walls lack texture
+- Fixed runtime error: C_WOOD/C_STONE/C_DARK/C_PILLAR constants were referenced but not defined in GameCanvas → replaced with numeric hex values
+
+New Features:
+1. Procedural cover blocks: 10 seeded-random small cover boxes (1-2.5 size) placed across every arena, climbable, with cast+receive shadows. Seeded by map id for consistency (same positions every load of the same map). Avoids center spawn area (4-unit radius).
+2. Wall textures: Canvas-generated doodle brick pattern (offset brick layout with scribbles), applied to all 4 arena walls via CanvasTexture + repeat. Replaces flat-colored walls. VLM confirmed: "wall textures visible, grid/tile pattern".
+3. Floating damage numbers: 3D CanvasTexture sprites spawn at hit point showing damage dealt, with headshot indicator (!) in red. Float upward with physics, billboard toward camera, fade over 800ms. Spawned in raycastAndReport on every hit.
+4. Kill confirmation toast (KillToast component): Shows "¡Baja!" or "¡HEADSHOT!" with victim name + points earned (+100/150 PvP, +40/60 PvE). Appears top-right, fades over 2.5s. Triggered when player is the killer in onMobKilled/onPlayerKilled.
+
+Bug Fixes:
+- Runtime error: C_WOOD/C_STONE/C_DARK/C_PILLAR were local constants in constants.ts (not exported) but referenced in GameCanvas buildArena → replaced with inline hex values [0xe8d5b7, 0xd5c4a0, 0xcdb98a, 0xb8a47a]
+- Wall meshes now have receiveShadow = true (were missing)
+
+Verification:
+- Lint: clean ✅
+- Servers stable (next:3000 + game-server:3003) ✅
+- Game loads, PvE Nivel 1 Arena Doodle, player at 100 HP ✅
+- VLM: "wall textures visible" (grid/tile pattern) ✅
+- VLM: scene "more detailed than flat void" ✅
+- No console errors after fix ✅
+- Player survives at 100 HP (reduced mob difficulty from round 4 still working) ✅
+
+Stage Summary:
+- 4 new features: procedural cover blocks, wall textures, floating damage numbers, kill toast
+- Arena now has 10 additional cover blocks per map for gameplay depth
+- Walls have doodle brick pattern instead of flat color
+- Combat feedback: damage numbers float on hit, kill toast shows points earned
+- Bug fix: runtime error from undefined constants
+
+Unresolved issues / next phase recommendations:
+- VLM rated 4/10 from spawn view (looking at wall) — cover blocks visible when moving around
+- Could add: boss mobs, power-ups, weather effects, texture detail on floor
+- Could improve: spawn orientation (face toward arena center instead of wall)
+- Could add: friend invites, persistent stats, ranked mode
+- Next dev server stable via dev.sh

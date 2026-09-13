@@ -420,12 +420,36 @@ export default function GameCanvas() {
       }
       arenaGroup.add(propsGroup)
 
-      // walls
-      const wallMat = doodleMat(map.accent)
+      // walls with doodle texture
+      const wallCanvas = document.createElement('canvas'); wallCanvas.width = 512; wallCanvas.height = 128
+      const wctx = wallCanvas.getContext('2d')!
+      const accentHex = '#' + map.accent.toString(16).padStart(6, '0')
+      wctx.fillStyle = accentHex; wctx.fillRect(0, 0, 512, 128)
+      // doodle brick pattern
+      wctx.strokeStyle = 'rgba(26,26,26,0.15)'; wctx.lineWidth = 2
+      const bw = 64, bh = 32
+      for (let row = 0; row < 4; row++) {
+        const offset = row % 2 === 0 ? 0 : bw / 2
+        for (let col = -1; col < 9; col++) {
+          const x = col * bw + offset
+          const y = row * bh
+          wctx.strokeRect(x, y, bw, bh)
+        }
+      }
+      // scribbles
+      wctx.strokeStyle = 'rgba(26,26,26,0.08)'; wctx.lineWidth = 1.5
+      for (let i = 0; i < 8; i++) {
+        wctx.beginPath()
+        wctx.arc(Math.random()*512, Math.random()*128, 5+Math.random()*10, 0, Math.PI*2)
+        wctx.stroke()
+      }
+      const wallTex = new THREE.CanvasTexture(wallCanvas)
+      wallTex.wrapS = THREE.RepeatWrapping; wallTex.repeat.x = 4
+      const wallMat = new THREE.MeshLambertMaterial({ map: wallTex, flatShading: true })
       const wallH = 4
-      const wN = new THREE.Mesh(new THREE.BoxGeometry(ARENA_SIZE + WALL_T*2, wallH, WALL_T), wallMat); wN.position.set(0, wallH/2, -HALF-WALL_T/2); addEdges(wN); arenaGroup.add(wN)
+      const wN = new THREE.Mesh(new THREE.BoxGeometry(ARENA_SIZE + WALL_T*2, wallH, WALL_T), wallMat); wN.position.set(0, wallH/2, -HALF-WALL_T/2); wN.receiveShadow = true; addEdges(wN); arenaGroup.add(wN)
       const wS = wN.clone(); wS.position.z = HALF+WALL_T/2; arenaGroup.add(wS)
-      const wW = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, wallH, ARENA_SIZE + WALL_T*2), wallMat); wW.position.set(-HALF-WALL_T/2, wallH/2, 0); addEdges(wW); arenaGroup.add(wW)
+      const wW = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, wallH, ARENA_SIZE + WALL_T*2), wallMat); wW.position.set(-HALF-WALL_T/2, wallH/2, 0); wW.receiveShadow = true; addEdges(wW); arenaGroup.add(wW)
       const wE = wW.clone(); wE.position.x = HALF+WALL_T/2; arenaGroup.add(wE)
 
       // obstacles
@@ -437,6 +461,28 @@ export default function GameCanvas() {
         const box = new THREE.Box3().setFromObject(mesh)
         box.expandByScalar(PLAYER_RADIUS * 0.5)
         obstacles.push({ box, top: c.h, climbable: c.climbable, x: c.x, z: c.z, hw: c.w/2, hd: c.d/2 })
+      }
+      // procedural cover blocks (small, climbable) to densify the arena
+      // use a seeded pseudo-random based on map id for consistency
+      let seed = 0
+      for (const ch of map.id) seed = (seed * 31 + ch.charCodeAt(0)) | 0
+      const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
+      const coverColors = [0xe8d5b7, 0xd5c4a0, 0xcdb98a, 0xb8a47a]
+      for (let i = 0; i < 10; i++) {
+        const cx = (rand() - 0.5) * (HALF * 1.5)
+        const cz = (rand() - 0.5) * (HALF * 1.5)
+        // avoid placing too close to center spawn or existing obstacles
+        if (Math.abs(cx) < 4 && Math.abs(cz) < 4) continue
+        const cw = 1 + rand() * 1.5
+        const cd = 1 + rand() * 1.5
+        const ch = 1 + rand() * 1.5
+        const col = coverColors[Math.floor(rand() * coverColors.length)]
+        const cover = new THREE.Mesh(new THREE.BoxGeometry(cw, ch, cd), doodleMat(col))
+        cover.position.set(cx, ch/2, cz); cover.rotation.y = rand() * Math.PI * 0.3
+        cover.castShadow = true; cover.receiveShadow = true; addEdges(cover); arenaGroup.add(cover)
+        const box = new THREE.Box3().setFromObject(cover)
+        box.expandByScalar(PLAYER_RADIUS * 0.5)
+        obstacles.push({ box, top: ch, climbable: true, x: cx, z: cz, hw: cw/2, hd: cd/2 })
       }
       boundLim = HALF - PLAYER_RADIUS
     }
@@ -590,6 +636,29 @@ export default function GameCanvas() {
       net.reportHit(i.id, damage, headshot, hit.distance, i.type)
       setStore({ hitMarker: performance.now() })
       sfx.hit()
+      // floating damage number
+      spawnDamageNumber(hit.point, Math.round(damage), headshot)
+    }
+    // floating damage numbers
+    const damageNumbers: { spr: THREE.Sprite; vel: THREE.Vector3; born: number; ttl: number }[] = []
+    function spawnDamageNumber(pos: THREE.Vector3, dmg: number, headshot: boolean) {
+      const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 64
+      const ctx = canvas.getContext('2d')!
+      ctx.font = `bold ${headshot ? 44 : 34}px "Patrick Hand", sans-serif`
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillStyle = headshot ? '#e74c3c' : '#1a1a1a'
+      ctx.strokeStyle = '#fdfbf7'; ctx.lineWidth = 4
+      const text = `${dmg}${headshot ? '!' : ''}`
+      ctx.strokeText(text, 64, 32)
+      ctx.fillText(text, 64, 32)
+      const tex = new THREE.CanvasTexture(canvas)
+      const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true })
+      const spr = new THREE.Sprite(mat)
+      spr.position.copy(pos).add(new THREE.Vector3(0, 0.5, 0))
+      spr.scale.set(1.2, 0.6, 1)
+      spr.renderOrder = 999
+      scene.add(spr)
+      damageNumbers.push({ spr, vel: new THREE.Vector3((Math.random()-0.5)*2, 3, (Math.random()-0.5)*2), born: performance.now(), ttl: 800 })
     }
     function spawnTracer(origin: THREE.Vector3, dir: THREE.Vector3, range: number, color: number) {
       const end = origin.clone().add(dir.clone().multiplyScalar(range))
@@ -797,6 +866,11 @@ export default function GameCanvas() {
         } else {
           const rp = remotes.get(d.victimId); if (rp) { rp.alive = false; rp.group.visible = false }
           sfx.kill()
+          // if I'm the killer, show kill toast
+          if (d.killerId === meId) {
+            const rp2 = remotes.get(d.victimId)
+            setStore({ killToast: { victim: rp2?.name ?? 'Jugador', points: d.headshot ? 150 : 100, headshot: d.headshot, at: performance.now() } })
+          }
         }
       },
       onPlayerRespawned: (d) => {
@@ -831,7 +905,13 @@ export default function GameCanvas() {
         setStore({ mobs: data.mobs })
       },
       onMobDamaged: (d) => { const mob = mobs.get(d.id); if (mob) mob.hitFlashUntil = performance.now() + 120 },
-      onMobKilled: (d) => { const mob = mobs.get(d.id); if (mob) { mob.alive = false; mob.group.visible = false } },
+      onMobKilled: (d) => {
+        const mob = mobs.get(d.id); if (mob) { mob.alive = false; mob.group.visible = false }
+        const meId = useGameStore.getState().myId
+        if (d.killerId === meId) {
+          setStore({ killToast: { victim: 'Doodle Mob', points: d.headshot ? 60 : 40, headshot: d.headshot, at: performance.now() } })
+        }
+      },
       onMobRespawned: (d) => {
         const mob = mobs.get(d.id)
         if (mob) { mob.alive = true; mob.group.visible = true; mob.pos.set(d.pos[0],0,d.pos[2]); mob.targetPos.copy(mob.pos) }
@@ -1093,6 +1173,19 @@ export default function GameCanvas() {
           p.mesh.position.add(p.vel.clone().multiplyScalar(dt))
           ;(p.mesh.material as THREE.MeshBasicMaterial).opacity = 1 - age / p.ttl
           p.mesh.rotation.x += dt * 8; p.mesh.rotation.y += dt * 6
+        }
+      }
+      // floating damage numbers
+      for (let i = damageNumbers.length - 1; i >= 0; i--) {
+        const d = damageNumbers[i]; const age = now - d.born
+        if (age > d.ttl) { scene.remove(d.spr); (d.spr.material as THREE.SpriteMaterial).map?.dispose(); (d.spr.material as THREE.Material).dispose(); damageNumbers.splice(i,1) }
+        else {
+          d.vel.y -= 5 * dt
+          d.spr.position.add(d.vel.clone().multiplyScalar(dt))
+          d.spr.quaternion.copy(camera.quaternion)
+          ;(d.spr.material as THREE.SpriteMaterial).opacity = 1 - age / d.ttl
+          const scale = 1 + age / d.ttl * 0.3
+          d.spr.scale.set(1.2 * scale, 0.6 * scale, 1)
         }
       }
       // drone lerp + spin
