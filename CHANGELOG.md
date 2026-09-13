@@ -417,3 +417,28 @@ Revisados todos los muebles de los 6 pisos del mapa Oficinas:
 
 ### Pruebas
 - Lint: limpio ✅ | Server sincronizado ✅ | Push GitHub ✅
+
+---
+
+## [v0.24.0] — 2026-09-13 — Bosque rediseñado con árboles escalables + río + matorrales
+
+### Agregado
+- **Río que atraviesa todo el mapa** en diagonal (NE→SW): 11 segmentos de agua con rotación de 45°
+- **3 puentes de madera** sobre el río con barandas
+- **8 árboles grandes escalables** (`buildBigTree`):
+  - Tronco cilíndrico grueso (escalable)
+  - 3 ramas a diferentes alturas (cajas escalables para saltar de una a otra)
+  - Copa de follaje en 2 capas (verde claro + verde oscuro)
+  - Posicionados en 8 puntos cardinales del mapa
+- **12 árboles pequeños** decorativos (no escalables, solo cobertura visual)
+- **8 piedras grandes** con forma de roca (`buildRock`): cilindro achatado + piedra secundaria encima
+- **12 piedras pequeñas** para saltar y cobertura
+- **6 grupos de matorrales densos** para esconderse (`buildBushCluster`):
+  - 5 matorrales por grupo (4 alrededor + 1 central más alto)
+  - No escalables, baja altura (1.2-1.5)
+  - Posicionados en 6 puntos del mapa
+- **6 troncos caídos** escalables con rotación aleatoria
+- Cabaña entrable, torre de vigilancia de 3 pisos, fogata con piedras, hongos
+
+### Pruebas
+- Lint: limpio ✅ | Server sincronizado ✅ | Push GitHub ✅
