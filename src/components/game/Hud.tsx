@@ -426,12 +426,29 @@ function RespawnOverlay() {
   const alive = useGameStore((s) => s.alive)
   const respawnIn = useGameStore((s) => s.respawnIn)
   const pointerLocked = useGameStore((s) => s.pointerLocked)
+  const lastHitBy = useGameStore((s) => s.lastHitBy)
+  const killFeed = useGameStore((s) => s.killFeed)
+  const myName = useGameStore((s) => s.myName)
   if (alive) return null
+  // find the kill feed entry where I'm the victim
+  const myDeath = killFeed.find(e => e.victim === myName)
+  const killerName = myDeath?.killer ?? null
+  const weapon = myDeath?.weapon ?? null
+  const headshot = myDeath?.headshot ?? false
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none">
       <div className="text-center" style={{ animation: 'hit-pop 0.5s ease-out' }}>
         <Skull className="w-20 h-20 text-[#fdfbf7] mb-4 mx-auto drop-shadow-[3px_3px_0_#000]" />
         <h2 className="font-doodle text-6xl font-black text-[#fdfbf7] drop-shadow-[4px_4px_0_#000]">¡Eliminado!</h2>
+        {killerName && (
+          <div className="mt-3 doodle-card-flat px-4 py-2 inline-block" style={{ animation: 'slide-in-left 0.4s ease-out' }}>
+            <p className="text-sm text-black/70">
+              {headshot && <span className="font-bold text-red-500">¡HEADSHOT! </span>}
+              Eliminado por <span className="font-doodle font-black text-lg">{killerName}</span>
+            </p>
+            {weapon && <p className="text-xs text-black/50 mt-0.5">con {weapon}</p>}
+          </div>
+        )}
         <p className="respawn-pulse font-doodle text-3xl text-[#fdfbf7] mt-3 drop-shadow-[2px_2px_0_#000]">Reaparición en {respawnIn}s…</p>
         {!pointerLocked && <p className="font-bold text-sm text-white/70 mt-4">Haz clic en la pantalla para volver a jugar</p>}
       </div>
@@ -445,13 +462,54 @@ function PauseOverlay({ onLeave }: { onLeave: () => void }) {
   const pointerLocked = useGameStore((s) => s.pointerLocked)
   const alive = useGameStore((s) => s.alive)
   const requestResume = useGameStore((s) => s.requestResume)
+  const kills = useGameStore((s) => s.kills)
+  const deaths = useGameStore((s) => s.deaths)
+  const streak = useGameStore((s) => s.streak)
+  const bestStreak = useGameStore((s) => s.bestStreak)
+  const score = useGameStore((s) => s.score)
+  const roomName = useGameStore((s) => s.roomName)
+  const roomMode = useGameStore((s) => s.roomMode)
+  const roomLevel = useGameStore((s) => s.roomLevel)
   // when dead, the RespawnOverlay takes priority (z-50) — don't show click-to-play
   if (paused) {
+    const kd = deaths > 0 ? (kills / deaths).toFixed(2) : kills.toFixed(2)
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/50 backdrop-blur">
-        <div className="doodle-card p-6 w-full max-w-sm text-center" style={{ animation: 'hit-pop 0.3s ease-out' }}>
-          <h2 className="font-doodle text-3xl font-black mb-1">Pausa</h2>
-          <p className="text-sm text-black/60 mb-4">El cursor está liberado.</p>
+        <div className="doodle-card p-6 w-full max-w-sm" style={{ animation: 'hit-pop 0.3s ease-out' }}>
+          <div className="text-center mb-4">
+            <h2 className="font-doodle text-3xl font-black mb-1">Pausa</h2>
+            <p className="text-sm text-black/60">{roomName} · {roomMode === 'pvp' ? 'PvP' : `PvE Nv${roomLevel}`}</p>
+          </div>
+          {/* live stats */}
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <div className="doodle-card-flat p-2 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-black/50 font-bold">Bajas</p>
+              <p className="font-doodle text-2xl font-black text-green-600">{kills}</p>
+            </div>
+            <div className="doodle-card-flat p-2 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-black/50 font-bold">Muertes</p>
+              <p className="font-doodle text-2xl font-black text-red-600">{deaths}</p>
+            </div>
+            <div className="doodle-card-flat p-2 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-black/50 font-bold">Racha</p>
+              <p className="font-doodle text-2xl font-black text-orange-500 flex items-center justify-center gap-1">
+                <Flame className="w-4 h-4" />{streak}
+              </p>
+            </div>
+            <div className="doodle-card-flat p-2 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-black/50 font-bold">K/D</p>
+              <p className="font-doodle text-2xl font-black">{kd}</p>
+            </div>
+          </div>
+          <div className="doodle-card-flat p-2 mb-4 flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wide text-black/60 flex items-center gap-1">
+              <Zap className="w-3.5 h-3.5" /> Puntos
+            </span>
+            <span className="font-doodle text-xl font-black">{score}</span>
+          </div>
+          {bestStreak > 0 && (
+            <p className="text-center text-xs text-black/50 mb-3">Mejor racha: <span className="font-bold text-orange-500">{bestStreak}</span></p>
+          )}
           <div className="flex flex-col gap-2">
             <Button className="doodle-btn w-full" onClick={() => requestResume?.()}>
               <Crosshair className="w-4 h-4 mr-1" /> Reanudar

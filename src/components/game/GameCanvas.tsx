@@ -408,6 +408,45 @@ export default function GameCanvas() {
         crate.position.set(cx, 0.3, cz); crate.rotation.y = Math.random() * Math.PI; addEdges(crate); crate.castShadow = true
         propsGroup.add(crate)
       }
+      // barrels (red explosive-looking doodle barrels)
+      const barrelMat = doodleMat(0xc0392b), barrelTopMat = doodleMat(0x8b2a23)
+      for (let i = 0; i < 5; i++) {
+        const a = Math.random() * Math.PI * 2
+        const r = 6 + Math.random() * (HALF - 10)
+        const bx = Math.cos(a) * r, bz = Math.sin(a) * r
+        const barrel = new THREE.Group()
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.9, 10), barrelMat); body.position.y = 0.45; addEdges(body); barrel.add(body)
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.08, 10), barrelTopMat); top.position.y = 0.94; barrel.add(top)
+        // rings
+        for (const ry of [0.25, 0.65]) {
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.04, 6, 10), barrelTopMat); ring.rotation.x = Math.PI/2; ring.position.y = ry; barrel.add(ring)
+        }
+        barrel.position.set(bx, 0, bz); barrel.castShadow = true
+        propsGroup.add(barrel)
+      }
+      // doodle flags/banners on walls (colored triangles on poles)
+      const flagColors = [0xe74c3c, 0x3498db, 0x27ae60, 0xf1c40f]
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2
+        const r = HALF - 1.5
+        const fx = Math.cos(a) * r, fz = Math.sin(a) * r
+        const flag = new THREE.Group()
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3, 6), doodleMat(0x2c3e50)); pole.position.y = 1.5; addEdges(pole); flag.add(pole)
+        const banner = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.05), doodleMat(flagColors[i])); banner.position.set(0.4, 2.6, 0); addEdges(banner); flag.add(banner)
+        flag.position.set(fx, 0, fz)
+        flag.lookAt(0, 1.5, 0)
+        propsGroup.add(flag)
+      }
+      // low cover walls (knee-high, non-climbable, for tactical cover)
+      const lowWallMat = doodleMat(0xb8a47a)
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + Math.PI / 4
+        const r = 10
+        const wx = Math.cos(a) * r, wz = Math.sin(a) * r
+        const lowWall = new THREE.Mesh(new THREE.BoxGeometry(3, 0.8, 0.4), lowWallMat)
+        lowWall.position.set(wx, 0.4, wz); lowWall.rotation.y = a + Math.PI/2; addEdges(lowWall); lowWall.castShadow = true; lowWall.receiveShadow = true
+        propsGroup.add(lowWall)
+      }
       // lamps at corners (glowing)
       const lampMat = doodleMat(0x2c3e50), glowMat = new THREE.MeshBasicMaterial({ color: 0xfff3b0 })
       for (const [lx, lz] of [[-HALF+1, -HALF+1], [HALF-1, -HALF+1], [-HALF+1, HALF-1], [HALF-1, HALF-1]] as const) {
