@@ -1472,3 +1472,35 @@ collision/visibility checks match the client's rendering.
   arrays were swapped.
 - Both maps kept `waterLevel: 0.3` (bosque) and same ground/fog/accent
   colors as before, matching the client exactly.
+
+---
+Task ID: 16
+Agent: main (user request)
+Task: Fix weapon orientation, redesign escuela 2-floor, redesign bosque, push to GitHub
+
+Work Log:
+- User reported: remote player weapon backwards, escuela doesn't look like school, bosque needs work, push to GitHub
+
+Bug Fixes:
+1. Weapon backwards: buildWeaponMesh constructs weapons with barrel at -z, but avatar placed weapon at +z (forward). Fix: rotated weapon 180° on Y axis (rotation.y = Math.PI - 0.1) in both buildAvatar and setAvatarWeapon.
+
+Map Redesigns:
+- Escuela: 2-story building (70×70, h=8) with 197 obstacles
+  - Ground floor: 4 classrooms (pizarrón, teacher desk, 6 pupitres, 6 chairs each), 8 lockers, 2 bathrooms, stairs
+  - 2nd floor: library (bookshelves, tables), lab (microscopes, beakers), stairs to roof
+  - Outside: basketball court, courtyard with trees/benches/fountain
+- Bosque: 163 obstacles
+  - 27 trees, lake + river + pond, 3 wooden bridges, cabin, 3-floor watchtower
+  - 2 rope bridges, campfire, mushrooms, signposts, boulders, logs, bushes
+
+GitHub:
+- Added remote: https://github.com/juanruiz85/shootertcc.git
+- Pushed main branch successfully
+
+Verification:
+- Lint: clean ✅
+- Servers stable ✅
+- Socket connects ✅
+- Player at 100 HP ✅
+- GitHub push successful ✅
+- No console errors ✅

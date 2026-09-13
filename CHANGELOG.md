@@ -274,3 +274,40 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/).
 - Jugador a 100 HP ✅
 - VLM: "no overhead obstructions, view completely clear" ✅
 - Sin errores en consola ✅
+
+---
+
+## [v0.11.0] — 2026-09-13 — Arma invertida + escuela 2 pisos + bosque denso + GitHub
+
+### Corregido
+- **Arma del jugador remoto al revés**: el modelo de arma tenía el cañón apuntando hacia -z, pero se colocaba en z=+0.28 (frente al jugador que mira +z). El arma apuntaba hacia atrás.
+  - Solución: rotada 180° en Y (`rotation.y = Math.PI - 0.1`)
+  - Aplicado tanto en `buildAvatar` como en `setAvatarWeapon`
+
+### Agregado
+- **Escuela rediseñada (2 pisos, 197 obstáculos)**:
+  - Edificio 70×70 de 2 pisos (h=8)
+  - **Planta baja**: 4 salones con pizarrón, escritorio del maestro, 6 pupitres + 6 sillas cada uno
+  - 8 casilleros de colores, 2 baños con lavabos
+  - Escaleras al segundo piso
+  - **Segundo piso**: biblioteca con estantes, laboratorio con mesas y equipo
+  - Escaleras al techo con parapeto
+  - Cancha de basketball con aros y tableros
+  - Patio con árboles, bancas y fuente
+- **Bosque rediseñado (163 obstáculos)**:
+  - 27 árboles en grupos
+  - Lago grande (20×30) + río + estanque
+  - 3 puentes de madera con barandas
+  - Cabaña entrable + torre de vigilancia de 3 pisos
+  - 2 puentes de cuerda entre árboles
+  - Fogata, 8 hongos, 3 letreros
+  - 8 peñascos, 12 rocas pequeñas, 5 troncos, 10 arbustos, 5 tocones
+- **Push a GitHub**: repositorio subido a https://github.com/juanruiz85/shootertcc.git
+
+### Pruebas
+- Lint: limpio ✅
+- Servidores estables ✅
+- Socket conecta ✅
+- Jugador a 100 HP ✅
+- Push a GitHub exitoso ✅
+- Sin errores en consola ✅
