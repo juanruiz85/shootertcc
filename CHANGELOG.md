@@ -399,3 +399,21 @@ Revisados todos los muebles de los 6 pisos del mapa Oficinas:
 
 ### Pruebas
 - Lint: limpio ✅ | Server sincronizado ✅ | Push GitHub ✅
+
+---
+
+## [v0.23.0] — 2026-09-13 — Fix muebles + clearance de escaleras en todos los pisos
+
+### Corregido
+- **Escaleras 2do y 3er piso bloqueadas**: las paredes divisorias del piso 3 cruzaban las posiciones de las escaleras (x=±14)
+  - Solución: paredes divididas en 4 piezas con huecos en x=±14 y z=±14 para clearance de escaleras
+- **Muebles flotando**: algunos muebles no tenían `y` explícito, causando posiciones incorrectas
+  - Solución: todos los muebles del piso 1 ahora tienen `y=0` explícito
+- **Muebles dentro de paredes**: escritorios y archivadores en posiciones que chocaban con escaleras o paredes
+  - Piso 2: escritorios movidos a ±12,±10 (lejos de escaleras en ±14); archivadores a x=-18
+  - Piso 3: mesas movidas a ±10 (de ±12) para evitar escaleras
+  - Piso 4: cubículos reducidos a ±8 (de ±12) para evitar esquinas de escaleras
+  - Piso 5: racks reposicionados a filas centrales; enfriadores/UPS a x=±18
+
+### Pruebas
+- Lint: limpio ✅ | Server sincronizado ✅ | Push GitHub ✅
