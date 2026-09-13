@@ -1,0 +1,1071 @@
+     1→import { createServer } from 'http'
+     2→import { Server } from 'socket.io'
+     3→
+     4→// ====================================================================
+     5→// Doodle Shooter — Multiplayer Game Server (socket.io)
+     6→// Port: 3003 (exposed via Caddy gateway using ?XTransformPort=3003)
+     7→// Modes: PvP (1v1 blue vs red) and PvE (level-based mob survival)
+     8→// ====================================================================
+     9→
+    10→// ----------------------- Constants -----------------------
+    11→const PORT = 3003
+    12→const HALF = 32 // arena half-size
+    13→const WALL = 2
+    14→const PLAYER_MAX_HP = 100
+    15→const PLAYER_MAX_SHIELD = 50
+    16→const RESPAWN_MS = 3000
+    17→const TICK_MS = 50
+    18→const STATE_BROADCAST_THROTTLE = 45
+    19→const MOB_ATTACK_CD = 1000
+    20→const MOB_RESPAWN_MS = 4000
+    21→const MAX_PLAYERS_PER_ROOM = 12
+    22→const MAX_ROOMS = 40
+    23→const ITEM_LIFETIME_MS = 18000
+    24→const ITEM_RESPAWN_INTERVAL_MS = 12000
+    25→const EMPTY_ROOM_TTL_MS = 8000 // rooms empty for this long are deleted
+    26→const ROUND_END_MS = 4000 // pause between PvP rounds / PvE levels
+    27→
+    28→// ----------------------- Shared data (mirrors client constants) -----------------------
+    29→const SKINS = [
+    30→  { id: 'red', name: 'Rojo', color: '#e74c3c', accent: '#a93226' },
+    31→  { id: 'blue', name: 'Azul', color: '#3498db', accent: '#21618c' },
+    32→  { id: 'green', name: 'Verde', color: '#27ae60', accent: '#196f3d' },
+    33→  { id: 'orange', name: 'Naranja', color: '#e67e22', accent: '#b9770e' },
+    34→  { id: 'purple', name: 'Morado', color: '#9b59b6', accent: '#6c3483' },
+    35→  { id: 'teal', name: 'Cian', color: '#1abc9c', accent: '#117864' },
+    36→  { id: 'pink', name: 'Rosa', color: '#e84393', accent: '#a72165' },
+    37→  { id: 'yellow', name: 'Amarillo', color: '#f1c40f', accent: '#b7950b' },
+    38→]
+    39→
+    40→const WEAPONS: Record<string, {
+    41→  id: string; name: string; damage: number; fireRate: number; magazine: number
+    42→  reload: number; spread: number; auto: boolean; range: number; pellets: number
+    43→}> = {
+    44→  pistol:  { id: 'pistol',  name: 'Pistola',  damage: 18, fireRate: 330, magazine: 12, reload: 1200, spread: 0.012, auto: false, range: 80, pellets: 1 },
+    45→  smg:     { id: 'smg',     name: 'SMG',      damage: 12, fireRate: 90,  magazine: 30, reload: 1500, spread: 0.035, auto: true,  range: 60, pellets: 1 },
+    46→  rifle:   { id: 'rifle',   name: 'Rifle',    damage: 26, fireRate: 170, magazine: 20, reload: 1800, spread: 0.018, auto: true,  range: 95, pellets: 1 },
+    47→  shotgun: { id: 'shotgun', name: 'Escopeta', damage: 11, fireRate: 720, magazine: 6,  reload: 2100, spread: 0.13,  auto: false, range: 32, pellets: 7 },
+    48→}
+    49→
+    50→// ----------------------- Maps (mirror of client constants) -----------------------
+    51→type MapObstacle = { x: number; z: number; w: number; h: number; d: number; climbable: boolean; color: number; kind: 'box'|'cyl'|'ramp' }
+    52→type GameMap = { id: string; name: string; theme: string; ground: number; fog: number; accent: number; obstacles: MapObstacle[]; spawns: [number,number][] }
+    53→
+    54→const ob = (x: number, z: number, w: number, h: number, d: number, climbable = true, color = 0xe8d5b7, kind: 'box'|'cyl'|'ramp' = 'box'): MapObstacle => ({ x, z, w, h, d, climbable, color, kind })
+    55→
+    56→const MAPS: GameMap[] = [
+    57→  { id: 'arena', name: 'Arena Doodle', theme: 'Clásica', ground: 0xf5f1e8, fog: 0xfdfbf7, accent: 0xe8e4df,
+    58→    obstacles: [
+    59→      ob(0,0,3,4,3,true,0xd5c4a0), ob(-14,-10,4,3,4,true,0xe8d5b7), ob(12,8,5,2.5,3,true,0xe8d5b7),
+    60→      ob(-18,14,2.5,3.5,2.5,true,0xb8a47a,'cyl'), ob(18,-16,4,3,4,true,0xe8d5b7),
+    61→      ob(8,-6,1.6,3.2,1.6,false,0xb8a47a,'cyl'), ob(-8,6,1.6,3.2,1.6,false,0xb8a47a,'cyl'),
+    62→      ob(-4,-20,6,2,2,true,0xd5c4a0), ob(16,18,2,2,6,true,0xd5c4a0),
+    63→    ],
+    64→    spawns: [[0,-22],[0,22],[22,0],[-22,0],[16,-16],[-16,16]] },
+    65→  { id: 'patios', name: 'Patios', theme: 'Cuadrantes', ground: 0xf0e6d2, fog: 0xf6efde, accent: 0xe0d5b8,
+    66→    obstacles: [
+    67→      ob(-10,-10,3,3,3,true,0xe8d5b7), ob(10,-10,3,3,3,true,0xe8d5b7),
+    68→      ob(-10,10,3,3,3,true,0xe8d5b7), ob(10,10,3,3,3,true,0xe8d5b7),
+    69→      ob(0,-18,8,2,2,true,0xd5c4a0), ob(0,18,8,2,2,true,0xd5c4a0),
+    70→      ob(-18,0,2,2,8,true,0xd5c4a0), ob(18,0,2,2,8,true,0xd5c4a0),
+    71→      ob(0,0,2,4,2,true,0xb8a47a),
+    72→    ],
+    73→    spawns: [[-20,-20],[20,20],[20,-20],[-20,20],[0,-24],[0,24]] },
+    74→  { id: 'bunkers', name: 'Bunkers', theme: 'Trincheras', ground: 0xe8e4df, fog: 0xeae6e0, accent: 0xcfc8bc,
+    75→    obstacles: [
+    76→      ob(-16,-8,12,2,2,true,0xd5c4a0), ob(16,8,12,2,2,true,0xd5c4a0),
+    77→      ob(-8,8,2,2,12,true,0xd5c4a0), ob(8,-8,2,2,12,true,0xd5c4a0),
+    78→      ob(0,-20,18,3,2,true,0xcdb98a), ob(0,20,18,3,2,true,0xcdb98a),
+    79→      ob(-22,0,2,3,10,true,0xcdb98a), ob(22,0,2,3,10,true,0xcdb98a),
+    80→      ob(0,0,4,3.5,4,true,0xe8d5b7),
+    81→    ],
+    82→    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+    83→  { id: 'torres', name: 'Torres', theme: 'Pilares', ground: 0xe8e4df, fog: 0xeae6e0, accent: 0xcfc8bc,
+    84→    obstacles: [
+    85→      ob(-14,-14,3,5,3,true,0xb8a47a,'cyl'), ob(14,-14,3,5,3,true,0xb8a47a,'cyl'),
+    86→      ob(-14,14,3,5,3,true,0xb8a47a,'cyl'), ob(14,14,3,5,3,true,0xb8a47a,'cyl'),
+    87→      ob(0,0,4,6,4,true,0xb8a47a),
+    88→      ob(-22,0,2,3,2,true,0xe8d5b7), ob(22,0,2,3,2,true,0xe8d5b7),
+    89→      ob(0,-22,2,3,2,true,0xe8d5b7), ob(0,22,2,3,2,true,0xe8d5b7),
+    90→    ],
+    91→    spawns: [[0,-24],[0,24],[24,0],[-24,0],[-20,-20],[20,20]] },
+    92→  { id: 'crucero', name: 'Crucero', theme: 'Cruz', ground: 0xf5f1e8, fog: 0xfdfbf7, accent: 0xe8e4df,
+    93→    obstacles: [
+    94→      ob(0,-12,4,3,16,true,0xe8d5b7), ob(0,12,4,3,16,true,0xe8d5b7),
+    95→      ob(-12,0,16,3,4,true,0xe8d5b7), ob(12,0,16,3,4,true,0xe8d5b7),
+    96→      ob(0,0,3,5,3,true,0xd5c4a0),
+    97→      ob(-20,-20,3,2,3,true,0xcdb98a), ob(20,-20,3,2,3,true,0xcdb98a),
+    98→      ob(-20,20,3,2,3,true,0xcdb98a), ob(20,20,3,2,3,true,0xcdb98a),
+    99→    ],
+   100→    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+   101→  { id: 'espinas', name: 'Espinas', theme: 'Zig-zag', ground: 0xf0e6d2, fog: 0xf6efde, accent: 0xe0d5b8,
+   102→    obstacles: [
+   103→      ob(-18,-16,2,3,8,true,0xd5c4a0), ob(-9,-8,8,3,2,true,0xd5c4a0),
+   104→      ob(0,0,2,3,8,true,0xd5c4a0), ob(9,8,8,3,2,true,0xd5c4a0),
+   105→      ob(18,16,2,3,8,true,0xd5c4a0),
+   106→      ob(-9,8,2,3,8,true,0xe8d5b7), ob(9,-8,2,3,8,true,0xe8d5b7),
+   107→      ob(0,-20,6,2,2,true,0xcdb98a), ob(0,20,6,2,2,true,0xcdb98a),
+   108→    ],
+   109→    spawns: [[-24,-24],[24,24],[-24,24],[24,-24]] },
+   110→  { id: 'fortaleza', name: 'Fortaleza', theme: 'Murallas', ground: 0xe8e4df, fog: 0xeae6e0, accent: 0xcfc8bc,
+   111→    obstacles: [
+   112→      ob(0,-20,30,3,2,true,0xcdb98a), ob(0,20,30,3,2,true,0xcdb98a),
+   113→      ob(-20,0,2,3,30,true,0xcdb98a), ob(20,0,2,3,30,true,0xcdb98a),
+   114→      ob(-10,-10,3,4,3,true,0xd5c4a0), ob(10,-10,3,4,3,true,0xd5c4a0),
+   115→      ob(-10,10,3,4,3,true,0xd5c4a0), ob(10,10,3,4,3,true,0xd5c4a0),
+   116→      ob(0,0,5,3,5,true,0xe8d5b7),
+   117→    ],
+   118→    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+   119→  { id: 'laberinto', name: 'Laberinto', theme: 'Maze', ground: 0xeaf3e0, fog: 0xeef5e6, accent: 0xcfdcc0,
+   120→    obstacles: [
+   121→      ob(-12,-12,2,3,12,true,0xe8d5b7), ob(0,-6,12,3,2,true,0xe8d5b7),
+   122→      ob(12,0,2,3,12,true,0xe8d5b7), ob(-6,12,12,3,2,true,0xe8d5b7),
+   123→      ob(-18,6,6,3,2,true,0xd5c4a0), ob(6,-18,2,3,6,true,0xd5c4a0),
+   124→      ob(18,-6,6,3,2,true,0xd5c4a0), ob(-6,18,2,3,6,true,0xd5c4a0),
+   125→      ob(0,0,2,2,2,false,0xcdb98a),
+   126→    ],
+   127→    spawns: [[-24,-24],[24,24],[24,-24],[-24,24],[0,-24],[0,24]] },
+   128→  { id: 'puentes', name: 'Puentes', theme: 'Rampas', ground: 0xf0e6d2, fog: 0xf6efde, accent: 0xe0d5b8,
+   129→    obstacles: [
+   130→      ob(0,-10,4,2,12,true,0xe8d5b7), ob(0,10,4,2,12,true,0xe8d5b7),
+   131→      ob(-12,0,12,2,4,true,0xe8d5b7), ob(12,0,12,2,4,true,0xe8d5b7),
+   132→      ob(-18,-18,4,4,4,true,0xd5c4a0,'ramp'), ob(18,18,4,4,4,true,0xd5c4a0,'ramp'),
+   133→      ob(18,-18,4,4,4,true,0xd5c4a0,'ramp'), ob(-18,18,4,4,4,true,0xd5c4a0,'ramp'),
+   134→      ob(0,0,3,5,3,true,0xb8a47a),
+   135→    ],
+   136→    spawns: [[0,-24],[0,24],[24,0],[-24,0]] },
+   137→  { id: 'crater', name: 'Cráter', theme: 'Anillo', ground: 0xf6e3d8, fog: 0xf6e3d8, accent: 0xe0c8bc,
+   138→    obstacles: [
+   139→      ob(0,0,6,1.5,6,true,0xe0a3a0),
+   140→      ob(-12,0,2,3,2,true,0xd5c4a0), ob(12,0,2,3,2,true,0xd5c4a0),
+   141→      ob(0,-12,2,3,2,true,0xd5c4a0), ob(0,12,2,3,2,true,0xd5c4a0),
+   142→      ob(-18,-18,3,3,3,true,0xcdb98a), ob(18,-18,3,3,3,true,0xcdb98a),
+   143→      ob(-18,18,3,3,3,true,0xcdb98a), ob(18,18,3,3,3,true,0xcdb98a),
+   144→      ob(0,-22,8,2,2,true,0xd5c4a0), ob(0,22,8,2,2,true,0xd5c4a0),
+   145→    ],
+   146→    spawns: [[0,-24],[0,24],[24,0],[-24,0],[-22,-22],[22,22]] },
+   147→  { id: 'zigzag', name: 'Zigzag', theme: 'Dientes', ground: 0xf5f1e8, fog: 0xfdfbf7, accent: 0xe8e4df,
+   148→    obstacles: [
+   149→      ob(-16,-12,3,3,3,true,0xe8d5b7), ob(-8,12,3,3,3,true,0xe8d5b7),
+   150→      ob(0,-12,3,3,3,true,0xe8d5b7), ob(8,12,3,3,3,true,0xe8d5b7),
+   151→      ob(16,-12,3,3,3,true,0xe8d5b7),
+   152→      ob(-12,0,2,4,2,true,0xb8a47a,'cyl'), ob(12,0,2,4,2,true,0xb8a47a,'cyl'),
+   153→      ob(0,0,4,5,4,true,0xd5c4a0),
+   154→    ],
+   155→    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+   156→  { id: 'diamante', name: 'Diamante', theme: 'Rombo', ground: 0xf7fafc, fog: 0xf7fafc, accent: 0xdfe7ec,
+   157→    obstacles: [
+   158→      ob(0,-14,4,3,4,true,0xa3c8e0), ob(14,0,4,3,4,true,0xa3c8e0),
+   159→      ob(0,14,4,3,4,true,0xa3c8e0), ob(-14,0,4,3,4,true,0xa3c8e0),
+   160→      ob(0,0,5,5,5,true,0xd5c4a0),
+   161→      ob(-20,-20,3,2,3,true,0xe8d5b7), ob(20,-20,3,2,3,true,0xe8d5b7),
+   162→      ob(-20,20,3,2,3,true,0xe8d5b7), ob(20,20,3,2,3,true,0xe8d5b7),
+   163→    ],
+   164→    spawns: [[0,-24],[0,24],[24,0],[-24,0]] },
+   165→  { id: 'colmena', name: 'Colmena', theme: 'Celdas', ground: 0xeaf3e0, fog: 0xeef5e6, accent: 0xcfdcc0,
+   166→    obstacles: [
+   167→      ob(-12,-12,4,3,4,true,0xe8d5b7), ob(0,-12,4,3,4,true,0xe8d5b7), ob(12,-12,4,3,4,true,0xe8d5b7),
+   168→      ob(-12,0,4,3,4,true,0xe8d5b7), ob(12,0,4,3,4,true,0xe8d5b7),
+   169→      ob(-12,12,4,3,4,true,0xe8d5b7), ob(0,12,4,3,4,true,0xe8d5b7), ob(12,12,4,3,4,true,0xe8d5b7),
+   170→      ob(0,0,4,2,4,true,0xd5c4a0),
+   171→    ],
+   172→    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-24,-24],[24,24]] },
+   173→  { id: 'ruinas', name: 'Ruinas', theme: 'Escombros', ground: 0xe8e4df, fog: 0xeae6e0, accent: 0xcfc8bc,
+   174→    obstacles: [
+   175→      ob(-16,-14,6,2,3,true,0xcdb98a), ob(-14,12,4,3,4,true,0xd5c4a0),
+   176→      ob(12,-16,5,2.5,4,true,0xe8d5b7), ob(16,12,3,3,5,true,0xcdb98a),
+   177→      ob(0,-6,2,4,2,true,0xb8a47a,'cyl'), ob(0,8,2,4,2,true,0xb8a47a,'cyl'),
+   178→      ob(-6,0,3,1.5,3,true,0xd5c4a0), ob(6,0,3,1.5,3,true,0xd5c4a0),
+   179→      ob(0,0,8,1,8,true,0xe0a3a0),
+   180→    ],
+   181→    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-22,-22],[22,22]] },
+   182→  { id: 'estadio', name: 'Estadio', theme: 'Graderías', ground: 0xeaf3e0, fog: 0xeef5e6, accent: 0xcfdcc0,
+   183→    obstacles: [
+   184→      ob(0,-22,44,4,2,true,0xd5c4a0), ob(0,22,44,4,2,true,0xd5c4a0),
+   185→      ob(-22,0,2,4,44,true,0xd5c4a0), ob(22,0,2,4,44,true,0xd5c4a0),
+   186→      ob(0,-16,30,2,2,true,0xe8d5b7), ob(0,16,30,2,2,true,0xe8d5b7),
+   187→      ob(-16,0,2,2,16,true,0xe8d5b7), ob(16,0,2,2,16,true,0xe8d5b7),
+   188→      ob(0,0,4,3,4,true,0xcdb98a),
+   189→    ],
+   190→    spawns: [[0,-18],[0,18],[-18,0],[18,0]] },
+   191→  { id: 'nucleo', name: 'Núcleo', theme: 'Anillo central', ground: 0xf6e3d8, fog: 0xf6e3d8, accent: 0xe0c8bc,
+   192→    obstacles: [
+   193→      ob(0,0,8,1.5,8,true,0xe0a3a0),
+   194→      ob(-10,0,2,4,2,true,0xb8a47a,'cyl'), ob(10,0,2,4,2,true,0xb8a47a,'cyl'),
+   195→      ob(0,-10,2,4,2,true,0xb8a47a,'cyl'), ob(0,10,2,4,2,true,0xb8a47a,'cyl'),
+   196→      ob(-16,-16,4,3,4,true,0xd5c4a0), ob(16,-16,4,3,4,true,0xd5c4a0),
+   197→      ob(-16,16,4,3,4,true,0xd5c4a0), ob(16,16,4,3,4,true,0xd5c4a0),
+   198→      ob(0,-22,10,2,2,true,0xe8d5b7), ob(0,22,10,2,2,true,0xe8d5b7),
+   199→    ],
+   200→    spawns: [[0,-24],[0,24],[24,0],[-24,0]] },
+   201→]
+   202→
+   203→function getMap(id: string): GameMap { return MAPS.find(m => m.id === id) ?? MAPS[0] }
+   204→
+   205→function pveLevelConfig(level: number) {
+   206→  const baseHp = 50
+   207→  return {
+   208→    mobCount: Math.min(14, 3 + Math.floor(level * 1.2)),
+   209→    mobHp: baseHp + (level - 1) * 15,
+   210→    mobSpeed: Math.min(6.0, 2.8 + (level - 1) * 0.25),
+   211→    mobDamage: 6 + (level - 1) * 1.5,
+   212→    mapId: MAPS[(level - 1) % MAPS.length].id,
+   213→  }
+   214→}
+   215→
+   216→const KILLSTREAKS = [
+   217→  { id: 'drone', name: 'Dron', streak: 3, desc: 'Dron aliado que ataca enemigos', icon: 'drone' },
+   218→  { id: 'bomb',  name: 'Bomba', streak: 5, desc: 'Bombardeo de zona', icon: 'bomb' },
+   219→  { id: 'aura',  name: 'Ráfaga', streak: 7, desc: 'Velocidad + recarga instantánea', icon: 'aura' },
+   220→]
+   221→function streakAt(streak: number) {
+   222→  let best: typeof KILLSTREAKS[0] | null = null
+   223→  for (const k of KILLSTREAKS) if (streak >= k.streak && (!best || k.streak > best.streak)) best = k
+   224→  return best
+   225→}
+   226→
+   227→function dist2D(a: [number, number, number], b: [number, number, number]) {
+   228→  const dx = a[0] - b[0], dz = a[2] - b[2]
+   229→  return Math.sqrt(dx * dx + dz * dz)
+   230→}
+   231→function clampToArena(p: [number, number, number]) {
+   232→  const lim = HALF - WALL - 0.5
+   233→  p[0] = Math.max(-lim, Math.min(lim, p[0]))
+   234→  p[2] = Math.max(-lim, Math.min(lim, p[2]))
+   235→}
+   236→function genId(prefix: string) { return prefix + Math.random().toString(36).slice(2, 8) }
+   237→function getSkin(id: string) { return SKINS.find(s => s.id === id) ?? SKINS[0] }
+   238→
+   239→// ----------------------- Types -----------------------
+   240→type GameMode = 'pvp' | 'pve'
+   241→type Team = 'blue' | 'red' | 'none'
+   242→
+   243→interface Player {
+   244→  id: string
+   245→  name: string
+   246→  skin: string
+   247→  team: Team
+   248→  pos: [number, number, number]
+   249→  yaw: number; pitch: number
+   250→  health: number; shield: number
+   251→  state: 'alive' | 'dead'
+   252→  weapon: string; ammo: number
+   253→  reloading: boolean; reloadEnd: number
+   254→  score: number; kills: number; deaths: number
+   255→  streak: number; bestStreak: number
+   256→  lastShot: number
+   257→  respawnAt: number
+   258→  lastStateSent: number
+   259→  connected: boolean
+   260→  lastDamagedAt: number
+   261→}
+   262→
+   263→interface Mob {
+   264→  id: string
+   265→  pos: [number, number, number]
+   266→  vel: [number, number]
+   267→  health: number; maxHealth: number
+   268→  state: 'alive' | 'dead'
+   269→  wanderTarget: [number, number, number]
+   270→  respawnAt: number
+   271→  lastAttack: number
+   272→  hitFlash: number
+   273→}
+   274→
+   275→interface Item {
+   276→  id: string
+   277→  type: 'ammo' | 'heal' | 'shield'
+   278→  pos: [number, number, number]
+   279→  born: number
+   280→}
+   281→
+   282→interface Room {
+   283→  id: string
+   284→  name: string
+   285→  mode: GameMode
+   286→  mapId: string
+   287→  level: number
+   288→  players: Map<string, Player>
+   289→  mobs: Mob[]
+   290→  items: Item[]
+   291→  createdAt: number
+   292→  emptySince: number | null
+   293→  roundActive: boolean
+   294→  roundEndsAt: number
+   295→  nextMapId: string
+   296→  nextLevel: number
+   297→  itemSpawnTimer: number
+   298→  droneOwner: string | null
+   299→  droneEnd: number
+   300→}
+   301→
+   302→// ----------------------- State -----------------------
+   303→const rooms = new Map<string, Room>()
+   304→const socketToRoom = new Map<string, string>()
+   305→const socketToLobby = new Map<string, { name: string; skin: string }>()
+   306→
+   307→function spawnBlocked(map: GameMap, x: number, z: number): boolean {
+   308→  // check if a position is inside any obstacle (with margin)
+   309→  const margin = 1.5
+   310→  for (const o of map.obstacles) {
+   311→    if (Math.abs(x - o.x) < o.w/2 + margin && Math.abs(z - o.z) < o.d/2 + margin) return true
+   312→  }
+   313→  return false
+   314→}
+   315→
+   316→function pickSpawn(room: Room, preferTeam: Team = 'none'): [number, number, number] {
+   317→  const map = getMap(room.mapId)
+   318→  const spawns = map.spawns
+   319→  // try each spawn with random offset, validate not inside obstacle
+   320→  const trySpawn = (s: [number, number]): [number, number, number] => {
+   321→    for (let attempt = 0; attempt < 8; attempt++) {
+   322→      const x = s[0] + (Math.random() - 0.5) * 4
+   323→      const z = s[1] + (Math.random() - 0.5) * 4
+   324→      if (!spawnBlocked(map, x, z)) return [x, 1.7, z]
+   325→    }
+   326→    // fallback: use exact spawn point
+   327→    return [s[0], 1.7, s[1]]
+   328→  }
+   329→  // PvP: bias by team (blue near spawn[0], red near spawn[1])
+   330→  if (preferTeam !== 'none' && spawns.length >= 2) {
+   331→    const idx = preferTeam === 'blue' ? 0 : 1
+   332→    return trySpawn(spawns[idx])
+   333→  }
+   334→  // pick spawn farthest from any alive player
+   335→  let best = spawns[0], bestD = -1
+   336→  for (const s of spawns) {
+   337→    let minD = Infinity
+   338→    for (const p of room.players.values()) {
+   339→      if (p.state !== 'alive') continue
+   340→      minD = Math.min(minD, dist2D([s[0], 0, s[1]], p.pos))
+   341→    }
+   342→    if (minD > bestD) { bestD = minD; best = s }
+   343→  }
+   344→  return trySpawn(best)
+   345→}
+   346→
+   347→function makePlayer(socketId: string, name: string, skin: string, room: Room): Player {
+   348→  // team assignment for PvP
+   349→  let team: Team = 'none'
+   350→  if (room.mode === 'pvp') {
+   351→    const counts = { blue: 0, red: 0 }
+   352→    for (const p of room.players.values()) counts[p.team]++
+   353→    team = counts.blue <= counts.red ? 'blue' : 'red'
+   354→  }
+   355→  return {
+   356→    id: socketId,
+   357→    name: (name || 'Jugador').slice(0, 16),
+   358→    skin: getSkin(skin).id,
+   359→    team,
+   360→    pos: pickSpawn(room, team),
+   361→    yaw: 0, pitch: 0,
+   362→    health: PLAYER_MAX_HP, shield: 0,
+   363→    state: 'alive',
+   364→    weapon: 'pistol', ammo: WEAPONS.pistol.magazine,
+   365→    reloading: false, reloadEnd: 0,
+   366→    score: 0, kills: 0, deaths: 0,
+   367→    streak: 0, bestStreak: 0,
+   368→    lastShot: 0, respawnAt: 0, lastStateSent: 0,
+   369→    connected: true,
+   370→    lastDamagedAt: 0,
+   371→  }
+   372→}
+   373→
+   374→function makeMob(i: number, level: number): Mob {
+   375→  const cfg = pveLevelConfig(level)
+   376→  const a = Math.random() * Math.PI * 2
+   377→  const r = Math.random() * (HALF - 8)
+   378→  return {
+   379→    id: 'mob_' + i + '_' + Math.random().toString(36).slice(2, 6),
+   380→    pos: [Math.cos(a) * r, 1, Math.sin(a) * r],
+   381→    vel: [0, 0],
+   382→    health: cfg.mobHp, maxHealth: cfg.mobHp,
+   383→    state: 'alive',
+   384→    wanderTarget: [0, 1, 0],
+   385→    respawnAt: 0,
+   386→    lastAttack: 0,
+   387→    hitFlash: 0,
+   388→  }
+   389→}
+   390→
+   391→function createRoom(name: string, mode: GameMode): Room {
+   392→  const id = genId('room_')
+   393→  const startMap = mode === 'pve' ? pveLevelConfig(1).mapId : MAPS[Math.floor(Math.random() * MAPS.length)].id
+   394→  const room: Room = {
+   395→    id, name: (name || 'Sala de Doodle').slice(0, 28),
+   396→    mode, mapId: startMap, level: 1,
+   397→    players: new Map(), mobs: [], items: [],
+   398→    createdAt: Date.now(), emptySince: null,
+   399→    roundActive: true, roundEndsAt: 0,
+   400→    nextMapId: startMap, nextLevel: 1,
+   401→    itemSpawnTimer: 0,
+   402→    droneOwner: null, droneEnd: 0,
+   403→  }
+   404→  if (mode === 'pve') {
+   405→    const cfg = pveLevelConfig(1)
+   406→    room.mobs = Array.from({ length: cfg.mobCount }, (_, i) => makeMob(i, 1))
+   407→  }
+   408→  rooms.set(id, room)
+   409→  return room
+   410→}
+   411→
+   412→// default PvE room so the lobby isn't empty
+   413→createRoom('Arena Doodle #1', 'pve')
+   414→
+   415→function roomSummary(r: Room) {
+   416→  return {
+   417→    id: r.id, name: r.name,
+   418→    mode: r.mode, mapId: r.mapId, level: r.level,
+   419→    players: r.players.size, max: MAX_PLAYERS_PER_ROOM,
+   420→    mobs: r.mobs.filter(m => m.state === 'alive').length,
+   421→  }
+   422→}
+   423→function lobbyState() { return { rooms: Array.from(rooms.values()).map(roomSummary) } }
+   424→function broadcastLobbyState() { io.emit('lobby:state', lobbyState()) }
+   425→
+   426→function playerPublic(p: Player) {
+   427→  return {
+   428→    id: p.id, name: p.name, skin: p.skin, team: p.team,
+   429→    pos: p.pos, yaw: p.yaw, pitch: p.pitch,
+   430→    health: p.health, shield: p.shield, state: p.state,
+   431→    weapon: p.weapon, ammo: p.ammo, reloading: p.reloading,
+   432→    score: p.score, kills: p.kills, deaths: p.deaths,
+   433→    streak: p.streak, bestStreak: p.bestStreak,
+   434→  }
+   435→}
+   436→function roomRoster(r: Room) { return Array.from(r.players.values()).map(playerPublic) }
+   437→function emitRoomState(r: Room) {
+   438→  const roster = roomRoster(r)
+   439→  for (const pid of r.players.keys()) io.to(pid).emit('room:players', { players: roster })
+   440→}
+   441→
+   442→function killFeed(r: Room, victim: string, killer: string | null, weapon: string, headshot: boolean, kind: 'player' | 'mob') {
+   443→  io.to(r.id).emit('killfeed', { id: genId('kf_'), victim, killer, weapon, headshot, kind, ts: Date.now() })
+   444→}
+   445→
+   446→// ----- map / level transitions -----
+   447→function broadcastMapChange(r: Room) {
+   448→  io.to(r.id).emit('room:mapChange', { mapId: r.mapId, level: r.level, mode: r.mode })
+   449→}
+   450→
+   451→function startPvERound(r: Room, level: number) {
+   452→  r.level = level
+   453→  const cfg = pveLevelConfig(level)
+   454→  r.mapId = cfg.mapId
+   455→  r.nextMapId = cfg.mapId
+   456→  r.nextLevel = level
+   457→  r.mobs = Array.from({ length: cfg.mobCount }, (_, i) => makeMob(i, level))
+   458→  r.items = []
+   459→  r.roundActive = true
+   460→  r.roundEndsAt = 0
+   461→  // reposition players to spawns
+   462→  for (const p of r.players.values()) {
+   463→    p.pos = pickSpawn(r)
+   464→    p.health = PLAYER_MAX_HP
+   465→    p.state = 'alive'
+   466→    p.ammo = WEAPONS[p.weapon].magazine
+   467→    p.reloading = false
+   468→  }
+   469→  broadcastMapChange(r)
+   470→  // send fresh room:joined-like state
+   471→  for (const pid of r.players.keys()) {
+   472→    const p = r.players.get(pid)!
+   473→    io.to(pid).emit('room:joined', {
+   474→      room: { id: r.id, name: r.name, mode: r.mode, mapId: r.mapId, level: r.level },
+   475→      me: playerPublic(p),
+   476→      players: roomRoster(r),
+   477→      mobs: r.mobs.map(m => ({ id: m.id, pos: m.pos, state: m.state, health: m.health })),
+   478→      items: r.items.map(it => ({ id: it.id, type: it.type, pos: it.pos })),
+   479→    })
+   480→  }
+   481→}
+   482→
+   483→function startPvPRound(r: Room, rotateMap: boolean) {
+   484→  if (rotateMap) {
+   485→    r.mapId = MAPS[Math.floor(Math.random() * MAPS.length)].id
+   486→  }
+   487→  r.roundActive = true
+   488→  r.roundEndsAt = 0
+   489→  for (const p of r.players.values()) {
+   490→    p.pos = pickSpawn(r, p.team)
+   491→    p.health = PLAYER_MAX_HP
+   492→    p.shield = 0
+   493→    p.state = 'alive'
+   494→    p.weapon = 'pistol'
+   495→    p.ammo = WEAPONS.pistol.magazine
+   496→    p.reloading = false
+   497→    p.streak = 0
+   498→  }
+   499→  broadcastMapChange(r)
+   500→  for (const pid of r.players.keys()) {
+   501→    const p = r.players.get(pid)!
+   502→    io.to(pid).emit('room:joined', {
+   503→      room: { id: r.id, name: r.name, mode: r.mode, mapId: r.mapId, level: r.level },
+   504→      me: playerPublic(p),
+   505→      players: roomRoster(r),
+   506→      mobs: [],
+   507→      items: [],
+   508→    })
+   509→  }
+   510→}
+   511→
+   512→function checkPvERoundEnd(r: Room) {
+   513→  if (!r.roundActive) return
+   514→  const aliveMobs = r.mobs.filter(m => m.state === 'alive').length
+   515→  if (aliveMobs === 0) {
+   516→    r.roundActive = false
+   517→    r.roundEndsAt = Date.now() + ROUND_END_MS
+   518→    r.nextLevel = r.level + 1
+   519→    io.to(r.id).emit('room:mapChange', { mapId: r.mapId, level: r.level, mode: r.mode, banner: `¡Nivel ${r.level} superado!` })
+   520→  }
+   521→}
+   522→
+   523→function checkPvPRoundEnd(r: Room) {
+   524→  if (!r.roundActive || r.players.size < 2) return
+   525→  const teams = { blue: 0, red: 0 }
+   526→  for (const p of r.players.values()) {
+   527→    if (p.state !== 'alive') continue
+   528→    if (p.team === 'blue' || p.team === 'red') teams[p.team]++
+   529→  }
+   530→  if (teams.blue === 0 || teams.red === 0) {
+   531→    r.roundActive = false
+   532→    r.roundEndsAt = Date.now() + ROUND_END_MS
+   533→    const winner = teams.blue > 0 ? 'Azul' : 'Rojo'
+   534→    io.to(r.id).emit('room:mapChange', { mapId: r.mapId, level: r.level, mode: r.mode, banner: `¡Equipo ${winner} gana la ronda!` })
+   535→  }
+   536→}
+   537→
+   538→// ----------------------- Items -----------------------
+   539→function spawnItem(r: Room, type: 'ammo'|'heal'|'shield', pos?: [number,number,number]) {
+   540→  const map = getMap(r.mapId)
+   541→  const p: [number, number, number] = pos ?? (() => {
+   542→    const s = map.spawns[Math.floor(Math.random() * map.spawns.length)]
+   543→    return [s[0] + (Math.random()-0.5)*10, 1, s[1] + (Math.random()-0.5)*10]
+   544→  })()
+   545→  const it: Item = { id: genId('item_'), type, pos: p, born: Date.now() }
+   546→  r.items.push(it)
+   547→  io.to(r.id).emit('items:state', { items: r.items.map(i => ({ id: i.id, type: i.type, pos: i.pos })) })
+   548→}
+   549→
+   550→function dropItemOnMobKill(r: Room, pos: [number,number,number]) {
+   551→  const roll = Math.random()
+   552→  let type: 'ammo'|'heal'|'shield'
+   553→  if (roll < 0.5) type = 'ammo'
+   554→  else if (roll < 0.8) type = 'heal'
+   555→  else type = 'shield'
+   556→  spawnItem(r, type, [pos[0], 1, pos[2]])
+   557→}
+   558→
+   559→// ----------------------- socket.io -----------------------
+   560→const httpServer = createServer()
+   561→const io = new Server(httpServer, {
+   562→  path: '/',
+   563→  cors: { origin: '*', methods: ['GET', 'POST'] },
+   564→  pingTimeout: 60000,
+   565→  pingInterval: 25000,
+   566→})
+   567→
+   568→io.on('connection', (socket) => {
+   569→  console.log(`[connect] ${socket.id}`)
+   570→
+   571→  socket.on('lobby:hello', (data: { name?: string; skin?: string }) => {
+   572→    socketToLobby.set(socket.id, { name: (data?.name || 'Jugador').slice(0, 16), skin: data?.skin || 'red' })
+   573→    socket.emit('lobby:state', lobbyState())
+   574→    socket.emit('lobby:ready', { skins: SKINS, weapons: Object.values(WEAPONS) })
+   575→  })
+   576→  socket.on('lobby:refresh', () => { socket.emit('lobby:state', lobbyState()) })
+   577→
+   578→  socket.on('room:create', (data: { roomName?: string; mode?: GameMode }) => {
+   579→    if (rooms.size >= MAX_ROOMS) {
+   580→      for (const [rid, r] of rooms) if (r.players.size === 0) { rooms.delete(rid); break }
+   581→    }
+   582→    const meta = socketToLobby.get(socket.id) ?? { name: 'Jugador', skin: 'red' }
+   583→    const mode: GameMode = data?.mode === 'pvp' ? 'pvp' : 'pve'
+   584→    const room = createRoom(data?.roomName || (mode === 'pvp' ? 'Duelo 1v1' : 'Supervivencia'), mode)
+   585→    joinRoom(socket, room, meta.name, meta.skin)
+   586→  })
+   587→  socket.on('room:join', (data: { roomId: string }) => {
+   588→    const meta = socketToLobby.get(socket.id) ?? { name: 'Jugador', skin: 'red' }
+   589→    const room = rooms.get(data.roomId)
+   590→    if (!room) { socket.emit('room:error', { message: 'La sala no existe' }); return }
+   591→    if (room.players.size >= MAX_PLAYERS_PER_ROOM) { socket.emit('room:error', { message: 'La sala está llena' }); return }
+   592→    joinRoom(socket, room, meta.name, meta.skin)
+   593→  })
+   594→
+   595→  socket.on('player:state', (data: { pos: [number,number,number]; yaw: number; pitch: number; weapon: string; ammo: number; state: 'alive'|'dead'; shield: number }) => {
+   596→    const rid = socketToRoom.get(socket.id); if (!rid) return
+   597→    const room = rooms.get(rid); if (!room) return
+   598→    const p = room.players.get(socket.id); if (!p) return
+   599→    const now = Date.now()
+   600→    p.pos = data.pos; clampToArena(p.pos)
+   601→    p.yaw = data.yaw; p.pitch = data.pitch
+   602→    p.weapon = data.weapon; p.ammo = data.ammo; p.state = data.state; p.shield = data.shield
+   603→    if (now - p.lastStateSent < STATE_BROADCAST_THROTTLE) return
+   604→    p.lastStateSent = now
+   605→    socket.to(room.id).emit('player:state', {
+   606→      id: p.id, pos: p.pos, yaw: p.yaw, pitch: p.pitch,
+   607→      weapon: p.weapon, ammo: p.ammo, state: p.state, shield: p.shield,
+   608→    })
+   609→  })
+   610→
+   611→  socket.on('player:shoot', (data: { origin: [number,number,number]; dir: [number,number,number]; weapon: string }) => {
+   612→    const rid = socketToRoom.get(socket.id); if (!rid) return
+   613→    const room = rooms.get(rid); if (!room) return
+   614→    const p = room.players.get(socket.id); if (!p || p.state !== 'alive') return
+   615→    const w = WEAPONS[data.weapon]; if (!w) return
+   616→    const now = Date.now()
+   617→    if (now - p.lastShot < w.fireRate - 15) return
+   618→    p.lastShot = now
+   619→    if (p.weapon !== data.weapon) p.weapon = data.weapon
+   620→    if (p.ammo > 0) p.ammo -= 1
+   621→    socket.to(room.id).emit('player:shot', { shooterId: p.id, origin: data.origin, dir: data.dir, weapon: data.weapon })
+   622→    socket.emit('player:ammo', { weapon: data.weapon, ammo: p.ammo })
+   623→  })
+   624→
+   625→  socket.on('player:reload', (data: { weapon: string }) => {
+   626→    const rid = socketToRoom.get(socket.id); if (!rid) return
+   627→    const room = rooms.get(rid); if (!room) return
+   628→    const p = room.players.get(socket.id); if (!p) return
+   629→    const w = WEAPONS[data.weapon]; if (!w) return
+   630→    if (p.ammo >= w.magazine) return
+   631→    p.reloading = true
+   632→    p.reloadEnd = Date.now() + w.reload
+   633→    socket.to(room.id).emit('player:reloading', { id: p.id, weapon: data.weapon })
+   634→    setTimeout(() => {
+   635→      if (!p.connected) return
+   636→      if (p.weapon !== data.weapon) { p.reloading = false; return }
+   637→      p.ammo = w.magazine
+   638→      p.reloading = false
+   639→      socket.emit('player:reloadDone', { weapon: data.weapon, ammo: p.ammo })
+   640→      socket.to(room.id).emit('player:state', { id: p.id, pos: p.pos, yaw: p.yaw, pitch: p.pitch, weapon: p.weapon, ammo: p.ammo, state: p.state, shield: p.shield })
+   641→    }, w.reload)
+   642→  })
+   643→
+   644→  socket.on('player:hit', (data: { targetId: string; damage: number; headshot: boolean; dist: number; kind: 'player' | 'mob' }) => {
+   645→    const rid = socketToRoom.get(socket.id); if (!rid) return
+   646→    const room = rooms.get(rid); if (!room) return
+   647→    const shooter = room.players.get(socket.id); if (!shooter || shooter.state !== 'alive') return
+   648→    const w = WEAPONS[shooter.weapon]; if (!w) return
+   649→    if (data.dist > w.range + 6) return
+   650→    if (data.damage > w.damage * w.pellets * 2.2 + 5) return
+   651→
+   652→    if (data.kind === 'player') {
+   653→      const target = room.players.get(data.targetId)
+   654→      if (!target || target.state !== 'alive' || target.id === shooter.id) return
+   655→      // PvP: friendly fire off
+   656→      if (room.mode === 'pvp' && target.team === shooter.team && shooter.team !== 'none') return
+   657→      const dmg = Math.min(data.damage, w.damage * (data.headshot ? 2 : 1) * w.pellets + 4)
+   658→      applyDamageToPlayer(room, target, dmg, shooter.id, shooter.weapon, data.headshot, shooter.pos)
+   659→    } else {
+   660→      const mob = room.mobs.find(m => m.id === data.targetId && m.state === 'alive')
+   661→      if (!mob) return
+   662→      const dmg = Math.min(data.damage, w.damage * (data.headshot ? 1.6 : 1) * w.pellets + 4)
+   663→      mob.health -= dmg
+   664→      mob.hitFlash = Date.now()
+   665→      io.to(room.id).emit('mob:damaged', { id: mob.id, health: Math.max(0, mob.health), by: shooter.id })
+   666→      if (mob.health <= 0) {
+   667→        killMob(room, mob, shooter.id, shooter.weapon, data.headshot)
+   668→      }
+   669→    }
+   670→  })
+   671→
+   672→  socket.on('item:pickup', (data: { itemId: string }) => {
+   673→    const rid = socketToRoom.get(socket.id); if (!rid) return
+   674→    const room = rooms.get(rid); if (!room) return
+   675→    const p = room.players.get(socket.id); if (!p || p.state !== 'alive') return
+   676→    const idx = room.items.findIndex(i => i.id === data.itemId)
+   677→    if (idx === -1) return
+   678→    const it = room.items[idx]
+   679→    // distance check
+   680→    if (dist2D(p.pos, it.pos) > 2.2) return
+   681→    // apply effect
+   682→    let applied = false
+   683→    if (it.type === 'ammo') {
+   684→      // give a weapon + ammo: pick a random weapon the player doesn't currently hold, or just refill
+   685→      const pool = ['smg','rifle','shotgun']
+   686→      const w = pool[Math.floor(Math.random()*pool.length)]
+   687→      p.weapon = w
+   688→      p.ammo = WEAPONS[w].magazine
+   689→      applied = true
+   690→    } else if (it.type === 'heal') {
+   691→      if (p.health < PLAYER_MAX_HP) {
+   692→        p.health = Math.min(PLAYER_MAX_HP, p.health + 35)
+   693→        applied = true
+   694→      }
+   695→    } else if (it.type === 'shield') {
+   696→      if (p.shield < PLAYER_MAX_SHIELD) {
+   697→        p.shield = Math.min(PLAYER_MAX_SHIELD, p.shield + 30)
+   698→        applied = true
+   699→      }
+   700→    }
+   701→    if (applied) {
+   702→      room.items.splice(idx, 1)
+   703→      io.to(room.id).emit('items:state', { items: room.items.map(i => ({ id: i.id, type: i.type, pos: i.pos })) })
+   704→      io.to(room.id).emit('item:picked', { id: it.id, by: p.id, type: it.type })
+   705→      socket.emit('player:ammo', { weapon: p.weapon, ammo: p.ammo })
+   706→      socket.emit('player:reloadDone', { weapon: p.weapon, ammo: p.ammo })
+   707→    }
+   708→  })
+   709→
+   710→  // chat messages
+   711→  socket.on('chat:send', (data: { text: string }) => {
+   712→    const rid = socketToRoom.get(socket.id); if (!rid) return
+   713→    const room = rooms.get(rid); if (!room) return
+   714→    const p = room.players.get(socket.id); if (!p) return
+   715→    const text = (data.text || '').slice(0, 80)
+   716→    if (!text.trim()) return
+   717→    io.to(room.id).emit('chat:message', { id: genId('chat_'), name: p.name, text, at: Date.now() })
+   718→  })
+   719→
+   720→  socket.on('room:leave', () => { leaveRoom(socket); socket.emit('lobby:state', lobbyState()) })
+   721→  socket.on('room:sync', () => {
+   722→    const rid = socketToRoom.get(socket.id); if (!rid) return
+   723→    const room = rooms.get(rid); if (!room) return
+   724→    const me = room.players.get(socket.id); if (!me) return
+   725→    socket.emit('room:joined', {
+   726→      room: { id: room.id, name: room.name, mode: room.mode, mapId: room.mapId, level: room.level },
+   727→      me: playerPublic(me),
+   728→      players: roomRoster(room),
+   729→      mobs: room.mobs.map(m => ({ id: m.id, pos: m.pos, state: m.state, health: m.health })),
+   730→      items: room.items.map(i => ({ id: i.id, type: i.type, pos: i.pos })),
+   731→    })
+   732→  })
+   733→
+   734→  socket.on('disconnect', () => {
+   735→    console.log(`[disconnect] ${socket.id}`)
+   736→    leaveRoom(socket)
+   737→    socketToLobby.delete(socket.id)
+   738→  })
+   739→  socket.on('error', (err) => console.error(`[socket error] ${socket.id}`, err))
+   740→})
+   741→
+   742→function applyDamageToPlayer(room: Room, target: Player, dmg: number, killerId: string, weapon: string, headshot: boolean, attackerPos?: [number, number, number]) {
+   743→  const now = Date.now()
+   744→  target.lastDamagedAt = now
+   745→  // shield absorbs first
+   746→  let remaining = dmg
+   747→  if (target.shield > 0) {
+   748→    const absorbed = Math.min(target.shield, remaining * 0.6)
+   749→    target.shield -= absorbed
+   750→    remaining -= absorbed
+   751→  }
+   752→  target.health -= remaining
+   753→  io.to(room.id).emit('player:damaged', {
+   754→    id: target.id, health: Math.max(0, target.health),
+   755→    shield: Math.max(0, target.shield), by: killerId, headshot,
+   756→    attackerPos: attackerPos ?? null,
+   757→  })
+   758→  if (target.health <= 0) killPlayer(room, target, killerId, weapon, headshot)
+   759→}
+   760→
+   761→function joinRoom(socket: any, room: Room, name: string, skin: string) {
+   762→  leaveRoom(socket)
+   763→  const player = makePlayer(socket.id, name, skin, room)
+   764→  room.players.set(socket.id, player)
+   765→  socketToRoom.set(socket.id, room.id)
+   766→  socket.join(room.id)
+   767→  socket.emit('room:joined', {
+   768→    room: { id: room.id, name: room.name, mode: room.mode, mapId: room.mapId, level: room.level },
+   769→    me: playerPublic(player),
+   770→    players: roomRoster(room),
+   771→    mobs: room.mobs.map(m => ({ id: m.id, pos: m.pos, state: m.state, health: m.health })),
+   772→    items: room.items.map(i => ({ id: i.id, type: i.type, pos: i.pos })),
+   773→  })
+   774→  socket.to(room.id).emit('room:playerJoined', playerPublic(player))
+   775→  room.emptySince = null
+   776→  broadcastLobbyState()
+   777→  console.log(`[join] ${player.name} -> ${room.name} (${room.mode}, ${room.players.size}p)`)
+   778→}
+   779→
+   780→function leaveRoom(socket: any) {
+   781→  const rid = socketToRoom.get(socket.id)
+   782→  if (!rid) return
+   783→  const room = rooms.get(rid)
+   784→  socketToRoom.delete(socket.id)
+   785→  socket.leave(rid)
+   786→  if (room) {
+   787→    const p = room.players.get(socket.id)
+   788→    room.players.delete(socket.id)
+   789→    if (p) {
+   790→      p.connected = false
+   791→      socket.to(room.id).emit('room:playerLeft', { id: socket.id })
+   792→    }
+   793→    if (room.players.size === 0) {
+   794→      room.emptySince = Date.now()
+   795→    }
+   796→  }
+   797→  broadcastLobbyState()
+   798→}
+   799→
+   800→function killPlayer(room: Room, victim: Player, killerId: string, weapon: string, headshot: boolean) {
+   801→  victim.state = 'dead'
+   802→  victim.health = 0
+   803→  victim.deaths += 1
+   804→  victim.streak = 0
+   805→  victim.respawnAt = Date.now() + RESPAWN_MS
+   806→  const killer = room.players.get(killerId)
+   807→  if (killer && killer.id !== victim.id) {
+   808→    killer.kills += 1
+   809→    killer.streak += 1
+   810→    killer.bestStreak = Math.max(killer.bestStreak, killer.streak)
+   811→    killer.score += headshot ? 150 : 100
+   812→    // streak rewards
+   813→    const reward = streakAt(killer.streak)
+   814→    if (reward && killer.streak === reward.streak) {
+   815→      io.to(room.id).emit('player:streak', { id: killer.id, streak: killer.streak, reward })
+   816→      io.to(killer.id).emit('player:streak', { id: killer.id, streak: killer.streak, reward })
+   817→      applyStreakReward(room, killer, reward.id)
+   818→    } else {
+   819→      io.to(room.id).emit('player:streak', { id: killer.id, streak: killer.streak, reward: null })
+   820→    }
+   821→    // PvP: drop a random item on death
+   822→    if (room.mode === 'pvp' && Math.random() < 0.6) dropItemOnMobKill(room, victim.pos)
+   823→  }
+   824→  io.to(room.id).emit('player:killed', { victimId: victim.id, killerId, weapon, headshot })
+   825→  killFeed(room, victim.name, killer?.name ?? null, weapon, headshot, 'player')
+   826→  setTimeout(() => {
+   827→    if (!victim.connected) return
+   828→    if (!room.players.has(victim.id)) return
+   829→    // Always respawn — round restarts will override with fresh state if needed
+   830→    victim.state = 'alive'
+   831→    victim.health = PLAYER_MAX_HP
+   832→    victim.shield = 0
+   833→    victim.pos = pickSpawn(room, victim.team)
+   834→    victim.weapon = 'pistol'
+   835→    victim.ammo = WEAPONS.pistol.magazine
+   836→    victim.reloading = false
+   837→    io.to(room.id).emit('player:respawned', { id: victim.id, pos: victim.pos })
+   838→  }, RESPAWN_MS)
+   839→  // round-end checks
+   840→  if (room.mode === 'pvp') checkPvPRoundEnd(room)
+   841→}
+   842→
+   843→function applyStreakReward(room: Room, p: Player, rewardId: string) {
+   844→  if (rewardId === 'heal' || rewardId === 'aura') {
+   845→    p.health = Math.min(PLAYER_MAX_HP, p.health + 25)
+   846→    p.shield = Math.min(PLAYER_MAX_SHIELD, p.shield + 25)
+   847→  }
+   848→  if (rewardId === 'bomb') {
+   849→    // damage all mobs near player + nearby enemies
+   850→    for (const m of room.mobs) {
+   851→      if (m.state !== 'alive') continue
+   852→      if (dist2D(m.pos, p.pos) < 12) {
+   853→        m.health -= 80
+   854→        m.hitFlash = Date.now()
+   855→        io.to(room.id).emit('mob:damaged', { id: m.id, health: Math.max(0, m.health), by: p.id })
+   856→        if (m.health <= 0) killMob(room, m, p.id, 'bomb', false)
+   857→      }
+   858→    }
+   859→    for (const other of room.players.values()) {
+   860→      if (other.id === p.id || other.state !== 'alive') continue
+   861→      if (room.mode === 'pvp' && other.team === p.team && p.team !== 'none') continue
+   862→      if (dist2D(other.pos, p.pos) < 10) {
+   863→        applyDamageToPlayer(room, other, 60, p.id, 'bomb', false)
+   864→      }
+   865→    }
+   866→  }
+   867→  if (rewardId === 'drone') {
+   868→    room.droneOwner = p.id
+   869→    room.droneEnd = Date.now() + 20000
+   870→    io.to(room.id).emit('drone:state', { ownerId: p.id, pos: [p.pos[0], 3.5, p.pos[2]], expires: room.droneEnd, targetYaw: p.yaw })
+   871→  }
+   872→  if (rewardId === 'aura') {
+   873→    p.ammo = WEAPONS[p.weapon].magazine
+   874→    p.reloading = false
+   875→    io.to(p.id).emit('player:reloadDone', { weapon: p.weapon, ammo: p.ammo })
+   876→  }
+   877→}
+   878→
+   879→function killMob(room: Room, mob: Mob, killerId: string, weapon: string, headshot: boolean) {
+   880→  mob.state = 'dead'
+   881→  mob.health = 0
+   882→  mob.respawnAt = Date.now() + MOB_RESPAWN_MS
+   883→  const killer = room.players.get(killerId)
+   884→  if (killer) {
+   885→    killer.streak += 1
+   886→    killer.bestStreak = Math.max(killer.bestStreak, killer.streak)
+   887→    killer.score += headshot ? 60 : 40
+   888→    const reward = streakAt(killer.streak)
+   889→    if (reward && killer.streak === reward.streak) {
+   890→      io.to(room.id).emit('player:streak', { id: killer.id, streak: killer.streak, reward })
+   891→      io.to(killer.id).emit('player:streak', { id: killer.id, streak: killer.streak, reward })
+   892→      applyStreakReward(room, killer, reward.id)
+   893→    } else {
+   894→      io.to(room.id).emit('player:streak', { id: killer.id, streak: killer.streak, reward: null })
+   895→    }
+   896→  }
+   897→  io.to(room.id).emit('mob:killed', { id: mob.id, killerId, weapon, headshot })
+   898→  killFeed(room, 'Doodle Mob', killer?.name ?? null, weapon, headshot, 'mob')
+   899→  // item drop
+   900→  dropItemOnMobKill(room, mob.pos)
+   901→  checkPvERoundEnd(room)
+   902→  // schedule respawn
+   903→  setTimeout(() => {
+   904→    if (!rooms.has(room.id)) return
+   905→    if (room.mode !== 'pve') return // mobs only respawn in PvE between levels (handled by round restart)
+   906→    mob.state = 'alive'
+   907→    mob.health = mob.maxHealth
+   908→    const a = Math.random() * Math.PI * 2
+   909→    const r = Math.random() * (HALF - 8)
+   910→    mob.pos = [Math.cos(a) * r, 1, Math.sin(a) * r]
+   911→    mob.wanderTarget = mob.pos.slice() as [number, number, number]
+   912→    io.to(room.id).emit('mob:respawned', { id: mob.id, pos: mob.pos })
+   913→  }, MOB_RESPAWN_MS)
+   914→}
+   915→
+   916→// ----------------------- World tick -----------------------
+   917→setInterval(() => {
+   918→  const now = Date.now()
+   919→  // cleanup empty rooms
+   920→  for (const [rid, r] of rooms) {
+   921→    if (r.players.size === 0) {
+   922→      if (r.emptySince == null) r.emptySince = now
+   923→      if (now - (r.emptySince as number) > EMPTY_ROOM_TTL_MS) {
+   924→        // keep at least the default PvE room
+   925→        if (rooms.size > 1) {
+   926→          rooms.delete(rid)
+   927→          continue
+   928→        }
+   929→      }
+   930→    }
+   931→  }
+   932→
+   933→  for (const room of rooms.values()) {
+   934→    if (room.players.size === 0) continue
+   935→
+   936→    // round transitions
+   937→    if (!room.roundActive && room.roundEndsAt && now >= room.roundEndsAt) {
+   938→      room.roundEndsAt = 0
+   939→      if (room.mode === 'pve') startPvERound(room, room.nextLevel)
+   940→      else startPvPRound(room, true)
+   941→    }
+   942→
+   943→    // mob AI (PvE)
+   944→    if (room.mode === 'pve') {
+   945→      const cfg = pveLevelConfig(room.level)
+   946→      for (const mob of room.mobs) {
+   947→        if (mob.state === 'dead') continue
+   948→        let nearest: Player | null = null
+   949→        let nd = Infinity
+   950→        for (const p of room.players.values()) {
+   951→          if (p.state !== 'alive') continue
+   952→          const d = dist2D(mob.pos, p.pos)
+   953→          if (d < nd) { nd = d; nearest = p }
+   954→        }
+   955→        let tx: number, tz: number
+   956→        if (nearest && nd < 16) {
+   957→          tx = nearest.pos[0]; tz = nearest.pos[2]
+   958→          if (nd < 1.9 && now - mob.lastAttack > MOB_ATTACK_CD) {
+   959→            mob.lastAttack = now
+   960→            applyDamageToPlayer(room, nearest, cfg.mobDamage, mob.id, 'mob', false, mob.pos)
+   961→          }
+   962→        } else {
+   963→          if (dist2D(mob.pos, mob.wanderTarget) < 1.5) {
+   964→            const a = Math.random() * Math.PI * 2
+   965→            const r = Math.random() * (HALF - 6)
+   966→            mob.wanderTarget = [Math.cos(a) * r, 1, Math.sin(a) * r]
+   967→          }
+   968→          tx = mob.wanderTarget[0]; tz = mob.wanderTarget[2]
+   969→        }
+   970→        const dx = tx - mob.pos[0], dz = tz - mob.pos[2]
+   971→        const len = Math.hypot(dx, dz) || 1
+   972→        const vx = (dx / len) * cfg.mobSpeed, vz = (dz / len) * cfg.mobSpeed
+   973→        mob.vel[0] = vx; mob.vel[1] = vz
+   974→        const step = TICK_MS / 1000
+   975→        mob.pos[0] += vx * step
+   976→        mob.pos[2] += vz * step
+   977→        clampToArena(mob.pos)
+   978→        mob.pos[1] = 1
+   979→      }
+   980→      io.to(room.id).emit('mob:state', { mobs: room.mobs.map(m => ({ id: m.id, pos: m.pos, state: m.state, flash: m.hitFlash })) })
+   981→    }
+   982→
+   983→    // PvE health regen: if player hasn't taken damage for 5s, regen 1.5 HP/sec
+   984→    if (room.mode === 'pve') {
+   985→      for (const p of room.players.values()) {
+   986→        if (p.state !== 'alive') continue
+   987→        if (p.health >= PLAYER_MAX_HP) continue
+   988→        if (now - p.lastDamagedAt > 5000) {
+   989→          p.health = Math.min(PLAYER_MAX_HP, p.health + 1.5 * (TICK_MS / 1000) * 4)
+   990→          // send updated health to the player (throttled)
+   991→          if (now % 500 < TICK_MS) {
+   992→            io.to(p.id).emit('player:damaged', { id: p.id, health: Math.round(p.health), shield: p.shield, by: 'regen', headshot: false, attackerPos: null, regen: true })
+   993→          }
+   994→        }
+   995→      }
+   996→    }
+   997→
+   998→    // drone streak reward: auto-attack nearest enemy/mob
+   999→    if (room.droneOwner && now < room.droneEnd) {
+  1000→      const owner = room.players.get(room.droneOwner)
+  1001→      if (owner && owner.state === 'alive') {
+  1002→        // attack nearest mob every ~700ms
+  1003→        if (now % 700 < TICK_MS) {
+  1004→          let target: Mob | null = null; let td = Infinity
+  1005→          for (const m of room.mobs) {
+  1006→            if (m.state !== 'alive') continue
+  1007→            const d = dist2D(m.pos, owner.pos)
+  1008→            if (d < 18 && d < td) { td = d; target = m }
+  1009→          }
+  1010→          if (target) {
+  1011→            target.health -= 14
+  1012→            target.hitFlash = now
+  1013→            io.to(room.id).emit('mob:damaged', { id: target.id, health: Math.max(0, target.health), by: owner.id })
+  1014→            if (target.health <= 0) killMob(room, target, owner.id, 'drone', false)
+  1015→          }
+  1016→        }
+  1017→      } else if (owner && owner.state !== 'alive') {
+  1018→        // drone persists but does nothing while dead
+  1019→      } else {
+  1020→        room.droneOwner = null
+  1021→      }
+  1022→    } else if (room.droneOwner && now >= room.droneEnd) {
+  1023→      room.droneOwner = null
+  1024→      io.to(room.id).emit('drone:state', { ownerId: null, pos: null, expires: 0 })
+  1025→    }
+  1026→    // emit drone position to all clients (for 3D rendering)
+  1027→    if (room.droneOwner && now < room.droneEnd) {
+  1028→      const owner = room.players.get(room.droneOwner)
+  1029→      if (owner && owner.state === 'alive') {
+  1030→        // drone hovers above and behind the owner
+  1031→        const dx = -Math.sin(owner.yaw) * 3
+  1032→        const dz = -Math.cos(owner.yaw) * 3
+  1033→        const dronePos: [number, number, number] = [owner.pos[0] + dx, 3.5, owner.pos[2] + dz]
+  1034→        io.to(room.id).emit('drone:state', { ownerId: room.droneOwner, pos: dronePos, expires: room.droneEnd, targetYaw: owner.yaw })
+  1035→      }
+  1036→    }
+  1037→
+  1038→    // item expiry
+  1039→    let itemsChanged = false
+  1040→    room.items = room.items.filter(it => {
+  1041→      if (now - it.born > ITEM_LIFETIME_MS) { itemsChanged = true; return false }
+  1042→      return true
+  1043→    })
+  1044→    if (itemsChanged) {
+  1045→      io.to(room.id).emit('items:state', { items: room.items.map(i => ({ id: i.id, type: i.type, pos: i.pos })) })
+  1046→    }
+  1047→
+  1048→    // periodic item spawns (PvE: every ~12s, PvP: every ~16s)
+  1049→    room.itemSpawnTimer += TICK_MS
+  1050→    const interval = room.mode === 'pve' ? ITEM_RESPAWN_INTERVAL_MS : 16000
+  1051→    if (room.itemSpawnTimer >= interval && room.items.length < 6) {
+  1052→      room.itemSpawnTimer = 0
+  1053→      const roll = Math.random()
+  1054→      const type: 'ammo'|'heal'|'shield' = roll < 0.5 ? 'ammo' : roll < 0.8 ? 'heal' : 'shield'
+  1055→      spawnItem(room, type)
+  1056→    }
+  1057→
+  1058→    // roster every ~1s
+  1059→    if (now % 1000 < TICK_MS) emitRoomState(room)
+  1060→  }
+  1061→}, TICK_MS)
+  1062→
+  1063→setInterval(() => { broadcastLobbyState() }, 4000)
+  1064→
+  1065→httpServer.listen(PORT, () => {
+  1066→  console.log(`[doodle-shooter] socket.io server listening on port ${PORT}`)
+  1067→})
+  1068→
+  1069→process.on('SIGTERM', () => { httpServer.close(() => process.exit(0)) })
+  1070→process.on('SIGINT', () => { httpServer.close(() => process.exit(0)) })
+  1071→

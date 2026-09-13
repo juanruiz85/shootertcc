@@ -25,7 +25,7 @@ export const PLAYER_MAX_HP = 100
 export const PLAYER_MAX_SHIELD = 50
 export const MOB_MAX_HP = 60
 
-export type GameMode = 'pvp' | 'pve'
+export type GameMode = '1v1' | '2v2' | 'team' | 'ffa' | 'coop' | 'mixed'
 export type Team = 'blue' | 'red' | 'none'
 
 export const TEAMS: Record<Team, { id: Team; name: string; color: string; accent: string }> = {
@@ -274,6 +274,107 @@ export const MAPS: GameMap[] = [
     ],
     spawns: [[0,-24],[0,24],[24,0],[-24,0]],
   },
+  // ===== NEW MAPS with climbable buildings =====
+  {
+    id: 'barrio', name: 'Barrio', theme: 'Conjunto residencial', ground: G_STONE, fog: 0xeae6e0, accent: 0xcfc8bc,
+    obstacles: [
+      // houses (climbable via trash cans next to them)
+      ob(-14,-12, 6,4,6, true, 0xd5c4a0), ob(14,-12, 6,4,6, true, 0xd5c4a0),
+      ob(-14,12, 6,4,6, true, 0xcdb98a), ob(14,12, 6,4,6, true, 0xcdb98a),
+      // trash cans next to houses (for climbing to roof)
+      ob(-10,-8, 1,1.2,1, true, 0x555555), ob(10,-8, 1,1.2,1, true, 0x555555),
+      ob(-10,8, 1,1.2,1, true, 0x555555), ob(10,8, 1,1.2,1, true, 0x555555),
+      // cars (street)
+      ob(-4,-18, 2,1.2,4, true, 0xe74c3c), ob(4,18, 2,1.2,4, true, 0x3498db),
+      ob(18,0, 2,1.2,4, true, 0x27ae60), ob(-18,0, 2,1.2,4, true, 0xf1c40f),
+      // low walls (fences)
+      ob(0,-6, 4,1,0.3, true, C_DARK), ob(0,6, 4,1,0.3, true, C_DARK),
+      // crates for climbing
+      ob(-6,0, 1.5,1.5,1.5, true, C_WOOD), ob(6,0, 1.5,1.5,1.5, true, C_WOOD),
+      ob(0,0, 2,3,2, true, C_STONE),
+    ],
+    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-20,-20],[20,20]],
+  },
+  {
+    id: 'escuela', name: 'Escuela', theme: 'Aulas y pizarrones', ground: G_PAPER, fog: 0xfdfbf7, accent: 0xe8e4df,
+    obstacles: [
+      // classroom buildings (climbable via desks)
+      ob(-14,-10, 6,4,5, true, 0xe8d5b7), ob(14,-10, 6,4,5, true, 0xe8d5b7),
+      ob(-14,10, 6,4,5, true, 0xd5c4a0), ob(14,10, 6,4,5, true, 0xd5c4a0),
+      // desks (for climbing to roof)
+      ob(-10,-6, 1.5,0.8,1, true, C_WOOD), ob(-8,-6, 1.5,0.8,1, true, C_WOOD),
+      ob(10,-6, 1.5,0.8,1, true, C_WOOD), ob(8,-6, 1.5,0.8,1, true, C_WOOD),
+      ob(-10,6, 1.5,0.8,1, true, C_WOOD), ob(10,6, 1.5,0.8,1, true, C_WOOD),
+      // blackboard wall (center)
+      ob(0,0, 8,3,0.5, false, 0x2c3e50),
+      // stacked desks (climbable tower)
+      ob(-4,-14, 1.5,1.6,1, true, C_WOOD), ob(-4,-14, 1.5,2.4,1, false, C_WOOD),
+      ob(4,14, 1.5,1.6,1, true, C_WOOD), ob(4,14, 1.5,2.4,1, false, C_WOOD),
+      // lockers
+      ob(-20,0, 0.8,2.5,6, true, C_BLUE), ob(20,0, 0.8,2.5,6, true, C_RED),
+    ],
+    spawns: [[0,-24],[0,24],[-24,0],[24,0]],
+  },
+  {
+    id: 'oficinas', name: 'Oficinas', theme: 'Edificio corporativo', ground: G_STONE, fog: 0xeae6e0, accent: 0xcfc8bc,
+    obstacles: [
+      // office building blocks (climbable via trash cans)
+      ob(-12,-10, 5,5,5, true, 0xa3c8e0), ob(12,-10, 5,5,5, true, 0xa3c8e0),
+      ob(-12,10, 5,5,5, true, 0xd5c4a0), ob(12,10, 5,5,5, true, 0xd5c4a0),
+      // glass partitions (low, climbable)
+      ob(-6,0, 0.3,2,8, true, 0xb8d4e3), ob(6,0, 0.3,2,8, true, 0xb8d4e3),
+      // trash cans for climbing
+      ob(-8,-6, 1,1.2,1, true, 0x555555), ob(8,-6, 1,1.2,1, true, 0x555555),
+      ob(-8,6, 1,1.2,1, true, 0x555555), ob(8,6, 1,1.2,1, true, 0x555555),
+      // desks
+      ob(-3,-14, 3,0.8,1.5, true, C_WOOD), ob(3,14, 3,0.8,1.5, true, C_WOOD),
+      // central elevator shaft
+      ob(0,0, 3,6,3, true, C_DARK),
+      // ramps to second level
+      ob(-4,0, 2,1,4, true, C_STONE,'ramp'), ob(4,0, 2,1,4, true, C_STONE,'ramp'),
+    ],
+    spawns: [[0,-24],[0,24],[-24,0],[24,0]],
+  },
+  {
+    id: 'bosque', name: 'Bosque', theme: 'Densa vegetación', ground: G_GRASS, fog: 0xeef5e6, accent: 0xcfdcc0,
+    obstacles: [
+      // large trees (climbable via rocks next to them)
+      ob(-12,-12, 2,6,2, true, 0x27ae60,'cyl'), ob(12,-12, 2,6,2, true, 0x27ae60,'cyl'),
+      ob(-12,12, 2,6,2, true, 0x229954,'cyl'), ob(12,12, 2,6,2, true, 0x229954,'cyl'),
+      ob(0,-18, 2,7,2, true, 0x27ae60,'cyl'), ob(0,18, 2,7,2, true, 0x229954,'cyl'),
+      // rocks for climbing to tree tops
+      ob(-9,-9, 2,2,2, true, 0x95a5a6), ob(9,-9, 2,2,2, true, 0x95a5a6),
+      ob(-9,9, 2,2,2, true, 0x7f8c8d), ob(9,9, 2,2,2, true, 0x7f8c8d),
+      // fallen logs (low cover)
+      ob(-5,0, 5,1,1, true, 0x7a5230), ob(5,0, 5,1,1, true, 0x7a5230),
+      // boulders
+      ob(-18,0, 3,2.5,3, true, 0x95a5a6), ob(18,0, 3,2.5,3, true, 0x7f8c8d),
+      // bushes (low, non-climbable)
+      ob(0,-8, 3,0.8,2, false, 0x27ae60), ob(0,8, 3,0.8,2, false, 0x27ae60),
+    ],
+    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-22,-22],[22,22]],
+  },
+  {
+    id: 'paisaje', name: 'Paisaje', theme: 'Río y montañas', ground: G_GRASS, fog: 0xeef5e6, accent: 0xcfdcc0,
+    obstacles: [
+      // large rocks (climbable via smaller rocks)
+      ob(-14,-10, 4,4,4, true, 0x95a5a6), ob(14,10, 4,4,4, true, 0x7f8c8d),
+      ob(14,-10, 4,4,4, true, 0x95a5a6), ob(-14,10, 4,4,4, true, 0x7f8c8d),
+      // small rocks for climbing
+      ob(-10,-7, 1.5,1.5,1.5, true, 0x95a5a6), ob(10,7, 1.5,1.5,1.5, true, 0x7f8c8d),
+      ob(10,-7, 1.5,1.5,1.5, true, 0x95a5a6), ob(-10,7, 1.5,1.5,1.5, true, 0x7f8c8d),
+      // river banks (low walls along center)
+      ob(-6,0, 0.5,1,12, false, C_STONE), ob(6,0, 0.5,1,12, false, C_STONE),
+      // trees
+      ob(-20,-18, 1.5,5,1.5, true, 0x27ae60,'cyl'), ob(20,18, 1.5,5,1.5, true, 0x229954,'cyl'),
+      ob(-20,18, 1.5,5,1.5, true, 0x27ae60,'cyl'), ob(20,-18, 1.5,5,1.5, true, 0x229954,'cyl'),
+      // bridge across river
+      ob(0,0, 3,0.5,14, true, C_WOOD),
+      // hills (climbable mounds)
+      ob(0,-20, 6,2,4, true, C_DARK), ob(0,20, 6,2,4, true, C_DARK),
+    ],
+    spawns: [[0,-24],[0,24],[-24,0],[24,0]],
+  },
 ]
 
 export function getMap(id: string): GameMap {
@@ -288,6 +389,25 @@ export function getWeapon(id: string): Weapon {
 }
 export function getTeam(id: string) {
   return TEAMS[(id as Team)] ?? TEAMS.none
+}
+
+// Mode helpers (mirror server)
+export function isPvPMode(mode: GameMode): boolean { return mode === '1v1' || mode === '2v2' || mode === 'team' || mode === 'ffa' }
+export function isPvEMode(mode: GameMode): boolean { return mode === 'coop' || mode === 'mixed' }
+export function hasMobs(mode: GameMode): boolean { return mode === 'coop' || mode === 'mixed' }
+export function maxPlayersForMode(mode: GameMode): number {
+  if (mode === '1v1') return 2
+  if (mode === '2v2') return 4
+  if (mode === 'ffa') return 8
+  return 12
+}
+export const MODE_INFO: Record<GameMode, { name: string; desc: string; icon: string; team: boolean }> = {
+  '1v1':   { name: '1 vs 1',      desc: 'Azul vs Rojo, 1 cada uno',  icon: '⚔️', team: true },
+  '2v2':   { name: '2 vs 2',      desc: 'Azul vs Rojo, 2 cada uno',  icon: '⚔️', team: true },
+  'team':  { name: 'Equipos',     desc: 'Azul vs Rojo, hasta 6',     icon: '🛡️', team: true },
+  'ffa':   { name: 'Todos x todos', desc: 'Sin equipos, todos contra todos', icon: '💀', team: false },
+  'coop':  { name: 'Cooperativo', desc: 'Jugadores vs Mobs',          icon: '🤝', team: false },
+  'mixed': { name: 'Mixto',       desc: 'Jugadores vs Mobs + vs otros', icon: '🔥', team: false },
 }
 
 // PvE difficulty scaling per level

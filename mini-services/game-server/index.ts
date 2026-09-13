@@ -4,7 +4,7 @@ import { Server } from 'socket.io'
 // ====================================================================
 // Doodle Shooter — Multiplayer Game Server (socket.io)
 // Port: 3003 (exposed via Caddy gateway using ?XTransformPort=3003)
-// Modes: PvP (1v1 blue vs red) and PvE (level-based mob survival)
+// Modes: 1v1, 2v2, team (blue vs red), ffa (free-for-all), coop (players vs mobs), mixed (mobs + PvP)
 // ====================================================================
 
 // ----------------------- Constants -----------------------
@@ -198,6 +198,69 @@ const MAPS: GameMap[] = [
       ob(0,-22,10,2,2,true,0xe8d5b7), ob(0,22,10,2,2,true,0xe8d5b7),
     ],
     spawns: [[0,-24],[0,24],[24,0],[-24,0]] },
+  { id: 'barrio', name: 'Barrio', theme: 'Conjunto residencial', ground: 0xe8e4df, fog: 0xeae6e0, accent: 0xcfc8bc,
+    obstacles: [
+      ob(-14,-12, 6,4,6, true, 0xd5c4a0), ob(14,-12, 6,4,6, true, 0xd5c4a0),
+      ob(-14,12, 6,4,6, true, 0xcdb98a), ob(14,12, 6,4,6, true, 0xcdb98a),
+      ob(-10,-8, 1,1.2,1, true, 0x555555), ob(10,-8, 1,1.2,1, true, 0x555555),
+      ob(-10,8, 1,1.2,1, true, 0x555555), ob(10,8, 1,1.2,1, true, 0x555555),
+      ob(-4,-18, 2,1.2,4, true, 0xe74c3c), ob(4,18, 2,1.2,4, true, 0x3498db),
+      ob(18,0, 2,1.2,4, true, 0x27ae60), ob(-18,0, 2,1.2,4, true, 0xf1c40f),
+      ob(0,-6, 4,1,0.3, true, 0xcdb98a), ob(0,6, 4,1,0.3, true, 0xcdb98a),
+      ob(-6,0, 1.5,1.5,1.5, true, 0xe8d5b7), ob(6,0, 1.5,1.5,1.5, true, 0xe8d5b7),
+      ob(0,0, 2,3,2, true, 0xd5c4a0),
+    ],
+    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-20,-20],[20,20]] },
+  { id: 'escuela', name: 'Escuela', theme: 'Aulas y pizarrones', ground: 0xf5f1e8, fog: 0xfdfbf7, accent: 0xe8e4df,
+    obstacles: [
+      ob(-14,-10, 6,4,5, true, 0xe8d5b7), ob(14,-10, 6,4,5, true, 0xe8d5b7),
+      ob(-14,10, 6,4,5, true, 0xd5c4a0), ob(14,10, 6,4,5, true, 0xd5c4a0),
+      ob(-10,-6, 1.5,0.8,1, true, 0xe8d5b7), ob(-8,-6, 1.5,0.8,1, true, 0xe8d5b7),
+      ob(10,-6, 1.5,0.8,1, true, 0xe8d5b7), ob(8,-6, 1.5,0.8,1, true, 0xe8d5b7),
+      ob(-10,6, 1.5,0.8,1, true, 0xe8d5b7), ob(10,6, 1.5,0.8,1, true, 0xe8d5b7),
+      ob(0,0, 8,3,0.5, false, 0x2c3e50),
+      ob(-4,-14, 1.5,1.6,1, true, 0xe8d5b7), ob(-4,-14, 1.5,2.4,1, false, 0xe8d5b7),
+      ob(4,14, 1.5,1.6,1, true, 0xe8d5b7), ob(4,14, 1.5,2.4,1, false, 0xe8d5b7),
+      ob(-20,0, 0.8,2.5,6, true, 0xa3c8e0), ob(20,0, 0.8,2.5,6, true, 0xe0a3a0),
+    ],
+    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+  { id: 'oficinas', name: 'Oficinas', theme: 'Edificio corporativo', ground: 0xe8e4df, fog: 0xeae6e0, accent: 0xcfc8bc,
+    obstacles: [
+      ob(-12,-10, 5,5,5, true, 0xa3c8e0), ob(12,-10, 5,5,5, true, 0xa3c8e0),
+      ob(-12,10, 5,5,5, true, 0xd5c4a0), ob(12,10, 5,5,5, true, 0xd5c4a0),
+      ob(-6,0, 0.3,2,8, true, 0xb8d4e3), ob(6,0, 0.3,2,8, true, 0xb8d4e3),
+      ob(-8,-6, 1,1.2,1, true, 0x555555), ob(8,-6, 1,1.2,1, true, 0x555555),
+      ob(-8,6, 1,1.2,1, true, 0x555555), ob(8,6, 1,1.2,1, true, 0x555555),
+      ob(-3,-14, 3,0.8,1.5, true, 0xe8d5b7), ob(3,14, 3,0.8,1.5, true, 0xe8d5b7),
+      ob(0,0, 3,6,3, true, 0xcdb98a),
+      ob(-4,0, 2,1,4, true, 0xd5c4a0,'ramp'), ob(4,0, 2,1,4, true, 0xd5c4a0,'ramp'),
+    ],
+    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+  { id: 'bosque', name: 'Bosque', theme: 'Densa vegetación', ground: 0xeaf3e0, fog: 0xeef5e6, accent: 0xcfdcc0,
+    obstacles: [
+      ob(-12,-12, 2,6,2, true, 0x27ae60,'cyl'), ob(12,-12, 2,6,2, true, 0x27ae60,'cyl'),
+      ob(-12,12, 2,6,2, true, 0x229954,'cyl'), ob(12,12, 2,6,2, true, 0x229954,'cyl'),
+      ob(0,-18, 2,7,2, true, 0x27ae60,'cyl'), ob(0,18, 2,7,2, true, 0x229954,'cyl'),
+      ob(-9,-9, 2,2,2, true, 0x95a5a6), ob(9,-9, 2,2,2, true, 0x95a5a6),
+      ob(-9,9, 2,2,2, true, 0x7f8c8d), ob(9,9, 2,2,2, true, 0x7f8c8d),
+      ob(-5,0, 5,1,1, true, 0x7a5230), ob(5,0, 5,1,1, true, 0x7a5230),
+      ob(-18,0, 3,2.5,3, true, 0x95a5a6), ob(18,0, 3,2.5,3, true, 0x7f8c8d),
+      ob(0,-8, 3,0.8,2, false, 0x27ae60), ob(0,8, 3,0.8,2, false, 0x27ae60),
+    ],
+    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-22,-22],[22,22]] },
+  { id: 'paisaje', name: 'Paisaje', theme: 'Río y montañas', ground: 0xeaf3e0, fog: 0xeef5e6, accent: 0xcfdcc0,
+    obstacles: [
+      ob(-14,-10, 4,4,4, true, 0x95a5a6), ob(14,10, 4,4,4, true, 0x7f8c8d),
+      ob(14,-10, 4,4,4, true, 0x95a5a6), ob(-14,10, 4,4,4, true, 0x7f8c8d),
+      ob(-10,-7, 1.5,1.5,1.5, true, 0x95a5a6), ob(10,7, 1.5,1.5,1.5, true, 0x7f8c8d),
+      ob(10,-7, 1.5,1.5,1.5, true, 0x95a5a6), ob(-10,7, 1.5,1.5,1.5, true, 0x7f8c8d),
+      ob(-6,0, 0.5,1,12, false, 0xd5c4a0), ob(6,0, 0.5,1,12, false, 0xd5c4a0),
+      ob(-20,-18, 1.5,5,1.5, true, 0x27ae60,'cyl'), ob(20,18, 1.5,5,1.5, true, 0x229954,'cyl'),
+      ob(-20,18, 1.5,5,1.5, true, 0x27ae60,'cyl'), ob(20,-18, 1.5,5,1.5, true, 0x229954,'cyl'),
+      ob(0,0, 3,0.5,14, true, 0xe8d5b7),
+      ob(0,-20, 6,2,4, true, 0xcdb98a), ob(0,20, 6,2,4, true, 0xcdb98a),
+    ],
+    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
 ]
 
 function getMap(id: string): GameMap { return MAPS.find(m => m.id === id) ?? MAPS[0] }
@@ -237,8 +300,33 @@ function genId(prefix: string) { return prefix + Math.random().toString(36).slic
 function getSkin(id: string) { return SKINS.find(s => s.id === id) ?? SKINS[0] }
 
 // ----------------------- Types -----------------------
-type GameMode = 'pvp' | 'pve'
+type GameMode = '1v1' | '2v2' | 'team' | 'ffa' | 'coop' | 'mixed'
 type Team = 'blue' | 'red' | 'none'
+
+// ----------------------- Mode helpers -----------------------
+// PvP modes: teams, no mobs, round-based (1v1, 2v2, team, ffa)
+// PvE modes: have mobs (coop, mixed)
+function isPvPMode(mode: GameMode): boolean { return mode === '1v1' || mode === '2v2' || mode === 'team' || mode === 'ffa' }
+function isPvEMode(mode: GameMode): boolean { return mode === 'coop' || mode === 'mixed' }
+function hasMobs(mode: GameMode): boolean { return mode === 'coop' || mode === 'mixed' }
+function hasFriendlyFire(mode: GameMode): boolean { return mode === 'mixed' || mode === 'ffa' }
+function maxPlayersForMode(mode: GameMode): number {
+  if (mode === '1v1') return 2
+  if (mode === '2v2') return 4
+  if (mode === 'team') return 12
+  if (mode === 'ffa') return 8
+  return MAX_PLAYERS_PER_ROOM // coop, mixed (12)
+}
+function defaultRoomName(mode: GameMode): string {
+  switch (mode) {
+    case '1v1': return 'Duelo 1v1'
+    case '2v2': return 'Duelo 2v2'
+    case 'team': return 'Batalla en Equipo'
+    case 'ffa': return 'Todos vs Todos'
+    case 'coop': return 'Cooperativo'
+    case 'mixed': return 'Caos Mixto'
+  }
+}
 
 interface Player {
   id: string
@@ -304,14 +392,32 @@ const rooms = new Map<string, Room>()
 const socketToRoom = new Map<string, string>()
 const socketToLobby = new Map<string, { name: string; skin: string }>()
 
+function spawnBlocked(map: GameMap, x: number, z: number): boolean {
+  // check if a position is inside any obstacle (with margin)
+  const margin = 1.5
+  for (const o of map.obstacles) {
+    if (Math.abs(x - o.x) < o.w/2 + margin && Math.abs(z - o.z) < o.d/2 + margin) return true
+  }
+  return false
+}
+
 function pickSpawn(room: Room, preferTeam: Team = 'none'): [number, number, number] {
   const map = getMap(room.mapId)
   const spawns = map.spawns
+  // try each spawn with random offset, validate not inside obstacle
+  const trySpawn = (s: [number, number]): [number, number, number] => {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const x = s[0] + (Math.random() - 0.5) * 4
+      const z = s[1] + (Math.random() - 0.5) * 4
+      if (!spawnBlocked(map, x, z)) return [x, 1.7, z]
+    }
+    // fallback: use exact spawn point
+    return [s[0], 1.7, s[1]]
+  }
   // PvP: bias by team (blue near spawn[0], red near spawn[1])
-  if (room.mode === 'pvp' && preferTeam !== 'none' && spawns.length >= 2) {
+  if (preferTeam !== 'none' && spawns.length >= 2) {
     const idx = preferTeam === 'blue' ? 0 : 1
-    const [x, z] = spawns[idx]
-    return [x + (Math.random() - 0.5) * 3, 1.7, z + (Math.random() - 0.5) * 3]
+    return trySpawn(spawns[idx])
   }
   // pick spawn farthest from any alive player
   let best = spawns[0], bestD = -1
@@ -323,17 +429,18 @@ function pickSpawn(room: Room, preferTeam: Team = 'none'): [number, number, numb
     }
     if (minD > bestD) { bestD = minD; best = s }
   }
-  return [best[0] + (Math.random() - 0.5) * 3, 1.7, best[1] + (Math.random() - 0.5) * 3]
+  return trySpawn(best)
 }
 
 function makePlayer(socketId: string, name: string, skin: string, room: Room): Player {
-  // team assignment for PvP
+  // team assignment: only team modes (1v1, 2v2, team) get blue/red; ffa/coop/mixed = 'none'
   let team: Team = 'none'
-  if (room.mode === 'pvp') {
+  if (room.mode === '1v1' || room.mode === '2v2' || room.mode === 'team') {
     const counts = { blue: 0, red: 0 }
     for (const p of room.players.values()) counts[p.team]++
     team = counts.blue <= counts.red ? 'blue' : 'red'
   }
+  // ffa, coop, mixed → team stays 'none'
   return {
     id: socketId,
     name: (name || 'Jugador').slice(0, 16),
@@ -370,9 +477,16 @@ function makeMob(i: number, level: number): Mob {
   }
 }
 
-function createRoom(name: string, mode: GameMode): Room {
+function createRoom(name: string, mode: GameMode, mapId?: string): Room {
   const id = genId('room_')
-  const startMap = mode === 'pve' ? pveLevelConfig(1).mapId : MAPS[Math.floor(Math.random() * MAPS.length)].id
+  let startMap: string
+  if (mapId) {
+    startMap = MAPS.find(m => m.id === mapId)?.id ?? MAPS[0].id
+  } else if (isPvEMode(mode)) {
+    startMap = pveLevelConfig(1).mapId
+  } else {
+    startMap = MAPS[Math.floor(Math.random() * MAPS.length)].id
+  }
   const room: Room = {
     id, name: (name || 'Sala de Doodle').slice(0, 28),
     mode, mapId: startMap, level: 1,
@@ -383,7 +497,7 @@ function createRoom(name: string, mode: GameMode): Room {
     itemSpawnTimer: 0,
     droneOwner: null, droneEnd: 0,
   }
-  if (mode === 'pve') {
+  if (isPvEMode(mode)) {
     const cfg = pveLevelConfig(1)
     room.mobs = Array.from({ length: cfg.mobCount }, (_, i) => makeMob(i, 1))
   }
@@ -391,14 +505,14 @@ function createRoom(name: string, mode: GameMode): Room {
   return room
 }
 
-// default PvE room so the lobby isn't empty
-createRoom('Arena Doodle #1', 'pve')
+// default coop room so the lobby isn't empty
+createRoom('Arena Doodle #1', 'coop')
 
 function roomSummary(r: Room) {
   return {
     id: r.id, name: r.name,
     mode: r.mode, mapId: r.mapId, level: r.level,
-    players: r.players.size, max: MAX_PLAYERS_PER_ROOM,
+    players: r.players.size, max: maxPlayersForMode(r.mode),
     mobs: r.mobs.filter(m => m.state === 'alive').length,
   }
 }
@@ -504,16 +618,27 @@ function checkPvERoundEnd(r: Room) {
 
 function checkPvPRoundEnd(r: Room) {
   if (!r.roundActive || r.players.size < 2) return
-  const teams = { blue: 0, red: 0 }
-  for (const p of r.players.values()) {
-    if (p.state !== 'alive') continue
-    if (p.team === 'blue' || p.team === 'red') teams[p.team]++
-  }
-  if (teams.blue === 0 || teams.red === 0) {
-    r.roundActive = false
-    r.roundEndsAt = Date.now() + ROUND_END_MS
-    const winner = teams.blue > 0 ? 'Azul' : 'Rojo'
-    io.to(r.id).emit('room:mapChange', { mapId: r.mapId, level: r.level, mode: r.mode, banner: `¡Equipo ${winner} gana la ronda!` })
+  const alivePlayers = Array.from(r.players.values()).filter(p => p.state === 'alive')
+  if (r.mode === 'ffa') {
+    // FFA: last man standing — round ends when ≤1 player is alive
+    if (alivePlayers.length <= 1) {
+      r.roundActive = false
+      r.roundEndsAt = Date.now() + ROUND_END_MS
+      const winnerName = alivePlayers[0]?.name ?? '—'
+      io.to(r.id).emit('room:mapChange', { mapId: r.mapId, level: r.level, mode: r.mode, banner: `¡${winnerName} gana la ronda!` })
+    }
+  } else {
+    // Team modes (1v1, 2v2, team): round ends when one team has no alive players
+    const teams = { blue: 0, red: 0 }
+    for (const p of alivePlayers) {
+      if (p.team === 'blue' || p.team === 'red') teams[p.team]++
+    }
+    if (teams.blue === 0 || teams.red === 0) {
+      r.roundActive = false
+      r.roundEndsAt = Date.now() + ROUND_END_MS
+      const winner = teams.blue > 0 ? 'Azul' : 'Rojo'
+      io.to(r.id).emit('room:mapChange', { mapId: r.mapId, level: r.level, mode: r.mode, banner: `¡Equipo ${winner} gana la ronda!` })
+    }
   }
 }
 
@@ -557,20 +682,21 @@ io.on('connection', (socket) => {
   })
   socket.on('lobby:refresh', () => { socket.emit('lobby:state', lobbyState()) })
 
-  socket.on('room:create', (data: { roomName?: string; mode?: GameMode }) => {
+  socket.on('room:create', (data: { roomName?: string; mode?: GameMode; mapId?: string }) => {
     if (rooms.size >= MAX_ROOMS) {
       for (const [rid, r] of rooms) if (r.players.size === 0) { rooms.delete(rid); break }
     }
     const meta = socketToLobby.get(socket.id) ?? { name: 'Jugador', skin: 'red' }
-    const mode: GameMode = data?.mode === 'pvp' ? 'pvp' : 'pve'
-    const room = createRoom(data?.roomName || (mode === 'pvp' ? 'Duelo 1v1' : 'Supervivencia'), mode)
+    const VALID_MODES: GameMode[] = ['1v1', '2v2', 'team', 'ffa', 'coop', 'mixed']
+    const mode: GameMode = data?.mode && VALID_MODES.includes(data.mode) ? data.mode : 'coop'
+    const room = createRoom(data?.roomName || defaultRoomName(mode), mode, data?.mapId)
     joinRoom(socket, room, meta.name, meta.skin)
   })
   socket.on('room:join', (data: { roomId: string }) => {
     const meta = socketToLobby.get(socket.id) ?? { name: 'Jugador', skin: 'red' }
     const room = rooms.get(data.roomId)
     if (!room) { socket.emit('room:error', { message: 'La sala no existe' }); return }
-    if (room.players.size >= MAX_PLAYERS_PER_ROOM) { socket.emit('room:error', { message: 'La sala está llena' }); return }
+    if (room.players.size >= maxPlayersForMode(room.mode)) { socket.emit('room:error', { message: 'La sala está llena' }); return }
     joinRoom(socket, room, meta.name, meta.skin)
   })
 
@@ -634,8 +760,12 @@ io.on('connection', (socket) => {
     if (data.kind === 'player') {
       const target = room.players.get(data.targetId)
       if (!target || target.state !== 'alive' || target.id === shooter.id) return
-      // PvP: friendly fire off
-      if (room.mode === 'pvp' && target.team === shooter.team && shooter.team !== 'none') return
+      // Friendly fire rules:
+      // - coop: NO player vs player damage (always block)
+      // - ffa/mixed: friendly fire ON (allow all player damage)
+      // - team modes (1v1/2v2/team): block same-team damage
+      if (room.mode === 'coop') return
+      if (!hasFriendlyFire(room.mode) && target.team === shooter.team && shooter.team !== 'none') return
       const dmg = Math.min(data.damage, w.damage * (data.headshot ? 2 : 1) * w.pellets + 4)
       applyDamageToPlayer(room, target, dmg, shooter.id, shooter.weapon, data.headshot, shooter.pos)
     } else {
@@ -800,15 +930,15 @@ function killPlayer(room: Room, victim: Player, killerId: string, weapon: string
     } else {
       io.to(room.id).emit('player:streak', { id: killer.id, streak: killer.streak, reward: null })
     }
-    // PvP: drop a random item on death
-    if (room.mode === 'pvp' && Math.random() < 0.6) dropItemOnMobKill(room, victim.pos)
+    // PvP modes: drop a random item on death
+    if (isPvPMode(room.mode) && Math.random() < 0.6) dropItemOnMobKill(room, victim.pos)
   }
   io.to(room.id).emit('player:killed', { victimId: victim.id, killerId, weapon, headshot })
   killFeed(room, victim.name, killer?.name ?? null, weapon, headshot, 'player')
   setTimeout(() => {
     if (!victim.connected) return
     if (!room.players.has(victim.id)) return
-    if (room.mode === 'pvp' && !room.roundActive) return // don't respawn between rounds
+    // Always respawn — round restarts will override with fresh state if needed
     victim.state = 'alive'
     victim.health = PLAYER_MAX_HP
     victim.shield = 0
@@ -818,8 +948,8 @@ function killPlayer(room: Room, victim: Player, killerId: string, weapon: string
     victim.reloading = false
     io.to(room.id).emit('player:respawned', { id: victim.id, pos: victim.pos })
   }, RESPAWN_MS)
-  // round-end checks
-  if (room.mode === 'pvp') checkPvPRoundEnd(room)
+  // round-end checks (PvP modes only — PvE round end is triggered by mob kills)
+  if (isPvPMode(room.mode)) checkPvPRoundEnd(room)
 }
 
 function applyStreakReward(room: Room, p: Player, rewardId: string) {
@@ -840,7 +970,9 @@ function applyStreakReward(room: Room, p: Player, rewardId: string) {
     }
     for (const other of room.players.values()) {
       if (other.id === p.id || other.state !== 'alive') continue
-      if (room.mode === 'pvp' && other.team === p.team && p.team !== 'none') continue
+      // coop: no player damage; ffa/mixed: friendly fire on; team modes: skip same team
+      if (room.mode === 'coop') continue
+      if (!hasFriendlyFire(room.mode) && other.team === p.team && p.team !== 'none') continue
       if (dist2D(other.pos, p.pos) < 10) {
         applyDamageToPlayer(room, other, 60, p.id, 'bomb', false)
       }
@@ -884,7 +1016,7 @@ function killMob(room: Room, mob: Mob, killerId: string, weapon: string, headsho
   // schedule respawn
   setTimeout(() => {
     if (!rooms.has(room.id)) return
-    if (room.mode !== 'pve') return // mobs only respawn in PvE between levels (handled by round restart)
+    if (!isPvEMode(room.mode)) return // mobs only respawn in PvE modes (coop/mixed) between levels
     mob.state = 'alive'
     mob.health = mob.maxHealth
     const a = Math.random() * Math.PI * 2
@@ -918,12 +1050,12 @@ setInterval(() => {
     // round transitions
     if (!room.roundActive && room.roundEndsAt && now >= room.roundEndsAt) {
       room.roundEndsAt = 0
-      if (room.mode === 'pve') startPvERound(room, room.nextLevel)
+      if (isPvEMode(room.mode)) startPvERound(room, room.nextLevel)
       else startPvPRound(room, true)
     }
 
-    // mob AI (PvE)
-    if (room.mode === 'pve') {
+    // mob AI (PvE modes: coop + mixed)
+    if (isPvEMode(room.mode)) {
       const cfg = pveLevelConfig(room.level)
       for (const mob of room.mobs) {
         if (mob.state === 'dead') continue
@@ -963,7 +1095,7 @@ setInterval(() => {
     }
 
     // PvE health regen: if player hasn't taken damage for 5s, regen 1.5 HP/sec
-    if (room.mode === 'pve') {
+    if (isPvEMode(room.mode)) {
       for (const p of room.players.values()) {
         if (p.state !== 'alive') continue
         if (p.health >= PLAYER_MAX_HP) continue
@@ -1029,7 +1161,7 @@ setInterval(() => {
 
     // periodic item spawns (PvE: every ~12s, PvP: every ~16s)
     room.itemSpawnTimer += TICK_MS
-    const interval = room.mode === 'pve' ? ITEM_RESPAWN_INTERVAL_MS : 16000
+    const interval = isPvEMode(room.mode) ? ITEM_RESPAWN_INTERVAL_MS : 16000
     if (room.itemSpawnTimer >= interval && room.items.length < 6) {
       room.itemSpawnTimer = 0
       const roll = Math.random()

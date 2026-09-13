@@ -85,7 +85,7 @@ export type HudState = {
 const initial = {
   connected: false,
   roomName: '',
-  roomMode: 'pve' as GameMode,
+  roomMode: 'coop' as GameMode,
   roomMapId: 'arena',
   roomLevel: 1,
   myId: '',

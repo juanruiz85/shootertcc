@@ -52,8 +52,8 @@ export function getSocket(): Socket {
   if (!socket) {
     // In production (behind the Caddy gateway), connect to the same origin
     // with ?XTransformPort=3003 so the gateway forwards to the game server.
-    // In local dev previews (agent-browser / localhost), the browser cannot
-    // reach the gateway, so connect directly to the game server on port 3003.
+    // In local dev previews (agent-browser / localhost), connect directly
+    // to the game server on port 3003.
     let url = '/?XTransformPort=3003'
     let path = '/'
     if (typeof window !== 'undefined') {
@@ -117,7 +117,7 @@ export function attachHandlers(h: Handlers): () => void {
 export const net = {
   lobbyHello: (name: string, skin: string) => getSocket().emit('lobby:hello', { name, skin }),
   lobbyRefresh: () => getSocket().emit('lobby:refresh'),
-  createRoom: (roomName: string, mode: GameMode) => getSocket().emit('room:create', { roomName, mode }),
+  createRoom: (roomName: string, mode: GameMode, mapId?: string) => getSocket().emit('room:create', { roomName, mode, mapId }),
   joinRoom: (roomId: string) => getSocket().emit('room:join', { roomId }),
   leaveRoom: () => getSocket().emit('room:leave'),
   syncRoom: () => getSocket().emit('room:sync'),

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useGameStore } from '@/lib/game/store'
-import { SKINS, WEAPONS, WEAPON_ORDER, MAPS, getMap } from '@/lib/game/constants'
+import { SKINS, WEAPONS, WEAPON_ORDER, MAPS, getMap, MODE_INFO, isPvPMode } from '@/lib/game/constants'
 import { net, attachHandlers } from '@/lib/socket'
 import type { GameMode } from '@/lib/game/types'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,8 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
     if (typeof localStorage !== 'undefined') return localStorage.getItem('ds_skin') || 'red'
     return 'red'
   })
-  const [mode, setMode] = useState<GameMode>('pve')
+  const [mode, setMode] = useState<GameMode>('coop')
+  const [selectedMapId, setSelectedMapId] = useState<string>('')
   const [newRoom, setNewRoom] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -56,8 +57,8 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
   const doCreate = () => {
     setError(null)
     if (!name.trim()) { setError('Elige un nombre primero'); return }
-    const defName = mode === 'pvp' ? 'Duelo 1v1' : 'Supervivencia'
-    net.createRoom(newRoom.trim() || defName, mode)
+    const defName = MODE_INFO[mode].name
+    net.createRoom(newRoom.trim() || defName, mode, isPvPMode(mode) && selectedMapId ? selectedMapId : undefined)
   }
   const doJoin = (id: string) => {
     setError(null)
@@ -82,7 +83,7 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
             <h1 className="font-doodle text-2xl sm:text-3xl font-black tracking-tight leading-none">
               Doodle Shooter
             </h1>
-            <p className="text-xs text-black/60 -mt-0.5">Multijugador · 16 mapas · 2 modos</p>
+            <p className="text-xs text-black/60 -mt-0.5">Multijugador · {MAPS.length} mapas · 6 modos</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -146,33 +147,40 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
               {/* mode selector */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold uppercase tracking-wide text-black/60">Modo de juego</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setMode('pve')}
-                    className={`p-3 rounded-lg border-2 text-left transition-all ${
-                      mode === 'pve'
-                        ? 'border-black bg-[#fef3f8] shadow-[3px_3px_0_0_#000] -translate-x-0.5 -translate-y-0.5'
-                        : 'border-black/30 hover:border-black/70 bg-white'
-                    }`}
-                  >
-                    <Bot className="w-5 h-5 mb-1" />
-                    <p className="font-doodle font-bold text-base leading-none">Vs Mobs</p>
-                    <p className="text-[11px] text-black/55 mt-0.5">Niveles que suben</p>
-                  </button>
-                  <button
-                    onClick={() => setMode('pvp')}
-                    className={`p-3 rounded-lg border-2 text-left transition-all ${
-                      mode === 'pvp'
-                        ? 'border-black bg-[#fef3f8] shadow-[3px_3px_0_0_#000] -translate-x-0.5 -translate-y-0.5'
-                        : 'border-black/30 hover:border-black/70 bg-white'
-                    }`}
-                  >
-                    <Swords className="w-5 h-5 mb-1" />
-                    <p className="font-doodle font-bold text-base leading-none">1v1 PvP</p>
-                    <p className="text-[11px] text-black/55 mt-0.5">Azul vs Rojo</p>
-                  </button>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(Object.keys(MODE_INFO) as GameMode[]).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setMode(m)}
+                      className={`p-2 rounded-lg border-2 text-center transition-all ${
+                        mode === m
+                          ? 'border-black bg-[#fef3f8] shadow-[2px_2px_0_0_#000] -translate-x-0.5 -translate-y-0.5'
+                          : 'border-black/30 hover:border-black/70 bg-white'
+                      }`}
+                    >
+                      <div className="text-lg leading-none mb-0.5">{MODE_INFO[m].icon}</div>
+                      <p className="font-doodle font-bold text-xs leading-tight">{MODE_INFO[m].name}</p>
+                    </button>
+                  ))}
                 </div>
+                <p className="text-[11px] text-black/55 mt-1">{MODE_INFO[mode].desc}</p>
               </div>
+              {/* map selector (PvP modes only) */}
+              {isPvPMode(mode) && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wide text-black/60">Mapa (opcional)</label>
+                  <select
+                    value={selectedMapId}
+                    onChange={(e) => setSelectedMapId(e.target.value)}
+                    className="doodle-input w-full text-sm"
+                  >
+                    <option value="">Aleatorio</option>
+                    {MAPS.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name} — {m.theme}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -193,9 +201,13 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
               />
               <div className="flex items-center gap-2 text-xs">
                 <Badge variant="outline" className="border-2 border-black/70 gap-1">
-                  {mode === 'pvp' ? <Swords className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
-                  {mode === 'pvp' ? 'PvP 1v1' : 'PvE Niveles'}
+                  {MODE_INFO[mode].icon} {MODE_INFO[mode].name}
                 </Badge>
+                {isPvPMode(mode) && selectedMapId && (
+                  <Badge variant="outline" className="border-2 border-black/60 gap-1">
+                    <MapIcon className="w-3 h-3" /> {getMap(selectedMapId).name}
+                  </Badge>
+                )}
               </div>
               <Button onClick={doCreate} className="doodle-btn w-full" size="lg">
                 <Plus className="w-4 h-4 mr-1" /> Crear y entrar
@@ -305,14 +317,13 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
                             </Badge>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap text-xs">
-                            <Badge variant="outline" className={`border-2 gap-1 ${r.mode === 'pvp' ? 'border-red-400 text-red-700 bg-red-50' : 'border-emerald-400 text-emerald-700 bg-emerald-50'}`}>
-                              {r.mode === 'pvp' ? <Swords className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
-                              {r.mode === 'pvp' ? '1v1' : 'PvE'}
+                            <Badge variant="outline" className={`border-2 gap-1 ${isPvPMode(r.mode as GameMode) ? 'border-red-400 text-red-700 bg-red-50' : 'border-emerald-400 text-emerald-700 bg-emerald-50'}`}>
+                              {MODE_INFO[r.mode as GameMode]?.icon} {MODE_INFO[r.mode as GameMode]?.name ?? r.mode}
                             </Badge>
                             <Badge variant="outline" className="border-2 border-black/60 gap-1">
                               <MapIcon className="w-3 h-3" /> {m.name}
                             </Badge>
-                            {r.mode === 'pve' && (
+                            {(r.mode === 'coop' || r.mode === 'mixed') && (
                               <Badge variant="outline" className="border-2 border-black/60 gap-1">
                                 <Layers className="w-3 h-3" /> Nv {r.level}
                               </Badge>
@@ -320,7 +331,7 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
                           </div>
                           <div className="flex items-center gap-3 text-xs text-black/60">
                             <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {r.players} jug</span>
-                            {r.mode === 'pve' && <span className="flex items-center gap-1"><Skull className="w-3.5 h-3.5" /> {r.mobs} mobs</span>}
+                            {(r.mode === 'coop' || r.mode === 'mixed') && <span className="flex items-center gap-1"><Skull className="w-3.5 h-3.5" /> {r.mobs} mobs</span>}
                           </div>
                           <Button
                             onClick={() => doJoin(r.id)}
@@ -369,9 +380,9 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
             <CardContent className="pt-4">
               <p className="text-sm text-black/60 leading-relaxed">
                 <span className="font-bold text-black/80">¿Cómo se juega?</span>{' '}
-                <b>Vs Mobs:</b> sobrevive oleadas que suben de nivel; el mapa rota cada nivel; los Doodle Mobs sueltan items.
-                <br /><b>1v1 PvP:</b> equipo Azul vs Rojo, el mapa rota cada ronda. Sube tu racha de bajas para desbloquear
-                <b> Dron (3)</b>, <b>Bomba (5)</b> y <b>Ráfaga (7)</b>.
+                <b>Cooperativo:</b> jugadores vs Mobs, sin fuego amigo. <b>Mixto:</b> jugadores vs Mobs y entre ellos.
+                <br /><b>PvP:</b> 1v1, 2v2, Equipos o Todos contra todos. Elige mapa o deja aleatorio.
+                <br />Sube tu racha de bajas para desbloquear <b>Dron (3)</b>, <b>Bomba (5)</b> y <b>Ráfaga (7)</b>.
               </p>
             </CardContent>
           </Card>
@@ -379,7 +390,7 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
       </main>
 
       <footer className="mt-auto border-t-2 border-black/80 bg-[#fdfbf7] px-4 py-3 text-center text-xs text-black/50">
-        Doodle Shooter · multijugador en tiempo real · Three.js + socket.io · 16 mapas · PvP & PvE
+        Doodle Shooter · multijugador en tiempo real · Three.js + socket.io · {MAPS.length} mapas · 6 modos
       </footer>
     </div>
   )

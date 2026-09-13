@@ -450,3 +450,193 @@ Unresolved issues / next phase recommendations:
 - Could improve: color palette, geometry detail
 - Could add: friend invites, persistent stats, ranked mode
 - PCFSoftShadowMap warning still in stale browser cache
+
+---
+Task ID: x-server
+Agent: game-server-updater
+Task: Update game server (`mini-services/game-server/index.ts`) to support new GameMode type (`'1v1' | '2v2' | 'team' | 'ffa' | 'coop' | 'mixed'`) and 5 new maps (barrio, escuela, oficinas, bosque, paisaje).
+
+Work Log:
+- Read worklog.md for context on previous work (9 prior stages: init, props, pause menu, death screen, shadows/fog/minimap fixes)
+- Read full server file (1071 lines) to understand all mode-dependent logic
+- Identified 15 locations where `room.mode === 'pvp'` or `room.mode === 'pve'` needed updating
+- Read client constants.ts to confirm new GameMode type and map definitions match
+
+Changes Made:
+
+1. Updated `GameMode` type (line 303):
+   - Old: `type GameMode = 'pvp' | 'pve'`
+   - New: `type GameMode = '1v1' | '2v2' | 'team' | 'ffa' | 'coop' | 'mixed'`
+
+2. Added 5 new maps to MAPS array (lines 201-263):
+   - `barrio` (Conjunto residencial) — 6 spawns, residential buildings with colored flags
+   - `escuela` (Aulas y pizarrones) — 4 spawns, classroom desks and blackboard
+   - `oficinas` (Edificio corporativo) — 4 spawns, office cubicles with ramps
+   - `bosque` (Densa vegetación) — 6 spawns, trees (cylinders) and rocks
+   - `paisaje` (Río y montañas) — 4 spawns, river, mountains, bridge
+   - Total maps now: 21 (was 16)
+
+3. Added 6 mode helper functions (lines 306-329):
+   - `isPvPMode(mode)`: true for '1v1', '2v2', 'team', 'ffa'
+   - `isPvEMode(mode)`: true for 'coop', 'mixed'
+   - `hasMobs(mode)`: true for 'coop', 'mixed'
+   - `hasFriendlyFire(mode)`: true for 'mixed', 'ffa'
+   - `maxPlayersForMode(mode)`: 1v1→2, 2v2→4, team→12, ffa→8, coop/mixed→12
+   - `defaultRoomName(mode)`: Spanish names per mode (Duelo 1v1, Duelo 2v2, Batalla en Equipo, Todos vs Todos, Cooperativo, Caos Mixto)
+
+4. Updated `makePlayer` team assignment (lines 435-443):
+   - Only team modes (1v1, 2v2, team) get blue/red assignment based on team counts
+   - ffa, coop, mixed → team is always 'none'
+
+5. Updated `createRoom` to accept optional `mapId` parameter (lines 480-506):
+   - `createRoom(name: string, mode: GameMode, mapId?: string): Room`
+   - If mapId provided → use it (validated against MAPS list)
+   - Else if PvE mode → use pveLevelConfig(1).mapId
+   - Else (PvP mode) → random map
+   - Mob spawning uses `isPvEMode(mode)` (covers coop + mixed)
+
+6. Updated default room creation (line 509):
+   - Old: `createRoom('Arena Doodle #1', 'pve')`
+   - New: `createRoom('Arena Doodle #1', 'coop')`
+
+7. Updated `roomSummary` to use `maxPlayersForMode(r.mode)` for the `max` field (line 515)
+   - Was: `max: MAX_PLAYERS_PER_ROOM` (always 12)
+   - Now: `max: maxPlayersForMode(r.mode)` (2/4/8/12 depending on mode)
+
+8. Updated `checkPvPRoundEnd` to handle FFA (lines 619-643):
+   - FFA mode: round ends when ≤1 player alive (last man standing), winner banner shows player name
+   - Team modes (1v1, 2v2, team): round ends when one team has 0 alive players, winner banner shows "Equipo Azul/Rojo"
+
+9. Updated `room:create` handler (lines 685-694):
+   - Accepts `{ roomName?, mode?, mapId? }`
+   - Validates mode against `['1v1', '2v2', 'team', 'ffa', 'coop', 'mixed']`, defaults to 'coop'
+   - Uses `defaultRoomName(mode)` for room name if not provided
+   - Passes `data?.mapId` to `createRoom`
+
+10. Updated `room:join` max players check (line 699):
+    - Was: `room.players.size >= MAX_PLAYERS_PER_ROOM`
+    - Now: `room.players.size >= maxPlayersForMode(room.mode)`
+
+11. Updated friendly fire check in `player:hit` (lines 763-768):
+    - coop: ALL player vs player damage blocked (return early)
+    - ffa/mixed: friendly fire ON — all player damage allowed
+    - team modes (1v1/2v2/team): block same-team damage only
+
+12. Updated `killPlayer` (lines 933-952):
+    - Item drop on death: `isPvPMode(room.mode)` (was `=== 'pvp'`)
+    - Round-end check: `isPvPMode(room.mode)` (was `=== 'pvp'`)
+
+13. Updated `applyStreakReward` bomb damage (lines 973-975):
+    - coop: skip all player damage
+    - ffa/mixed: friendly fire on, damage all other players
+    - team modes: skip same-team players
+
+14. Updated mob respawn check in `killMob` (line 1019):
+    - `isPvEMode(room.mode)` (was `=== 'pve'`) — mobs respawn in both coop and mixed
+
+15. Updated world tick loop:
+    - Round transitions (line 1053): `isPvEMode(room.mode)` → startPvERound, else startPvPRound
+    - Mob AI (line 1058): `isPvEMode(room.mode)` — runs for coop + mixed
+    - Health regen (line 1098): `isPvEMode(room.mode)` — applies to coop + mixed
+    - Item spawn interval (line 1164): `isPvEMode(room.mode)` → 12s for PvE, 16s for PvP
+
+16. Updated header comment (line 7):
+    - Old: "Modes: PvP (1v1 blue vs red) and PvE (level-based mob survival)"
+    - New: "Modes: 1v1, 2v2, team (blue vs red), ffa (free-for-all), coop (players vs mobs), mixed (mobs + PvP)"
+
+Mode Behavior Summary:
+| Mode | Teams | Mobs | Friendly Fire | Max Players | Round End |
+|------|-------|------|---------------|-------------|-----------|
+| 1v1 | blue/red | no | no | 2 | one team eliminated |
+| 2v2 | blue/red | no | no | 4 | one team eliminated |
+| team | blue/red | no | no | 12 | one team eliminated |
+| ffa | none | no | yes (all vs all) | 8 | last man standing |
+| coop | none | yes | no (no pvp) | 12 | all mobs killed |
+| mixed | none | yes | yes (pvp on) | 12 | all mobs killed |
+
+Verification:
+- Lint: clean ✅ (`bun run lint` — no errors)
+- GameMode type matches client `src/lib/game/constants.ts` ✅
+- All 5 new maps match client definitions exactly ✅
+- All `room.mode === 'pvp'` replaced with `isPvPMode(room.mode)` ✅
+- All `room.mode === 'pve'` replaced with `isPvEMode(room.mode)` ✅
+- No remaining `'pvp'` or `'pve'` string literals in mode logic ✅
+- `MAX_PLAYERS_PER_ROOM` constant still used (in `maxPlayersForMode` for coop/mixed fallback) ✅
+
+Notes:
+- `hasMobs` helper is defined but not yet used in server logic (mob AI uses `isPvEMode` which is equivalent for now). Kept for API completeness per task requirements and potential future use.
+- `pveLevelConfig` uses `MAPS[(level - 1) % MAPS.length]` which now rotates through all 21 maps — no change needed.
+- TypeScript `tsc --noEmit` shows pre-existing config errors (downlevelIteration, http default export) unrelated to these changes — game-server runs via Bun which handles TS natively.
+
+---
+Task ID: 10
+Agent: main (user request)
+Task: Fix respawn stuck + spawn collision, add 5 new maps with climbable structures, 6 game modes, PvP map selection
+
+Work Log:
+- User reported: respawn stuck (death screen never goes away), spawning inside objects, need climbable buildings, PvP map selection, 5 new maps, 6 game modes
+
+Bug Fixes:
+1. Respawn stuck: Line 811 had `if (room.mode === 'pvp' && !room.roundActive) return` which blocked respawn when round wasn't active. Removed this check — player always respawns after RESPAWN_MS (3s). Round restarts override with fresh state if needed.
+2. Spawn collision: pickSpawn() didn't validate against obstacles. Added spawnBlocked() function that checks if a position is inside any obstacle (with 1.5 margin). trySpawn() attempts 8 random offsets, falls back to exact spawn point. Applied to both initial spawn and respawn.
+
+New Maps (5) with climbable structures:
+1. Barrio (Neighborhood): 4 houses (climbable), trash cans next to houses for roof access, 4 cars, low fences, crates, central tower
+2. Escuela (School): 4 classroom buildings, desks for climbing to roof, blackboard wall, stacked desk towers, lockers
+3. Oficinas (Office): 4 office blocks, glass partitions, trash cans for climbing, desks, elevator shaft, ramps to second level
+4. Bosque (Forest): 6 large trees (climbable via rocks), fallen logs, boulders, bushes
+5. Paisaje (Landscape): 4 large rocks (climbable via smaller rocks), river banks, bridge, trees, hills
+
+Game Modes (6) — replaced 'pvp'/'pve' with specific modes:
+- 1v1: 1 blue vs 1 red, max 2 players
+- 2v2: 2 blue vs 2 red, max 4 players
+- team: up to 6 blue vs 6 red, max 12 players
+- ffa: free-for-all, no teams, max 8, everyone is enemy
+- coop: players vs mobs, NO friendly fire (players can't damage each other)
+- mixed: players vs mobs AND vs other players (mobs + PvP)
+
+Server changes:
+- Added helper functions: isPvPMode, isPvEMode, hasMobs, hasFriendlyFire, maxPlayersForMode
+- Updated team assignment: only 1v1/2v2/team get blue/red; ffa/coop/mixed = 'none'
+- Updated friendly fire: coop blocks all PvP damage; ffa/mixed allow it; team modes block same-team
+- FFA round end: last man standing (≤1 alive); team modes: one team eliminated
+- createRoom accepts optional mapId parameter
+- room:create handler accepts { roomName?, mode?, mapId? }
+- Default room changed from 'pve' to 'coop'
+- All 15+ mode checks updated from 'pvp'/'pve' to isPvPMode/isPvEMode
+
+Client changes:
+- constants.ts: GameMode type updated, 5 new maps added (21 total), MODE_INFO with icons/descriptions, helper functions
+- types.ts: GameMode updated
+- store.ts: default mode 'coop'
+- socket.ts: createRoom accepts optional mapId
+- Lobby.tsx: 6 mode selector buttons (grid 3x2), map selector dropdown for PvP modes, updated room cards to show mode info
+- GameCanvas.tsx: updated banner sub text for new modes
+- Hud.tsx: updated TopBar, Scoreboard, PauseOverlay to show mode names via MODE_INFO
+
+Socket connection:
+- Reverted to direct connection approach (http://127.0.0.1:3003 on localhost, /?XTransformPort=3003 in prod)
+- Game server path: '/'
+- Next.js rewrite approach didn't work (308 redirect + ECONNREFUSED issues)
+
+Verification:
+- Lint: clean ✅
+- Servers stable via dev.sh (next:3000 + game-server:3003) ✅
+- Lobby shows all 6 modes: 1v1, 2v2, Equipos, Todos x todos, Cooperativo, Mixto ✅
+- Socket connects ("Conectado") ✅
+- Created coop room → entered game, "Cooperativo · Nivel 1 · Arena Doodle" ✅
+- Player at 88 HP after 10s (alive, not stuck) ✅
+- No console errors ✅
+
+Stage Summary:
+- 2 critical bug fixes (respawn stuck, spawn collision)
+- 5 new maps with climbable buildings (barrio, escuela, oficinas, bosque, paisaje)
+- 6 game modes (1v1, 2v2, team, ffa, coop, mixed)
+- PvP map selection in lobby
+- 21 total maps, 6 total modes
+
+Unresolved issues / next phase:
+- Need to verify the 5 new maps render correctly in 3D (only tested Arena Doodle)
+- Could add: Bart Simpson chalkboard text on school blackboard, breakable glass in office
+- Could add: boss mobs, power-ups, weather effects
+- Next dev server stable via dev.sh

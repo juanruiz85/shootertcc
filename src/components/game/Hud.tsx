@@ -1,7 +1,7 @@
 'use client'
 
 import { useGameStore } from '@/lib/game/store'
-import { WEAPONS, WEAPON_ORDER, getSkin, getWeapon, getTeam, ARENA_SIZE, PLAYER_MAX_HP, PLAYER_MAX_SHIELD, getMap, KILLSTREAKS, MAPS } from '@/lib/game/constants'
+import { WEAPONS, WEAPON_ORDER, getSkin, getWeapon, getTeam, ARENA_SIZE, PLAYER_MAX_HP, PLAYER_MAX_SHIELD, getMap, KILLSTREAKS, MAPS, MODE_INFO, isPvEMode } from '@/lib/game/constants'
 import { net } from '@/lib/socket'
 import { Crosshair, Heart, Skull, Swords, LogOut, Loader2, Zap, Shield, Flame, MessageSquare, Send, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -114,7 +114,7 @@ function TopBar() {
       <div className="doodle-card-flat px-4 py-2 text-center pointer-events-auto">
         <p className="font-doodle text-sm font-bold leading-tight">{roomName}</p>
         <p className="text-xs text-black/60">
-          {roomMode === 'pvp' ? '1v1 PvP' : `PvE · Nivel ${roomLevel}`} · {mapInfo.name} · {players.length} jug
+          {MODE_INFO[roomMode]?.name ?? roomMode}{isPvEMode(roomMode) ? ` · Nivel ${roomLevel}` : ''} · {mapInfo.name} · {players.length} jug
         </p>
       </div>
 
@@ -375,7 +375,7 @@ function Scoreboard() {
       <div className="doodle-card w-full max-w-2xl pointer-events-auto">
         <div className="px-5 py-3 border-b-2 border-black flex items-center justify-between">
           <h2 className="font-doodle text-2xl font-black">Marcador</h2>
-          <span className="text-sm text-black/60 font-bold">{roomName} · {roomMode === 'pvp' ? 'PvP' : 'PvE'}</span>
+          <span className="text-sm text-black/60 font-bold">{roomName} · {MODE_INFO[roomMode]?.name ?? roomMode}</span>
         </div>
         <div className="px-5 py-2 grid grid-cols-[1fr_50px_50px_60px_50px] gap-2 text-[11px] uppercase tracking-wide text-black/50 font-bold border-b border-dashed border-black/20">
           <span>Jugador</span>
@@ -478,7 +478,7 @@ function PauseOverlay({ onLeave }: { onLeave: () => void }) {
         <div className="doodle-card p-6 w-full max-w-sm" style={{ animation: 'hit-pop 0.3s ease-out' }}>
           <div className="text-center mb-4">
             <h2 className="font-doodle text-3xl font-black mb-1">Pausa</h2>
-            <p className="text-sm text-black/60">{roomName} · {roomMode === 'pvp' ? 'PvP' : `PvE Nv${roomLevel}`}</p>
+            <p className="text-sm text-black/60">{roomName} · {MODE_INFO[roomMode]?.name ?? roomMode}{isPvEMode(roomMode) ? ` Nv${roomLevel}` : ''}</p>
           </div>
           {/* live stats */}
           <div className="grid grid-cols-2 gap-2 mb-4">

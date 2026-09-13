@@ -855,7 +855,7 @@ export default function GameCanvas() {
       onRoomMapChange: (data) => {
         setStore({ roomMapId: data.mapId, roomLevel: data.level, roomMode: data.mode })
         if (data.banner) {
-          setStore({ banner: { text: data.banner, sub: data.mode === 'pve' ? `Nivel ${data.level}` : 'Próxima ronda', at: performance.now() } })
+          setStore({ banner: { text: data.banner, sub: (data.mode === 'coop' || data.mode === 'mixed') ? `Nivel ${data.level}` : 'Próxima ronda', at: performance.now() } })
           sfx.levelup()
         }
         buildArena(data.mapId)

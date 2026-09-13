@@ -7,7 +7,7 @@ export type Weapon = {
 }
 export type PlayerState = 'alive' | 'dead'
 export type Vec3 = [number, number, number]
-export type GameMode = 'pvp' | 'pve'
+export type GameMode = '1v1' | '2v2' | 'team' | 'ffa' | 'coop' | 'mixed'
 export type Team = 'blue' | 'red' | 'none'
 export type ItemType = 'ammo' | 'heal' | 'shield'
 
