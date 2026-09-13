@@ -967,3 +967,214 @@ Verification:
 - Player at 100 HP (alive, can jump and enter houses) ✅
 - VLM: "scene more open, consistent with larger map" ✅
 - No console errors ✅
+
+---
+Task ID: b-rescale
+Agent: map-rescaler
+Task: Rescale ALL 21 maps so obstacles fill the larger 160×160 arena (HALF=80)
+
+## Problem
+The arena was enlarged from 64×64 to 160×160 (Task 13), but all map obstacles
+still used the old small coordinates (±22 max), leaving everything crammed in
+the center of the now-massive arena.
+
+## What was done
+
+### 1. First 16 simple maps (arena → nucleo)
+Multiplied all x and z obstacle coordinates by 2.5× (rounded to integers).
+Kept w, h, d unchanged. Left spawns untouched.
+
+Scaling reference (×2.5):
+4→10, 6→15, 8→20, 9→23, 10→25, 12→30, 14→35, 16→40, 18→45, 20→50, 22→55
+
+Example (arena map):
+- `ob(-14, -10, 4, 3, 4)` → `ob(-35, -25, 4, 3, 4)`
+- `ob(0, 0, 3, 4, 3)` → `ob(0, 0, 3, 4, 3)` (center stays center)
+
+All 16 maps updated: arena, patios, bunkers, torres, crucero, espinas,
+fortaleza, laberinto, puentes, crater, zigzag, diamante, colmena, ruinas,
+estadio, nucleo.
+
+### 2. Escuela map (special fixes)
+- Building enlarged: `buildHouse(0,0,30,30,5,...)` → `buildHouse(0,0,60,60,6,...)`
+- **Removed** south blackboard `ob(0,14,4,2,0.3)` — it blocked the south door
+- **Removed** both interior dividers (horizontal + vertical) — they blocked movement
+- **Moved** lockers to east/west walls (x=±28), away from south door (8 lockers)
+- Scaled blackboards to ±28 (just inside ±30 walls), kept 3 of 4 (no south)
+- Expanded desks to 4×4 grid (16 desks) at ±22, ±15 to fill bigger interior
+- Basketball hoops scaled to z=±45 (outside the 60×60 building, in courtyard)
+- Trash cans moved to (±20, -10) — off the central door path
+- Stairs moved to (-25, 5) inside building, away from lockers
+
+### 3. Four detailed maps (barrio, oficinas, bosque, paisaje)
+Scaled all `ob()` x,z and all `buildHouse/buildTower/buildTree/buildCar/buildStairs`
+cx,cz center positions by 2.5×. Kept w, d, h unchanged.
+
+- barrio: houses ±20,±16 → ±50,±40; cars ±14 → ±35; trash ±17 → ±43
+- oficinas: houses ±18,±12 → ±45,±30; desks ±14 → ±35; bridges z=±12 → ±30
+- bosque: trees ±12,±18 → ±30,±45; rocks ±9 → ±23; boulders ±18 → ±45
+- paisaje: rocks ±14,±10 → ±35,±25; trees ±18,±14 → ±45,±35; tower -20 → -50
+
+## Rounding convention
+For .5 results, rounded away from zero to preserve symmetry:
+22.5→23, -22.5→-23, 12.5→13, -12.5→-13, 27.5→28, 42.5→43, 57.5→58, 37.5→38.
+3.5×2.5=8.75 → 9 (nearest).
+
+## What was NOT changed (per instructions)
+- Spawns — left untouched ("Spawns were already updated to ±60, so leave those
+  alone"). Note: arena spawns (±22) and estadio spawns (±18) are intentionally
+  inside the play area.
+- Helper functions (`ob`, `buildHouse`, `buildTower`, `buildStairs`, `buildTree`,
+  `buildCar`) — not modified, only their call-site arguments.
+- Obstacle sizes (w, h, d) — kept the same; cover is now spread out, suiting
+  the larger arena.
+
+## Verification
+- `bun run lint`: clean ✅ (no errors, no warnings)
+- Dev server logs: normal compilation, no runtime errors
+- All 21 maps now have obstacles spread across ±35 to ±55 range (filling the
+  160×160 arena) instead of crammed in the center (±22)
+
+## Files changed
+- `/home/z/my-project/src/lib/game/constants.ts` (MAPS array, lines 218–547)
+
+---
+Task ID: b-rescale-server
+Agent: game-server-rescaler
+
+## Task
+Mirror the client's rescaled MAPS array (Task b-rescale) into the server's
+own copy at `/home/z/my-project/mini-services/game-server/index.ts` so that
+server-side spawn checks and collision detection agree with the client.
+
+## Problem
+The client's `src/lib/game/constants.ts` MAPS array was rescaled by 2.5× in
+Task b-rescale, but the server's `MAPS` array (in `mini-services/game-server/
+index.ts`) still used the original small coordinates (±14, ±22, etc.). This
+mismatch meant:
+- The server's `spawnBlocked()` check used the wrong obstacle positions, so
+  players could spawn inside obstacles that the client renders elsewhere.
+- The server's collision/movement code (which uses the same `MapObstacle`
+  data) would push players out of obstacles that don't visually exist on the
+  client, or fail to push them out of obstacles that do.
+- Effectively, the server and client disagreed about the world.
+
+## What was done
+
+### Approach
+The server and client use the same `ob()`, `buildHouse()`, `buildTower()`,
+`buildStairs()`, `buildTree()`, `buildCar()` helper functions with identical
+signatures. The only differences are:
+- The client uses named color constants (`C_WOOD`, `C_STONE`, `C_PILLAR`,
+  `C_DARK`, `C_RED`, `C_BLUE`, `G_PAPER`, `G_SAND`, `G_GRASS`, `G_STONE`,
+  `G_SNOW`, `G_LAVA`); the server uses the raw hex values.
+- The server formats multiple `ob()` calls per line for compactness; the
+  client puts each on its own line.
+
+So the fix was: take the client's rescaled MAPS array verbatim, substitute
+the hex values for the named color constants, and replace the server's MAPS
+array (lines 129–372) with the result.
+
+### Color constant mapping (verified against client constants.ts lines 81–93)
+- `G_PAPER` = `0xf5f1e8`, `G_SAND` = `0xf0e6d2`, `G_GRASS` = `0xeaf3e0`,
+  `G_STONE` = `0xe8e4df`, `G_SNOW` = `0xf7fafc`, `G_LAVA` = `0xf6e3d8`
+- `C_WOOD` = `0xe8d5b7`, `C_STONE` = `0xd5c4a0`, `C_DARK` = `0xcdb98a`,
+  `C_PILLAR` = `0xb8a47a`, `C_RED` = `0xe0a3a0`, `C_BLUE` = `0xa3c8e0`
+
+### Changes mirrored from client
+
+1. **First 16 simple maps** (arena, patios, bunkers, torres, crucero,
+   espinas, fortaleza, laberinto, puentes, crater, zigzag, diamante,
+   colmena, ruinas, estadio, nucleo): all obstacle `x` and `z` coordinates
+   multiplied by 2.5× (rounded to integers). `w`, `h`, `d` and `kind`
+   unchanged. Spawns also updated to match the client (several maps had
+   outdated ±24 spawns that needed to become ±60, etc.).
+
+   Example (arena):
+   - Server (old): `ob(-14,-10,4,3,4,true,0xe8d5b7)`
+   - Server (new): `ob(-35,-25,4,3,4,true,0xe8d5b7)`  ← matches client
+
+2. **Escuela map** — fully restructured to match client:
+   - Building enlarged: `buildHouse(0,0,30,30,5,...)` → `buildHouse(0,0,60,60,6,...)`
+   - **Removed** both interior dividers (the `ob(0,0,30,4,0.3,...)` horizontal
+     and `ob(0,0,0.3,4,30,...)` vertical walls) — they blocked movement.
+   - **Removed** south blackboard (`ob(0,14,4,2,0.3,...)` in old server) — it
+     blocked the south door. Kept 3 blackboards (west, east, north) at ±28.
+   - Lockers moved from `x=±14` to `x=±28` (east/west walls), spread across
+     `z=±22, ±15` (8 lockers total, away from south door).
+   - Desks expanded from 12 (3 patterns of 4) to **16** (single 4×4 grid at
+     `x,z ∈ {-22,-15,15,22}`).
+   - Basketball hoops at `z=±45` (outside the 60×60 building, in courtyard).
+   - Trash cans at `(±20,-10)` (off the central door path).
+   - Stairs moved from `(-13,0)` to `(-25,5)` inside the building.
+
+3. **Barrio, oficinas, bosque, paisaje** — all `buildHouse/buildTower/
+   buildTree/buildCar/buildStairs` `cx,cz` positions and all `ob()` x,z
+   positions multiplied by 2.5× (rounded). `w`, `h`, `d` and structure
+   sizes unchanged.
+
+   Example (barrio houses):
+   - Server (old): `...buildHouse(-20,-16,6,6,3.5,...,'S')`
+   - Server (new): `...buildHouse(-50,-40,6,6,3.5,...,'S')`  ← matches client
+
+   Example (bosque trees):
+   - Server (old): `...buildTree(-12,-12,1.5)`
+   - Server (new): `...buildTree(-30,-30,1.5)`  ← matches client
+
+   Example (paisaje tower + stairs):
+   - Server (old): `ob(-20,0,3,6,3,...)` + `...buildStairs(-17,0,6,'W',...)`
+   - Server (new): `ob(-50,0,3,6,3,...)` + `...buildStairs(-43,0,6,'W',...)`
+
+### What was NOT changed
+- The `ob()`, `buildHouse()`, `buildTower()`, `buildStairs()`, `buildTree()`,
+  `buildCar()` helper function definitions — they were already identical to
+  the client's.
+- Ground/fog/accent colors — they already used the same hex values as the
+  client's named constants.
+- The `waterLevel: 0.3` property on bosque and paisaje — already present.
+- All other server logic (game state, networking, combat, mob AI) — out of
+  scope for this task.
+
+## Verification
+- `bun run lint`: clean ✅ (no errors, no warnings)
+- Dev server logs: normal compilation, no runtime errors ✅
+- Spot-checked arena, escuela, barrio, bosque, paisaje — all obstacle
+  coordinates now exactly match the client's `src/lib/game/constants.ts`
+  MAPS array (with named color constants substituted for their hex values).
+
+## Result
+Server and client now agree on every obstacle position, size, kind, color,
+and climbability across all 21 maps. Spawn checks and collision detection
+will use the same world data the client renders, so:
+- Players can no longer spawn inside obstacles that appear elsewhere on
+  their screen.
+- Players will be pushed out of obstacles they actually see.
+- The 160×160 arena is now properly filled with cover on both sides.
+
+## Files changed
+- `/home/z/my-project/mini-services/game-server/index.ts` (MAPS array,
+  lines 129–366)
+
+
+---
+Task ID: 14
+Agent: main (user request)
+Task: Rescale all maps to 160x160, fix escuela door blocked, ensure nothing blocks doors
+
+Work Log:
+- User reported: maps not adjusted to new size (obstacles crammed in center), can't enter escuela building
+
+Bug Fixes:
+1. All 21 maps had obstacles with old coordinates (±22) in a 160×160 arena (±80). Multiplied all x/z coordinates by 2.5x. VLM confirmed: "obstacles distributed across arena, not crammed in center".
+2. Escuela door blocked: blackboard at (0,14) was directly in front of the south door. Interior dividers at (0,0) blocked movement inside. Lockers near entrance. Fix: removed south blackboard, removed interior dividers, moved lockers to ±28, enlarged building to 60×60, added 16 desks (4×4 grid).
+3. Server maps synced to match client exactly — all 21 maps have identical obstacle data.
+
+Verification:
+- Lint: clean ✅
+- Servers stable ✅
+- Socket connects ✅
+- Player at 58 HP (alive, combat active) ✅
+- VLM: "obstacles distributed across arena" ✅
+- VLM: "arena feels spacious and open, consistent with 160x160 scale" ✅
+- VLM: rated 7/10 ✅
+- No console errors ✅

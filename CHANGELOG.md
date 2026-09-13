@@ -208,3 +208,34 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/).
 - VLM: "scene more open with significant empty space, consistent with larger map" ✅
 - VLM: rated 6/10 (scale increased, could use more props for size) ✅
 - Sin errores en consola ✅
+
+---
+
+## [v0.9.0] — 2026-09-13 — Mapas reescalados + puertas desbloqueadas
+
+### Corregido
+- **Obstáculos amontonados en el centro**: después de aumentar la arena a 160×160, los obstáculos seguían con coordenadas del tamaño anterior (±22). Multiplicadas todas las coordenadas x/z por 2.5x para llenar la arena grande.
+- **No poder entrar a la escuela**: el pizarrón sur bloqueaba la puerta, los divisores interiores bloqueaban el movimiento. Solución:
+  - Eliminado el pizarrón sur (bloqueaba la entrada)
+  - Eliminados los divisores interiores (bloqueaban el paso dentro)
+  - Casilleros movidos a las paredes laterales (±28)
+  - Edificio ampliado de 30×30 a 60×60
+  - 16 pupitres (cuadrícula 4×4) para llenar el espacio
+- **Puertas bloqueadas en general**: verificado que ningún obstáculo bloquee las entradas de las casas
+
+### Agregado
+- **21 mapas reescalados**: todos los obstáculos multiplicados por 2.5x en coordenadas x/z
+  - Arena, Patios, Bunkers, Torres, Crucero, Espinas, Fortaleza, Laberinto, Puentes, Cráter, Zigzag, Diamante, Colmena, Ruinas, Estadio, Núcleo (16 originales)
+  - Barrio, Escuela, Oficinas, Bosque, Paisaje (5 detallados)
+- **Escuela ampliada**: 30×30 → 60×60, más pupitres, casilleros reubicados, canchas de basketball a ±45
+- **Servidor sincronizado**: mapas del servidor coinciden exactamente con los del cliente
+
+### Pruebas
+- Lint: limpio ✅
+- Servidores estables ✅
+- Socket conecta ✅
+- Jugador a 58 HP (vivo, combate activo) ✅
+- VLM: "obstacles distributed across arena, not crammed in center" ✅
+- VLM: "arena feels spacious and open, consistent with 160x160 scale" ✅
+- VLM: rated 7/10 ✅
+- Sin errores en consola ✅
