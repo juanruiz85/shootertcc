@@ -48,10 +48,42 @@ const WEAPONS: Record<string, {
 }
 
 // ----------------------- Maps (mirror of client constants) -----------------------
-type MapObstacle = { x: number; z: number; w: number; h: number; d: number; climbable: boolean; color: number; kind: 'box'|'cyl'|'ramp' }
-type GameMap = { id: string; name: string; theme: string; ground: number; fog: number; accent: number; obstacles: MapObstacle[]; spawns: [number,number][] }
+type MapObstacle = { x: number; z: number; w: number; h: number; d: number; climbable: boolean; color: number; kind: 'box'|'cyl'|'ramp'|'wall'|'stair'|'water'|'roof'; rotation?: number; noCollide?: boolean }
+type GameMap = { id: string; name: string; theme: string; ground: number; fog: number; accent: number; obstacles: MapObstacle[]; spawns: [number,number][]; waterLevel?: number }
 
-const ob = (x: number, z: number, w: number, h: number, d: number, climbable = true, color = 0xe8d5b7, kind: 'box'|'cyl'|'ramp' = 'box'): MapObstacle => ({ x, z, w, h, d, climbable, color, kind })
+const ob = (x: number, z: number, w: number, h: number, d: number, climbable = true, color = 0xe8d5b7, kind: 'box'|'cyl'|'ramp'|'wall'|'stair'|'water'|'roof' = 'box', rotation = 0, noCollide = false): MapObstacle => ({ x, z, w, h, d, climbable, color, kind, rotation, noCollide })
+
+function buildHouse(cx: number, cz: number, w: number, d: number, h: number, color: number, roofColor: number, doorSide: 'N'|'S'|'E'|'W' = 'S'): MapObstacle[] {
+  const walls: MapObstacle[] = []
+  const wallT = 0.3
+  const doorW = 1.5
+  const winH = 1.0, winY = 1.2
+  if (doorSide !== 'N') { walls.push(ob(cx, cz - d/2, w, h, wallT, false, color, 'wall')) }
+  else { walls.push(ob(cx - w/4 - doorW/4, cz - d/2, w/2 - doorW/2, h, wallT, false, color, 'wall')); walls.push(ob(cx + w/4 + doorW/4, cz - d/2, w/2 - doorW/2, h, wallT, false, color, 'wall')); walls.push(ob(cx, cz - d/2, doorW, h - winY - 0.5, wallT, false, color, 'wall', 0, true)) }
+  if (doorSide !== 'S') { walls.push(ob(cx, cz + d/2, w, h, wallT, false, color, 'wall')) }
+  else { walls.push(ob(cx - w/4 - doorW/4, cz + d/2, w/2 - doorW/2, h, wallT, false, color, 'wall')); walls.push(ob(cx + w/4 + doorW/4, cz + d/2, w/2 - doorW/2, h, wallT, false, color, 'wall')); walls.push(ob(cx, cz + d/2, doorW, h - winY - 0.5, wallT, false, color, 'wall', 0, true)) }
+  if (doorSide !== 'E') { walls.push(ob(cx + w/2, cz, wallT, h, d, false, color, 'wall')) }
+  else { walls.push(ob(cx + w/2, cz - d/4 - doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall')); walls.push(ob(cx + w/2, cz + d/4 + doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall')) }
+  if (doorSide !== 'W') { walls.push(ob(cx - w/2, cz, wallT, h, d, false, color, 'wall')) }
+  else { walls.push(ob(cx - w/2, cz - d/4 - doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall')); walls.push(ob(cx - w/2, cz + d/4 + doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall')) }
+  walls.push(ob(cx, cz, w + 0.6, 0.3, d + 0.6, true, roofColor, 'roof', 0, false))
+  return walls
+}
+
+function buildStairs(cx: number, cz: number, steps: number, dir: 'N'|'S'|'E'|'W', color: number): MapObstacle[] {
+  const result: MapObstacle[] = []
+  const stepH = 0.5, stepD = 0.6, stepW = 2
+  for (let i = 0; i < steps; i++) { let x = cx, z = cz; if (dir === 'N') z = cz - i * stepD; if (dir === 'S') z = cz + i * stepD; if (dir === 'E') x = cx + i * stepD; if (dir === 'W') x = cx - i * stepD; result.push(ob(x, z, stepW, stepH + 0.01, stepD, true, color, 'stair')) }
+  return result
+}
+
+function buildTree(cx: number, cz: number, scale: number = 1): MapObstacle[] {
+  return [ ob(cx, cz, 0.4 * scale, 3 * scale, 0.4 * scale, false, 0x7a5230, 'cyl'), ob(cx, cz, 2.5 * scale, 2 * scale, 2.5 * scale, true, 0x27ae60, 'box') ]
+}
+
+function buildCar(cx: number, cz: number, color: number, rotation: number = 0): MapObstacle[] {
+  return [ ob(cx, cz, 2, 0.8, 4, true, color, 'box', rotation), ob(cx, cz, 1.8, 0.6, 2, false, 0x2c3e50, 'box', rotation) ]
+}
 
 const MAPS: GameMap[] = [
   { id: 'arena', name: 'Arena Doodle', theme: 'Clásica', ground: 0xf5f1e8, fog: 0xfdfbf7, accent: 0xe8e4df,
@@ -198,67 +230,90 @@ const MAPS: GameMap[] = [
       ob(0,-22,10,2,2,true,0xe8d5b7), ob(0,22,10,2,2,true,0xe8d5b7),
     ],
     spawns: [[0,-24],[0,24],[24,0],[-24,0]] },
-  { id: 'barrio', name: 'Barrio', theme: 'Conjunto residencial', ground: 0xe8e4df, fog: 0xeae6e0, accent: 0xcfc8bc,
+  { id: 'barrio', name: 'Barrio', theme: 'Conjunto residencial', ground: 0xb0b8c0, fog: 0xc8d0d8, accent: 0x8a92a0,
     obstacles: [
-      ob(-14,-12, 6,4,6, true, 0xd5c4a0), ob(14,-12, 6,4,6, true, 0xd5c4a0),
-      ob(-14,12, 6,4,6, true, 0xcdb98a), ob(14,12, 6,4,6, true, 0xcdb98a),
-      ob(-10,-8, 1,1.2,1, true, 0x555555), ob(10,-8, 1,1.2,1, true, 0x555555),
-      ob(-10,8, 1,1.2,1, true, 0x555555), ob(10,8, 1,1.2,1, true, 0x555555),
-      ob(-4,-18, 2,1.2,4, true, 0xe74c3c), ob(4,18, 2,1.2,4, true, 0x3498db),
-      ob(18,0, 2,1.2,4, true, 0x27ae60), ob(-18,0, 2,1.2,4, true, 0xf1c40f),
-      ob(0,-6, 4,1,0.3, true, 0xcdb98a), ob(0,6, 4,1,0.3, true, 0xcdb98a),
-      ob(-6,0, 1.5,1.5,1.5, true, 0xe8d5b7), ob(6,0, 1.5,1.5,1.5, true, 0xe8d5b7),
-      ob(0,0, 2,3,2, true, 0xd5c4a0),
+      ...buildHouse(-14, -12, 6, 6, 3.5, 0xe8d5b7, 0xc0392b, 'S'),
+      ...buildHouse(14, -12, 6, 6, 3.5, 0xd5c4a0, 0x2980b9, 'S'),
+      ...buildHouse(-14, 12, 6, 6, 3.5, 0xcdb98a, 0x27ae60, 'N'),
+      ...buildHouse(14, 12, 6, 6, 3.5, 0xe8d5b7, 0xf1c40f, 'N'),
+      ob(-10, -8, 1, 1.2, 1, true, 0x555555), ob(10, -8, 1, 1.2, 1, true, 0x555555),
+      ob(-10, 8, 1, 1.2, 1, true, 0x555555), ob(10, 8, 1, 1.2, 1, true, 0x555555),
+      ...buildCar(-4, -18, 0xe74c3c, 0), ...buildCar(4, 18, 0x3498db, 0),
+      ...buildCar(18, 0, 0x27ae60, Math.PI/2), ...buildCar(-18, 0, 0xf1c40f, Math.PI/2),
+      ob(0, -6, 4, 1, 0.3, true, 0x8a92a0, 'wall'), ob(0, 6, 4, 1, 0.3, true, 0x8a92a0, 'wall'),
+      ob(-6, 0, 1.5, 1.5, 1.5, true, 0xe8d5b7), ob(6, 0, 1.5, 1.5, 1.5, true, 0xe8d5b7),
+      ob(0, 0, 3, 0.5, 3, true, 0x3498db, 'water', 0, true),
     ],
     spawns: [[0,-24],[0,24],[-24,0],[24,0],[-20,-20],[20,20]] },
-  { id: 'escuela', name: 'Escuela', theme: 'Aulas y pizarrones', ground: 0xf5f1e8, fog: 0xfdfbf7, accent: 0xe8e4df,
+  { id: 'escuela', name: 'Escuela', theme: 'Escuela con salones', ground: 0xd5d8de, fog: 0xe0e3e8, accent: 0xa0a8b0,
     obstacles: [
-      ob(-14,-10, 6,4,5, true, 0xe8d5b7), ob(14,-10, 6,4,5, true, 0xe8d5b7),
-      ob(-14,10, 6,4,5, true, 0xd5c4a0), ob(14,10, 6,4,5, true, 0xd5c4a0),
-      ob(-10,-6, 1.5,0.8,1, true, 0xe8d5b7), ob(-8,-6, 1.5,0.8,1, true, 0xe8d5b7),
-      ob(10,-6, 1.5,0.8,1, true, 0xe8d5b7), ob(8,-6, 1.5,0.8,1, true, 0xe8d5b7),
-      ob(-10,6, 1.5,0.8,1, true, 0xe8d5b7), ob(10,6, 1.5,0.8,1, true, 0xe8d5b7),
-      ob(0,0, 8,3,0.5, false, 0x2c3e50),
-      ob(-4,-14, 1.5,1.6,1, true, 0xe8d5b7), ob(-4,-14, 1.5,2.4,1, false, 0xe8d5b7),
-      ob(4,14, 1.5,1.6,1, true, 0xe8d5b7), ob(4,14, 1.5,2.4,1, false, 0xe8d5b7),
-      ob(-20,0, 0.8,2.5,6, true, 0xa3c8e0), ob(20,0, 0.8,2.5,6, true, 0xe0a3a0),
+      ...buildHouse(0, 0, 30, 30, 5, 0xe8e0d0, 0xc0392b, 'S'),
+      ob(0, 0, 30, 4, 0.3, false, 0xd5c4a0, 'wall'),
+      ob(0, 0, 0.3, 4, 30, false, 0xd5c4a0, 'wall'),
+      ...[-9, 9].flatMap(x => [-9, 9].map(z => ob(x, z, 1.5, 0.8, 1, true, 0xe8d5b7, 'box'))),
+      ...[-6, 6].flatMap(x => [-9, 9].map(z => ob(x, z, 1.5, 0.8, 1, true, 0xe8d5b7, 'box'))),
+      ...[-9, 9].flatMap(x => [-6, 6].map(z => ob(x, z, 1.5, 0.8, 1, true, 0xe8d5b7, 'box'))),
+      ob(-14, 0, 0.3, 2, 4, false, 0x1a1a1a, 'wall'),
+      ob(14, 0, 0.3, 2, 4, false, 0x1a1a1a, 'wall'),
+      ob(0, -14, 4, 2, 0.3, false, 0x1a1a1a, 'wall'),
+      ob(0, 14, 4, 2, 0.3, false, 0x1a1a1a, 'wall'),
+      ob(-14, -10, 0.8, 2.5, 1, true, 0x3498db, 'box'), ob(-14, -7, 0.8, 2.5, 1, true, 0xe74c3c, 'box'),
+      ob(14, 10, 0.8, 2.5, 1, true, 0x27ae60, 'box'), ob(14, 7, 0.8, 2.5, 1, true, 0xf1c40f, 'box'),
+      ob(0, -20, 0.3, 3, 0.3, false, 0xe74c3c, 'box'),
+      ob(0, -20, 1.5, 0.1, 0.8, false, 0xe74c3c, 'box'),
+      ob(0, 20, 0.3, 3, 0.3, false, 0x3498db, 'box'),
+      ob(0, 20, 1.5, 0.1, 0.8, false, 0x3498db, 'box'),
+      ob(-10, 0, 1, 1.2, 1, true, 0x555555, 'box'), ob(10, 0, 1, 1.2, 1, true, 0x555555, 'box'),
+      ...buildStairs(-13, 0, 6, 'E', 0xd5c4a0),
     ],
     spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
-  { id: 'oficinas', name: 'Oficinas', theme: 'Edificio corporativo', ground: 0xe8e4df, fog: 0xeae6e0, accent: 0xcfc8bc,
+  { id: 'oficinas', name: 'Oficinas', theme: 'Edificio corporativo', ground: 0xc8ccd0, fog: 0xd0d4d8, accent: 0x9098a0,
     obstacles: [
-      ob(-12,-10, 5,5,5, true, 0xa3c8e0), ob(12,-10, 5,5,5, true, 0xa3c8e0),
-      ob(-12,10, 5,5,5, true, 0xd5c4a0), ob(12,10, 5,5,5, true, 0xd5c4a0),
-      ob(-6,0, 0.3,2,8, true, 0xb8d4e3), ob(6,0, 0.3,2,8, true, 0xb8d4e3),
-      ob(-8,-6, 1,1.2,1, true, 0x555555), ob(8,-6, 1,1.2,1, true, 0x555555),
-      ob(-8,6, 1,1.2,1, true, 0x555555), ob(8,6, 1,1.2,1, true, 0x555555),
-      ob(-3,-14, 3,0.8,1.5, true, 0xe8d5b7), ob(3,14, 3,0.8,1.5, true, 0xe8d5b7),
-      ob(0,0, 3,6,3, true, 0xcdb98a),
-      ob(-4,0, 2,1,4, true, 0xd5c4a0,'ramp'), ob(4,0, 2,1,4, true, 0xd5c4a0,'ramp'),
+      ...buildHouse(-12, -10, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
+      ...buildHouse(12, -10, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
+      ...buildHouse(-12, 10, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
+      ...buildHouse(12, 10, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
+      ob(-6, 0, 0.3, 2, 8, true, 0xb8d4e3, 'wall'), ob(6, 0, 0.3, 2, 8, true, 0xb8d4e3, 'wall'),
+      ob(-8, -6, 1, 1.2, 1, true, 0x555555), ob(8, -6, 1, 1.2, 1, true, 0x555555),
+      ob(-8, 6, 1, 1.2, 1, true, 0x555555), ob(8, 6, 1, 1.2, 1, true, 0x555555),
+      ob(-3, -14, 3, 0.8, 1.5, true, 0xe8d5b7, 'box'), ob(3, 14, 3, 0.8, 1.5, true, 0xe8d5b7, 'box'),
+      ob(0, 0, 3, 8, 3, true, 0x2c3e50, 'box'),
+      ...buildStairs(0, 0, 5, 'N', 0x555555),
+      ob(-4, 0, 2, 1, 4, true, 0xd5c4a0, 'ramp'), ob(4, 0, 2, 1, 4, true, 0xd5c4a0, 'ramp'),
+      ob(0, -10, 12, 0.3, 2, true, 0x8a92a0, 'roof'),
+      ob(0, 10, 12, 0.3, 2, true, 0x8a92a0, 'roof'),
     ],
     spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
-  { id: 'bosque', name: 'Bosque', theme: 'Densa vegetación', ground: 0xeaf3e0, fog: 0xeef5e6, accent: 0xcfdcc0,
+  { id: 'bosque', name: 'Bosque', theme: 'Bosque con río', ground: 0x4a7a3a, fog: 0x6a9a5a, accent: 0x3a5a2a, waterLevel: 0.3,
     obstacles: [
-      ob(-12,-12, 2,6,2, true, 0x27ae60,'cyl'), ob(12,-12, 2,6,2, true, 0x27ae60,'cyl'),
-      ob(-12,12, 2,6,2, true, 0x229954,'cyl'), ob(12,12, 2,6,2, true, 0x229954,'cyl'),
-      ob(0,-18, 2,7,2, true, 0x27ae60,'cyl'), ob(0,18, 2,7,2, true, 0x229954,'cyl'),
-      ob(-9,-9, 2,2,2, true, 0x95a5a6), ob(9,-9, 2,2,2, true, 0x95a5a6),
-      ob(-9,9, 2,2,2, true, 0x7f8c8d), ob(9,9, 2,2,2, true, 0x7f8c8d),
-      ob(-5,0, 5,1,1, true, 0x7a5230), ob(5,0, 5,1,1, true, 0x7a5230),
-      ob(-18,0, 3,2.5,3, true, 0x95a5a6), ob(18,0, 3,2.5,3, true, 0x7f8c8d),
-      ob(0,-8, 3,0.8,2, false, 0x27ae60), ob(0,8, 3,0.8,2, false, 0x27ae60),
+      ...buildTree(-12, -12, 1.5), ...buildTree(12, -12, 1.5),
+      ...buildTree(-12, 12, 1.5), ...buildTree(12, 12, 1.5),
+      ...buildTree(0, -18, 2), ...buildTree(0, 18, 2),
+      ...buildTree(-18, 0, 1.2), ...buildTree(18, 0, 1.2),
+      ob(0, 0, 8, 0.3, 24, false, 0x3498db, 'water', 0, true),
+      ob(-9, -9, 2, 2, 2, true, 0x95a5a6, 'box'), ob(9, -9, 2, 2, 2, true, 0x95a5a6, 'box'),
+      ob(-9, 9, 2, 2, 2, true, 0x7f8c8d, 'box'), ob(9, 9, 2, 2, 2, true, 0x7f8c8d, 'box'),
+      ob(-5, -5, 5, 1, 1, true, 0x7a5230, 'box'), ob(5, 5, 5, 1, 1, true, 0x7a5230, 'box'),
+      ob(-18, -4, 3, 2.5, 3, true, 0x95a5a6, 'box'), ob(18, 4, 3, 2.5, 3, true, 0x7f8c8d, 'box'),
+      ob(0, 0, 3, 0.5, 6, true, 0x7a5230, 'box'),
+      ob(-8, 0, 3, 0.8, 2, false, 0x27ae60, 'box'), ob(8, 0, 3, 0.8, 2, false, 0x27ae60, 'box'),
+      ob(-15, 6, 1.5, 1, 1.5, true, 0x7a5230, 'box'), ob(15, -6, 1.5, 1, 1.5, true, 0x7a5230, 'box'),
     ],
     spawns: [[0,-24],[0,24],[-24,0],[24,0],[-22,-22],[22,22]] },
-  { id: 'paisaje', name: 'Paisaje', theme: 'Río y montañas', ground: 0xeaf3e0, fog: 0xeef5e6, accent: 0xcfdcc0,
+  { id: 'paisaje', name: 'Paisaje', theme: 'Río y montañas', ground: 0x5a8a4a, fog: 0x7aa85a, accent: 0x4a6a3a, waterLevel: 0.3,
     obstacles: [
-      ob(-14,-10, 4,4,4, true, 0x95a5a6), ob(14,10, 4,4,4, true, 0x7f8c8d),
-      ob(14,-10, 4,4,4, true, 0x95a5a6), ob(-14,10, 4,4,4, true, 0x7f8c8d),
-      ob(-10,-7, 1.5,1.5,1.5, true, 0x95a5a6), ob(10,7, 1.5,1.5,1.5, true, 0x7f8c8d),
-      ob(10,-7, 1.5,1.5,1.5, true, 0x95a5a6), ob(-10,7, 1.5,1.5,1.5, true, 0x7f8c8d),
-      ob(-6,0, 0.5,1,12, false, 0xd5c4a0), ob(6,0, 0.5,1,12, false, 0xd5c4a0),
-      ob(-20,-18, 1.5,5,1.5, true, 0x27ae60,'cyl'), ob(20,18, 1.5,5,1.5, true, 0x229954,'cyl'),
-      ob(-20,18, 1.5,5,1.5, true, 0x27ae60,'cyl'), ob(20,-18, 1.5,5,1.5, true, 0x229954,'cyl'),
-      ob(0,0, 3,0.5,14, true, 0xe8d5b7),
-      ob(0,-20, 6,2,4, true, 0xcdb98a), ob(0,20, 6,2,4, true, 0xcdb98a),
+      ob(-14, -10, 4, 4, 4, true, 0x95a5a6, 'box'), ob(14, 10, 4, 4, 4, true, 0x7f8c8d, 'box'),
+      ob(14, -10, 4, 4, 4, true, 0x95a5a6, 'box'), ob(-14, 10, 4, 4, 4, true, 0x7f8c8d, 'box'),
+      ob(-10, -7, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'), ob(10, 7, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+      ob(10, -7, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'), ob(-10, 7, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+      ob(0, 0, 6, 0.3, 24, false, 0x3498db, 'water', 0, true),
+      ob(-3.5, 0, 0.5, 1, 24, false, 0x8a7a5a, 'wall'), ob(3.5, 0, 0.5, 1, 24, false, 0x8a7a5a, 'wall'),
+      ...buildTree(-18, -14, 1.3), ...buildTree(18, 14, 1.3),
+      ...buildTree(-18, 14, 1.3), ...buildTree(18, -14, 1.3),
+      ob(0, 0, 3, 0.5, 8, true, 0x7a5230, 'box'),
+      ob(0, -20, 6, 2, 4, true, 0x6a9a5a, 'box'), ob(0, 20, 6, 2, 4, true, 0x6a9a5a, 'box'),
+      ob(-20, 0, 3, 6, 3, true, 0x95a5a6, 'box'),
+      ...buildStairs(-17, 0, 6, 'W', 0x7f8c8d),
     ],
     spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
 ]
@@ -394,9 +449,20 @@ const socketToLobby = new Map<string, { name: string; skin: string }>()
 
 function spawnBlocked(map: GameMap, x: number, z: number): boolean {
   // check if a position is inside any obstacle (with margin)
+  // skip water and noCollide obstacles (they don't block spawning)
   const margin = 1.5
   for (const o of map.obstacles) {
-    if (Math.abs(x - o.x) < o.w/2 + margin && Math.abs(z - o.z) < o.d/2 + margin) return true
+    if (o.kind === 'water' || o.noCollide) continue
+    const hw = o.w / 2, hd = o.d / 2
+    if (o.rotation && o.rotation !== 0) {
+      // rotated: use slightly larger margin (bounding-circle approximation)
+      const reach = Math.max(hw, hd) + margin
+      const dx = x - o.x, dz = z - o.z
+      if (dx * dx + dz * dz < reach * reach) return true
+    } else {
+      // axis-aligned box check (original behavior)
+      if (Math.abs(x - o.x) < hw + margin && Math.abs(z - o.z) < hd + margin) return true
+    }
   }
   return false
 }

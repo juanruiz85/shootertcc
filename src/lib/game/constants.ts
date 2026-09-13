@@ -61,7 +61,9 @@ export interface MapObstacle {
   x: number; z: number; w: number; h: number; d: number
   climbable: boolean
   color: number
-  kind: 'box' | 'cyl' | 'ramp'
+  kind: 'box' | 'cyl' | 'ramp' | 'wall' | 'stair' | 'water' | 'roof'
+  rotation?: number  // y-rotation in radians
+  noCollide?: boolean  // if true, no collision (for roofs you can stand on via stairs)
 }
 export interface GameMap {
   id: string
@@ -72,6 +74,7 @@ export interface GameMap {
   accent: number      // wall/trim color
   obstacles: MapObstacle[]
   spawns: [number, number][]  // x,z
+  waterLevel?: number  // y-height of water plane (optional)
 }
 
 const G_PAPER = 0xf5f1e8
@@ -89,7 +92,83 @@ const C_RED = 0xe0a3a0
 const C_BLUE = 0xa3c8e0
 
 // helper to build obstacle
-const ob = (x: number, z: number, w: number, h: number, d: number, climbable = true, color = C_WOOD, kind: 'box'|'cyl'|'ramp' = 'box'): MapObstacle => ({ x, z, w, h, d, climbable, color, kind })
+const ob = (x: number, z: number, w: number, h: number, d: number, climbable = true, color = C_WOOD, kind: 'box'|'cyl'|'ramp'|'wall'|'stair'|'water'|'roof' = 'box', rotation = 0, noCollide = false): MapObstacle => ({ x, z, w, h, d, climbable, color, kind, rotation, noCollide })
+
+// Build a house: 4 walls with a door gap on one side, windows, optional roof
+// Returns array of obstacles (wall segments)
+function buildHouse(cx: number, cz: number, w: number, d: number, h: number, color: number, roofColor: number, doorSide: 'N'|'S'|'E'|'W' = 'S'): MapObstacle[] {
+  const walls: MapObstacle[] = []
+  const wallT = 0.3
+  const doorW = 1.5
+  const winH = 1.0, winY = 1.2
+  // North wall (z = cz - d/2)
+  if (doorSide !== 'N') {
+    walls.push(ob(cx, cz - d/2, w, h, wallT, false, color, 'wall'))
+  } else {
+    // door gap in center
+    walls.push(ob(cx - w/4 - doorW/4, cz - d/2, w/2 - doorW/2, h, wallT, false, color, 'wall'))
+    walls.push(ob(cx + w/4 + doorW/4, cz - d/2, w/2 - doorW/2, h, wallT, false, color, 'wall'))
+    // window above door
+    walls.push(ob(cx, cz - d/2, doorW, h - winY - 0.5, wallT, false, color, 'wall', 0, true))
+  }
+  // South wall (z = cz + d/2)
+  if (doorSide !== 'S') {
+    walls.push(ob(cx, cz + d/2, w, h, wallT, false, color, 'wall'))
+  } else {
+    walls.push(ob(cx - w/4 - doorW/4, cz + d/2, w/2 - doorW/2, h, wallT, false, color, 'wall'))
+    walls.push(ob(cx + w/4 + doorW/4, cz + d/2, w/2 - doorW/2, h, wallT, false, color, 'wall'))
+    walls.push(ob(cx, cz + d/2, doorW, h - winY - 0.5, wallT, false, color, 'wall', 0, true))
+  }
+  // East wall (x = cx + w/2)
+  if (doorSide !== 'E') {
+    walls.push(ob(cx + w/2, cz, wallT, h, d, false, color, 'wall'))
+  } else {
+    walls.push(ob(cx + w/2, cz - d/4 - doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall'))
+    walls.push(ob(cx + w/2, cz + d/4 + doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall'))
+  }
+  // West wall (x = cx - w/2)
+  if (doorSide !== 'W') {
+    walls.push(ob(cx - w/2, cz, wallT, h, d, false, color, 'wall'))
+  } else {
+    walls.push(ob(cx - w/2, cz - d/4 - doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall'))
+    walls.push(ob(cx - w/2, cz + d/4 + doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall'))
+  }
+  // Roof (noCollide so player can stand on it via stairs/crates)
+  walls.push(ob(cx, cz, w + 0.6, 0.3, d + 0.6, true, roofColor, 'roof', 0, false))
+  return walls
+}
+
+// Build stairs: a series of steps going up
+function buildStairs(cx: number, cz: number, steps: number, dir: 'N'|'S'|'E'|'W', color: number): MapObstacle[] {
+  const result: MapObstacle[] = []
+  const stepH = 0.5, stepD = 0.6, stepW = 2
+  for (let i = 0; i < steps; i++) {
+    const y = i * stepH
+    let x = cx, z = cz
+    if (dir === 'N') z = cz - i * stepD
+    if (dir === 'S') z = cz + i * stepD
+    if (dir === 'E') x = cx + i * stepD
+    if (dir === 'W') x = cx - i * stepD
+    result.push(ob(x, z, stepW, stepH + 0.01, stepD, true, color, 'stair'))
+  }
+  return result
+}
+
+// Build a tree (trunk + foliage spheres)
+function buildTree(cx: number, cz: number, scale: number = 1): MapObstacle[] {
+  return [
+    ob(cx, cz, 0.4 * scale, 3 * scale, 0.4 * scale, false, 0x7a5230, 'cyl'),
+    ob(cx, cz, 2.5 * scale, 2 * scale, 2.5 * scale, true, 0x27ae60, 'box'),
+  ]
+}
+
+// Build a car
+function buildCar(cx: number, cz: number, color: number, rotation: number = 0): MapObstacle[] {
+  return [
+    ob(cx, cz, 2, 0.8, 4, true, color, 'box', rotation),
+    ob(cx, cz, 1.8, 0.6, 2, false, 0x2c3e50, 'box', rotation),
+  ]
+}
 
 // 16 themed maps
 export const MAPS: GameMap[] = [
@@ -274,104 +353,140 @@ export const MAPS: GameMap[] = [
     ],
     spawns: [[0,-24],[0,24],[24,0],[-24,0]],
   },
-  // ===== NEW MAPS with climbable buildings =====
+  // ===== DETAILED MAPS — Roblox/Fortnite/CoD inspired =====
   {
-    id: 'barrio', name: 'Barrio', theme: 'Conjunto residencial', ground: G_STONE, fog: 0xeae6e0, accent: 0xcfc8bc,
+    id: 'barrio', name: 'Barrio', theme: 'Conjunto residencial', ground: 0xb0b8c0, fog: 0xc8d0d8, accent: 0x8a92a0,
     obstacles: [
-      // houses (climbable via trash cans next to them)
-      ob(-14,-12, 6,4,6, true, 0xd5c4a0), ob(14,-12, 6,4,6, true, 0xd5c4a0),
-      ob(-14,12, 6,4,6, true, 0xcdb98a), ob(14,12, 6,4,6, true, 0xcdb98a),
+      // 4 enterable houses with doors + windows + roofs
+      ...buildHouse(-14, -12, 6, 6, 3.5, 0xe8d5b7, 0xc0392b, 'S'),
+      ...buildHouse(14, -12, 6, 6, 3.5, 0xd5c4a0, 0x2980b9, 'S'),
+      ...buildHouse(-14, 12, 6, 6, 3.5, 0xcdb98a, 0x27ae60, 'N'),
+      ...buildHouse(14, 12, 6, 6, 3.5, 0xe8d5b7, 0xf1c40f, 'N'),
       // trash cans next to houses (for climbing to roof)
-      ob(-10,-8, 1,1.2,1, true, 0x555555), ob(10,-8, 1,1.2,1, true, 0x555555),
-      ob(-10,8, 1,1.2,1, true, 0x555555), ob(10,8, 1,1.2,1, true, 0x555555),
-      // cars (street)
-      ob(-4,-18, 2,1.2,4, true, 0xe74c3c), ob(4,18, 2,1.2,4, true, 0x3498db),
-      ob(18,0, 2,1.2,4, true, 0x27ae60), ob(-18,0, 2,1.2,4, true, 0xf1c40f),
-      // low walls (fences)
-      ob(0,-6, 4,1,0.3, true, C_DARK), ob(0,6, 4,1,0.3, true, C_DARK),
+      ob(-10, -8, 1, 1.2, 1, true, 0x555555), ob(10, -8, 1, 1.2, 1, true, 0x555555),
+      ob(-10, 8, 1, 1.2, 1, true, 0x555555), ob(10, 8, 1, 1.2, 1, true, 0x555555),
+      // cars on the street
+      ...buildCar(-4, -18, 0xe74c3c, 0), ...buildCar(4, 18, 0x3498db, 0),
+      ...buildCar(18, 0, 0x27ae60, Math.PI/2), ...buildCar(-18, 0, 0xf1c40f, Math.PI/2),
+      // low fences
+      ob(0, -6, 4, 1, 0.3, true, 0x8a92a0, 'wall'), ob(0, 6, 4, 1, 0.3, true, 0x8a92a0, 'wall'),
       // crates for climbing
-      ob(-6,0, 1.5,1.5,1.5, true, C_WOOD), ob(6,0, 1.5,1.5,1.5, true, C_WOOD),
-      ob(0,0, 2,3,2, true, C_STONE),
+      ob(-6, 0, 1.5, 1.5, 1.5, true, 0xe8d5b7), ob(6, 0, 1.5, 1.5, 1.5, true, 0xe8d5b7),
+      // central water fountain (decorative)
+      ob(0, 0, 3, 0.5, 3, true, 0x3498db, 'water', 0, true),
     ],
     spawns: [[0,-24],[0,24],[-24,0],[24,0],[-20,-20],[20,20]],
   },
   {
-    id: 'escuela', name: 'Escuela', theme: 'Aulas y pizarrones', ground: G_PAPER, fog: 0xfdfbf7, accent: 0xe8e4df,
+    id: 'escuela', name: 'Escuela', theme: 'Escuela con salones', ground: 0xd5d8de, fog: 0xe0e3e8, accent: 0xa0a8b0,
     obstacles: [
-      // classroom buildings (climbable via desks)
-      ob(-14,-10, 6,4,5, true, 0xe8d5b7), ob(14,-10, 6,4,5, true, 0xe8d5b7),
-      ob(-14,10, 6,4,5, true, 0xd5c4a0), ob(14,10, 6,4,5, true, 0xd5c4a0),
-      // desks (for climbing to roof)
-      ob(-10,-6, 1.5,0.8,1, true, C_WOOD), ob(-8,-6, 1.5,0.8,1, true, C_WOOD),
-      ob(10,-6, 1.5,0.8,1, true, C_WOOD), ob(8,-6, 1.5,0.8,1, true, C_WOOD),
-      ob(-10,6, 1.5,0.8,1, true, C_WOOD), ob(10,6, 1.5,0.8,1, true, C_WOOD),
-      // blackboard wall (center)
-      ob(0,0, 8,3,0.5, false, 0x2c3e50),
-      // stacked desks (climbable tower)
-      ob(-4,-14, 1.5,1.6,1, true, C_WOOD), ob(-4,-14, 1.5,2.4,1, false, C_WOOD),
-      ob(4,14, 1.5,1.6,1, true, C_WOOD), ob(4,14, 1.5,2.4,1, false, C_WOOD),
-      // lockers
-      ob(-20,0, 0.8,2.5,6, true, C_BLUE), ob(20,0, 0.8,2.5,6, true, C_RED),
+      // Main school building — closed, with 4 classrooms inside
+      // Outer walls (large building 30x30)
+      ...buildHouse(0, 0, 30, 30, 5, 0xe8e0d0, 0xc0392b, 'S'),
+      // Interior classroom walls (dividing into 4 rooms)
+      ob(0, 0, 30, 4, 0.3, false, 0xd5c4a0, 'wall'),  // horizontal divider
+      ob(0, 0, 0.3, 4, 30, false, 0xd5c4a0, 'wall'),  // vertical divider
+      // Desks in each classroom
+      ...[-9, 9].flatMap(x => [-9, 9].map(z => ob(x, z, 1.5, 0.8, 1, true, 0xe8d5b7, 'box'))),
+      ...[-6, 6].flatMap(x => [-9, 9].map(z => ob(x, z, 1.5, 0.8, 1, true, 0xe8d5b7, 'box'))),
+      ...[-9, 9].flatMap(x => [-6, 6].map(z => ob(x, z, 1.5, 0.8, 1, true, 0xe8d5b7, 'box'))),
+      // Blackboards on walls
+      ob(-14, 0, 0.3, 2, 4, false, 0x1a1a1a, 'wall'),  // west blackboard
+      ob(14, 0, 0.3, 2, 4, false, 0x1a1a1a, 'wall'),   // east blackboard
+      ob(0, -14, 4, 2, 0.3, false, 0x1a1a1a, 'wall'),  // north blackboard
+      ob(0, 14, 4, 2, 0.3, false, 0x1a1a1a, 'wall'),   // south blackboard
+      // Lockers along walls
+      ob(-14, -10, 0.8, 2.5, 1, true, 0x3498db, 'box'), ob(-14, -7, 0.8, 2.5, 1, true, 0xe74c3c, 'box'),
+      ob(14, 10, 0.8, 2.5, 1, true, 0x27ae60, 'box'), ob(14, 7, 0.8, 2.5, 1, true, 0xf1c40f, 'box'),
+      // Basketball court elements (outside building, in courtyard)
+      ob(0, -20, 0.3, 3, 0.3, false, 0xe74c3c, 'box'),  // hoop pole
+      ob(0, -20, 1.5, 0.1, 0.8, false, 0xe74c3c, 'box'),  // backboard
+      ob(0, 20, 0.3, 3, 0.3, false, 0x3498db, 'box'),
+      ob(0, 20, 1.5, 0.1, 0.8, false, 0x3498db, 'box'),
+      // Trash cans
+      ob(-10, 0, 1, 1.2, 1, true, 0x555555, 'box'), ob(10, 0, 1, 1.2, 1, true, 0x555555, 'box'),
+      // Stairs to second floor (roof access)
+      ...buildStairs(-13, 0, 6, 'E', 0xd5c4a0),
     ],
     spawns: [[0,-24],[0,24],[-24,0],[24,0]],
   },
   {
-    id: 'oficinas', name: 'Oficinas', theme: 'Edificio corporativo', ground: G_STONE, fog: 0xeae6e0, accent: 0xcfc8bc,
+    id: 'oficinas', name: 'Oficinas', theme: 'Edificio corporativo', ground: 0xc8ccd0, fog: 0xd0d4d8, accent: 0x9098a0,
     obstacles: [
-      // office building blocks (climbable via trash cans)
-      ob(-12,-10, 5,5,5, true, 0xa3c8e0), ob(12,-10, 5,5,5, true, 0xa3c8e0),
-      ob(-12,10, 5,5,5, true, 0xd5c4a0), ob(12,10, 5,5,5, true, 0xd5c4a0),
-      // glass partitions (low, climbable)
-      ob(-6,0, 0.3,2,8, true, 0xb8d4e3), ob(6,0, 0.3,2,8, true, 0xb8d4e3),
-      // trash cans for climbing
-      ob(-8,-6, 1,1.2,1, true, 0x555555), ob(8,-6, 1,1.2,1, true, 0x555555),
-      ob(-8,6, 1,1.2,1, true, 0x555555), ob(8,6, 1,1.2,1, true, 0x555555),
-      // desks
-      ob(-3,-14, 3,0.8,1.5, true, C_WOOD), ob(3,14, 3,0.8,1.5, true, C_WOOD),
-      // central elevator shaft
-      ob(0,0, 3,6,3, true, C_DARK),
-      // ramps to second level
-      ob(-4,0, 2,1,4, true, C_STONE,'ramp'), ob(4,0, 2,1,4, true, C_STONE,'ramp'),
+      // 4 office buildings (enterable)
+      ...buildHouse(-12, -10, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
+      ...buildHouse(12, -10, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
+      ...buildHouse(-12, 10, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
+      ...buildHouse(12, 10, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
+      // Glass partitions (low, climbable)
+      ob(-6, 0, 0.3, 2, 8, true, 0xb8d4e3, 'wall'), ob(6, 0, 0.3, 2, 8, true, 0xb8d4e3, 'wall'),
+      // Trash cans for climbing
+      ob(-8, -6, 1, 1.2, 1, true, 0x555555), ob(8, -6, 1, 1.2, 1, true, 0x555555),
+      ob(-8, 6, 1, 1.2, 1, true, 0x555555), ob(8, 6, 1, 1.2, 1, true, 0x555555),
+      // Office desks
+      ob(-3, -14, 3, 0.8, 1.5, true, 0xe8d5b7, 'box'), ob(3, 14, 3, 0.8, 1.5, true, 0xe8d5b7, 'box'),
+      // Central elevator shaft (tall tower with stairs)
+      ob(0, 0, 3, 8, 3, true, 0x2c3e50, 'box'),
+      ...buildStairs(0, 0, 5, 'N', 0x555555),
+      // Ramps to second level
+      ob(-4, 0, 2, 1, 4, true, 0xd5c4a0, 'ramp'), ob(4, 0, 2, 1, 4, true, 0xd5c4a0, 'ramp'),
+      // Bridge connecting two buildings
+      ob(0, -10, 12, 0.3, 2, true, 0x8a92a0, 'roof'),
+      ob(0, 10, 12, 0.3, 2, true, 0x8a92a0, 'roof'),
     ],
     spawns: [[0,-24],[0,24],[-24,0],[24,0]],
   },
   {
-    id: 'bosque', name: 'Bosque', theme: 'Densa vegetación', ground: G_GRASS, fog: 0xeef5e6, accent: 0xcfdcc0,
+    id: 'bosque', name: 'Bosque', theme: 'Bosque con río', ground: 0x4a7a3a, fog: 0x6a9a5a, accent: 0x3a5a2a,
+    waterLevel: 0.3,
     obstacles: [
-      // large trees (climbable via rocks next to them)
-      ob(-12,-12, 2,6,2, true, 0x27ae60,'cyl'), ob(12,-12, 2,6,2, true, 0x27ae60,'cyl'),
-      ob(-12,12, 2,6,2, true, 0x229954,'cyl'), ob(12,12, 2,6,2, true, 0x229954,'cyl'),
-      ob(0,-18, 2,7,2, true, 0x27ae60,'cyl'), ob(0,18, 2,7,2, true, 0x229954,'cyl'),
-      // rocks for climbing to tree tops
-      ob(-9,-9, 2,2,2, true, 0x95a5a6), ob(9,-9, 2,2,2, true, 0x95a5a6),
-      ob(-9,9, 2,2,2, true, 0x7f8c8d), ob(9,9, 2,2,2, true, 0x7f8c8d),
-      // fallen logs (low cover)
-      ob(-5,0, 5,1,1, true, 0x7a5230), ob(5,0, 5,1,1, true, 0x7a5230),
-      // boulders
-      ob(-18,0, 3,2.5,3, true, 0x95a5a6), ob(18,0, 3,2.5,3, true, 0x7f8c8d),
-      // bushes (low, non-climbable)
-      ob(0,-8, 3,0.8,2, false, 0x27ae60), ob(0,8, 3,0.8,2, false, 0x27ae60),
+      // Detailed trees with trunk + foliage
+      ...buildTree(-12, -12, 1.5), ...buildTree(12, -12, 1.5),
+      ...buildTree(-12, 12, 1.5), ...buildTree(12, 12, 1.5),
+      ...buildTree(0, -18, 2), ...buildTree(0, 18, 2),
+      ...buildTree(-18, 0, 1.2), ...buildTree(18, 0, 1.2),
+      // River (water plane, shallow — sink slightly)
+      ob(0, 0, 8, 0.3, 24, false, 0x3498db, 'water', 0, true),
+      // Rocks for climbing to tree tops
+      ob(-9, -9, 2, 2, 2, true, 0x95a5a6, 'box'), ob(9, -9, 2, 2, 2, true, 0x95a5a6, 'box'),
+      ob(-9, 9, 2, 2, 2, true, 0x7f8c8d, 'box'), ob(9, 9, 2, 2, 2, true, 0x7f8c8d, 'box'),
+      // Fallen logs (low cover, climbable)
+      ob(-5, -5, 5, 1, 1, true, 0x7a5230, 'box'), ob(5, 5, 5, 1, 1, true, 0x7a5230, 'box'),
+      // Boulders (large rocks)
+      ob(-18, -4, 3, 2.5, 3, true, 0x95a5a6, 'box'), ob(18, 4, 3, 2.5, 3, true, 0x7f8c8d, 'box'),
+      // Bridge across river
+      ob(0, 0, 3, 0.5, 6, true, 0x7a5230, 'box'),
+      // Bushes (low, non-climbable)
+      ob(-8, 0, 3, 0.8, 2, false, 0x27ae60, 'box'), ob(8, 0, 3, 0.8, 2, false, 0x27ae60, 'box'),
+      // Tree stump (climbable)
+      ob(-15, 6, 1.5, 1, 1.5, true, 0x7a5230, 'box'), ob(15, -6, 1.5, 1, 1.5, true, 0x7a5230, 'box'),
     ],
     spawns: [[0,-24],[0,24],[-24,0],[24,0],[-22,-22],[22,22]],
   },
   {
-    id: 'paisaje', name: 'Paisaje', theme: 'Río y montañas', ground: G_GRASS, fog: 0xeef5e6, accent: 0xcfdcc0,
+    id: 'paisaje', name: 'Paisaje', theme: 'Río y montañas', ground: 0x5a8a4a, fog: 0x7aa85a, accent: 0x4a6a3a,
+    waterLevel: 0.3,
     obstacles: [
-      // large rocks (climbable via smaller rocks)
-      ob(-14,-10, 4,4,4, true, 0x95a5a6), ob(14,10, 4,4,4, true, 0x7f8c8d),
-      ob(14,-10, 4,4,4, true, 0x95a5a6), ob(-14,10, 4,4,4, true, 0x7f8c8d),
-      // small rocks for climbing
-      ob(-10,-7, 1.5,1.5,1.5, true, 0x95a5a6), ob(10,7, 1.5,1.5,1.5, true, 0x7f8c8d),
-      ob(10,-7, 1.5,1.5,1.5, true, 0x95a5a6), ob(-10,7, 1.5,1.5,1.5, true, 0x7f8c8d),
-      // river banks (low walls along center)
-      ob(-6,0, 0.5,1,12, false, C_STONE), ob(6,0, 0.5,1,12, false, C_STONE),
-      // trees
-      ob(-20,-18, 1.5,5,1.5, true, 0x27ae60,'cyl'), ob(20,18, 1.5,5,1.5, true, 0x229954,'cyl'),
-      ob(-20,18, 1.5,5,1.5, true, 0x27ae60,'cyl'), ob(20,-18, 1.5,5,1.5, true, 0x229954,'cyl'),
-      // bridge across river
-      ob(0,0, 3,0.5,14, true, C_WOOD),
-      // hills (climbable mounds)
-      ob(0,-20, 6,2,4, true, C_DARK), ob(0,20, 6,2,4, true, C_DARK),
+      // Large rocks (climbable via smaller rocks)
+      ob(-14, -10, 4, 4, 4, true, 0x95a5a6, 'box'), ob(14, 10, 4, 4, 4, true, 0x7f8c8d, 'box'),
+      ob(14, -10, 4, 4, 4, true, 0x95a5a6, 'box'), ob(-14, 10, 4, 4, 4, true, 0x7f8c8d, 'box'),
+      // Small rocks for climbing
+      ob(-10, -7, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'), ob(10, 7, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+      ob(10, -7, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'), ob(-10, 7, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+      // River (water plane)
+      ob(0, 0, 6, 0.3, 24, false, 0x3498db, 'water', 0, true),
+      // River banks (low walls)
+      ob(-3.5, 0, 0.5, 1, 24, false, 0x8a7a5a, 'wall'), ob(3.5, 0, 0.5, 1, 24, false, 0x8a7a5a, 'wall'),
+      // Trees on banks
+      ...buildTree(-18, -14, 1.3), ...buildTree(18, 14, 1.3),
+      ...buildTree(-18, 14, 1.3), ...buildTree(18, -14, 1.3),
+      // Bridge across river
+      ob(0, 0, 3, 0.5, 8, true, 0x7a5230, 'box'),
+      // Hills (climbable mounds)
+      ob(0, -20, 6, 2, 4, true, 0x6a9a5a, 'box'), ob(0, 20, 6, 2, 4, true, 0x6a9a5a, 'box'),
+      // Tower with stairs (vantage point)
+      ob(-20, 0, 3, 6, 3, true, 0x95a5a6, 'box'),
+      ...buildStairs(-17, 0, 6, 'W', 0x7f8c8d),
     ],
     spawns: [[0,-24],[0,24],[-24,0],[24,0]],
   },

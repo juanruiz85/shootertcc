@@ -20,7 +20,7 @@ const patrickHand = Patrick_Hand({
 });
 
 export const metadata: Metadata = {
-  title: "Doodle Shooter — Multijugador",
+  title: "Shooter — Multijugador",
   description: "Shooter FPS estilo doodle, multijugador en tiempo real. Hecho con Three.js + socket.io.",
   keywords: ["doodle shooter", "multiplayer", "fps", "three.js", "socket.io", "Next.js"],
   authors: [{ name: "Z.ai" }],

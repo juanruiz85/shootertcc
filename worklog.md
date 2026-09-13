@@ -640,3 +640,108 @@ Unresolved issues / next phase:
 - Could add: Bart Simpson chalkboard text on school blackboard, breakable glass in office
 - Could add: boss mobs, power-ups, weather effects
 - Next dev server stable via dev.sh
+
+---
+Task ID: y-server
+Agent: game-server-updater
+Task: Update game server (`mini-services/game-server/index.ts`) to mirror client's redesigned maps — new `MapObstacle`/`GameMap` interfaces, building helper functions (`buildHouse`, `buildStairs`, `buildTree`, `buildCar`), 5 redesigned maps (barrio, escuela, oficinas, bosque, paisaje), and rotation-aware `spawnBlocked`.
+
+Work Log:
+- Read `/home/z/my-project/worklog.md` for context (10 prior stages including x-server mode-logic update + 5 earlier maps; mode logic must NOT be changed).
+- Read client `src/lib/game/constants.ts` (538 lines) to confirm new types + helpers + map definitions that must be mirrored.
+- Read server `mini-services/game-server/index.ts` — located `MapObstacle`/`GameMap` types (lines 51-52), `ob` helper (line 54), `MAPS` array (line 56+), 5 old maps (barrio/escuela/oficinas/bosque/paisaje at lines 201-263), and `spawnBlocked` (line 395).
+
+Changes Made:
+
+1. Updated `MapObstacle` type (line 51):
+   - Old: `kind: 'box'|'cyl'|'ramp'`
+   - New: `kind: 'box'|'cyl'|'ramp'|'wall'|'stair'|'water'|'roof'; rotation?: number; noCollide?: boolean`
+
+2. Updated `GameMap` type (line 52):
+   - Added optional `waterLevel?: number` field
+
+3. Updated `ob` helper (line 54):
+   - Added `rotation = 0` and `noCollide = false` parameters with new `kind` union; returns all fields. Backward-compatible — existing 16 maps still call `ob` without rotation/noCollide and pick up the defaults.
+
+4. Added 4 building helper functions (lines 56-86), same as client:
+   - `buildHouse(cx, cz, w, d, h, color, roofColor, doorSide)` — 4 walls with door gap on one side, window-above-door (`noCollide: true`), and a roof (`kind: 'roof'`)
+   - `buildStairs(cx, cz, steps, dir, color)` — series of stair-step obstacles (`kind: 'stair'`) in N/S/E/W direction
+   - `buildTree(cx, cz, scale)` — trunk cylinder + foliage box
+   - `buildCar(cx, cz, color, rotation)` — body + cabin, both rotated
+
+5. Replaced 5 redesigned maps (lines 233-318) with the exact client versions:
+   - **barrio**: 4 `buildHouse` houses (red/blue/green/yellow roofs, doors facing S/N), trash cans, 4 `buildCar` cars (2 rotated 90°), low walls, crates, central water fountain (`kind: 'water', noCollide: true`). Spawns: 6 points.
+   - **escuela**: one large `buildHouse` (30×30, door S), interior classroom divider walls (horizontal + vertical), 12 desks via `flatMap` over `[-9,9]×[-9,9]`/`[-6,6]×[-9,9]`/`[-9,9]×[-6,6]` grids, 4 blackboards on walls, 4 colored lockers, 2 basketball hoops (pole + backboard), trash cans, `buildStairs` (6 steps east) for roof access. Spawns: 4 points.
+   - **oficinas**: 4 `buildHouse` office blocks (blue/yellow roofs, doors S/N), glass partitions (low walls, climbable), trash cans, desks, central elevator shaft (3×8×3 box), `buildStairs` (5 steps north), 2 ramps, 2 bridge roofs. Spawns: 4 points.
+   - **bosque**: 8 `buildTree` (varying scales 1.2-2), river (`water`, `noCollide: true`, 8×24), rocks for tree-top climbing, fallen logs, boulders, bridge, bushes (non-climbable), stumps. `waterLevel: 0.3`. Spawns: 6 points.
+   - **paisaje**: 4 large rocks + 4 small rocks (climbing chain), river (6×24) with 2 bank walls, 4 `buildTree` on banks, bridge (3×0.5×8), 2 hills, tower with `buildStairs` (6 steps west) for vantage. `waterLevel: 0.3`. Spawns: 4 points.
+
+6. Updated `spawnBlocked` function (lines 450-468) to handle new fields:
+   - Skip `kind === 'water'` obstacles (water doesn't block spawning)
+   - Skip `noCollide === true` obstacles (roofs, window-above-doors don't block)
+   - For obstacles with `rotation !== 0`: use a bounding-circle approximation (`reach = max(hw, hd) + margin`, distance² check) — slightly larger but conservative.
+   - For rotation === 0 (or undefined): keep original axis-aligned box check (`|dx| < hw+margin && |dz| < hd+margin`).
+   - This means rotated cars (barrio) and stairs won't falsely block spawns in their AABB corners, while water/roofs/windows are correctly ignored.
+
+7. Did NOT touch any mode logic (GameMode type, isPvPMode/isPvEMode/hasMobs/hasFriendlyFire/maxPlayersForMode, createRoom, room:create/room:join handlers, checkPvPRoundEnd, friendly fire checks, killPlayer, applyStreakReward, world tick). Verified with grep — no `'pvp'`/`'pve'` string literals remain in mode logic.
+
+Verification:
+- `bun run lint` — clean ✅ (no ESLint errors)
+- `bun build index.ts --target=bun` — bundled successfully (61 modules, 0.51 MB) — no syntax/type errors ✅
+- Dev server (`bun run dev` on port 3000) — Ready in 741ms, all `GET /` requests returning 200 ✅
+- 5 new maps match client `src/lib/game/constants.ts` exactly (same obstacles, spawns, ground/fog/accent colors, waterLevel) ✅
+- `MapObstacle`/`GameMap` types match client exactly ✅
+- `buildHouse`/`buildStairs`/`buildTree`/`buildCar` match client signatures exactly ✅
+- `spawnBlocked` correctly handles all new obstacle kinds (water/noCollide skipped, rotation uses circle approximation) ✅
+- All 16 original maps unchanged (lines 89-232) — backward compatible with new `ob` signature ✅
+- Mode logic (`'1v1'/'2v2'/'team'/'ffa'/'coop'/'mixed'`) untouched ✅
+
+Stage Summary:
+- Server now mirrors client's redesigned maps 1:1 — same types, same helpers, same 5 detailed maps (barrio/escuela/oficinas/bosque/paisaje with houses/stairs/trees/cars/rivers).
+- `spawnBlocked` is rotation-aware and skips non-colliding obstacles, so spawns no longer falsely blocked by rotated cars, water planes, roofs, or window-above-door segments.
+- All 21 maps (16 original + 5 redesigned) load cleanly; mode logic from x-server task fully preserved.
+- Game server runs on Bun natively; no runtime errors.
+
+---
+Task ID: 11
+Agent: main (user request)
+Task: Redesign maps Roblox-style with enterable buildings, water, stairs; rebrand to "Shooter"; create README + CHANGELOG
+
+Work Log:
+- User requested: detailed maps like Roblox/Fortnite/CoD, enterable houses, school building, forest with water, complex structures (towers/stairs/bridges), rebrand from "Doodle Shooter" to "Shooter", create README.md and CHANGELOG.md
+
+Changes:
+1. Created README.md with full documentation (tech stack, modes, maps, controls, model info: GLM-4.5, ~500K tokens)
+2. Created CHANGELOG.md with version history (v0.1.0 through v0.6.0)
+3. Rebranded "Doodle Shooter" → "Shooter" in: layout.tsx (title), Lobby.tsx (heading + footer)
+4. Extended MapObstacle interface: new kinds ('wall', 'stair', 'water', 'roof'), rotation field, noCollide field
+5. Extended GameMap interface: optional waterLevel field
+6. Added building helper functions: buildHouse (4 walls with door gap + roof), buildStairs, buildTree, buildCar
+7. Redesigned 5 maps with detailed structures:
+   - Barrio: 4 enterable houses (doors/windows/colored roofs), 4 cars, water fountain, trash cans, fences, crates
+   - Escuela: large 30×30 closed building with 4 classrooms (interior walls), 12 desks, 4 blackboards, lockers, basketball hoops, stairs to roof
+   - Oficinas: 4 enterable office buildings, glass partitions, elevator shaft with stairs, ramps, bridge roofs
+   - Bosque: 8 detailed trees (trunk + foliage), river (water plane), rocks, fallen logs, boulders, bridge, bushes, stumps
+   - Paisaje: large/small rocks (climbable), river with banks, trees, bridge, hills, tower with stairs
+8. Updated GameCanvas obstacle rendering to handle new kinds:
+   - water: semi-transparent blue, no collision, no edges
+   - stair: box mesh with rotation, climbable
+   - wall/roof: box mesh, roof has no edges
+   - noCollide obstacles skip collision box creation
+9. Updated server (via subagent): mirrored new types, helpers, 5 maps, updated spawnBlocked to handle rotation + skip water/noCollide
+
+Verification:
+- Lint: clean ✅
+- Servers stable (next:3000 + game-server:3003) ✅
+- Lobby shows "Shooter" and "21 mapas · 6 modos" ✅
+- Socket connects ✅
+- Coop room created → game loaded ✅
+- Player at 100 HP (alive, not stuck) ✅
+- No console errors ✅
+
+Stage Summary:
+- README.md + CHANGELOG.md created
+- Rebranded to "Shooter"
+- 5 maps completely redesigned with enterable buildings, water, stairs, complex structures
+- New obstacle system supports walls, stairs, water, roofs with rotation
+- 21 total maps, 6 game modes

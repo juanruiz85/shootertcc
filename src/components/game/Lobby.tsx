@@ -81,7 +81,7 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
           </div>
           <div>
             <h1 className="font-doodle text-2xl sm:text-3xl font-black tracking-tight leading-none">
-              Doodle Shooter
+              Shooter
             </h1>
             <p className="text-xs text-black/60 -mt-0.5">Multijugador · {MAPS.length} mapas · 6 modos</p>
           </div>
@@ -390,7 +390,7 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
       </main>
 
       <footer className="mt-auto border-t-2 border-black/80 bg-[#fdfbf7] px-4 py-3 text-center text-xs text-black/50">
-        Doodle Shooter · multijugador en tiempo real · Three.js + socket.io · {MAPS.length} mapas · 6 modos
+        Shooter · multijugador en tiempo real · Three.js + socket.io · {MAPS.length} mapas · 6 modos
       </footer>
     </div>
   )
