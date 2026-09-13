@@ -1178,3 +1178,114 @@ Verification:
 - VLM: "arena feels spacious and open, consistent with 160x160 scale" ✅
 - VLM: rated 7/10 ✅
 - No console errors ✅
+
+
+---
+Task ID: c-details-server
+Agent: game-server-details-sync
+Task: Verify server's `escuela` and `barrio` maps match client (redesigned with extensive details)
+
+Work Log:
+- User reported that the client's `escuela` and `barrio` maps at
+  `/home/z/my-project/src/lib/game/constants.ts` had been "completely
+  redesigned" with extensive details (classrooms, desks, lockers,
+  basketball court, houses with furniture, cars, trees, park, etc.)
+  and asked for the server's copies of these 2 maps to be updated to
+  match the client EXACTLY.
+
+Investigation:
+1. Read client `escuela` (lines 436–463) and `barrio` (lines 402–433)
+   from `src/lib/game/constants.ts`.
+2. Read server `escuela` (lines 298–313) and `barrio` (lines 274–297)
+   from `mini-services/game-server/index.ts`.
+3. Verified the server's helpers (`ob`, `buildHouse`, `buildStairs`,
+   `buildTree`, `buildCar`, `buildTower`) at lines 54–127 are identical
+   to the client's helpers at lines 96–215 (the only cosmetic difference
+   is the client names its default wood color `C_WOOD = 0xe8d5b7` while
+   the server inlines the hex literal `0xe8d5b7`).
+4. Wrote a one-off comparison script that re-declares the helpers,
+   expands both `CLIENT_*` and `SERVER_*` obstacle arrays verbatim
+   from the two source files, serializes every obstacle field
+   (`x, z, w, h, d, climbable, color, kind, rotation, noCollide, y`)
+   to JSON, and compares element-by-element.
+
+Comparison result:
+```
+=== BARRIO comparison ===
+client count: 115, server count: 115
+OK barrio: identical
+
+=== ESCUELA comparison ===
+client count: 46, server count: 46
+OK escuela: identical
+```
+
+Both maps already produce **identical** flattened obstacle arrays on the
+client and the server — every coordinate, dimension, color, kind,
+rotation, noCollide flag, and y-offset matches.
+
+Why no changes were needed:
+- The prior `b-rescale-server` task (see
+  `/home/z/my-project/agent-ctx/b-rescale-server-game-server.md`)
+  already mirrored the client's MAPS array verbatim into the server.
+- File mtimes confirm: client 15:24:32, server 15:36:11 (after client),
+  agent-ctx record 15:38:07.
+- The server therefore already incorporates all the client's detailed
+  redesign changes:
+  - escuela: 16 desks in 4 classrooms (4×4 grid at ±22, ±15),
+    8 lockers on east/west walls (z=±22, ±15, away from south door),
+    3 blackboards (west, east, north — south removed to unblock door),
+    basketball hoops at z=±45, trash cans at (±20,-10), interior stairs
+    at (-25, 5) for roof access.
+  - barrio: 8 enterable houses (4 north facing N, 4 south facing S)
+    with door gaps + window lintels + walkable roofs, 5-floor central
+    tower with internal stairs and floor platforms, 8 trash cans,
+    4 cars on the street, 2 street lamps, 2 climbable crates, 4 low
+    fences between houses, central water fountain.
+
+Verification:
+- `bun run lint`: clean ✅ (exit 0)
+- Programmatic obstacle-by-obstacle comparison: 0 mismatches across
+  115 + 46 = 161 obstacles ✅
+
+Files changed:
+- None. The server file was already in sync with the client file for
+  both the `escuela` and `barrio` maps. No edits were required.
+
+Conclusion:
+Task `c-details-server` is complete. The server's `escuela` and `barrio`
+maps are already byte-equivalent (after helper expansion) to the client's,
+so no edits were required. The verification was done programmatically to
+eliminate the possibility of human eye-skip error.
+
+Related agent records:
+- `/home/z/my-project/agent-ctx/c-details-server-game-server-details-sync.md`
+  (this task's full record)
+- `/home/z/my-project/agent-ctx/b-rescale-server-game-server.md`
+  (prior task that originally synced server maps to client)
+
+---
+Task ID: 15
+Agent: main (user request)
+Task: Fix roofs blocking movement, fix escuela entrance, add more map details
+
+Work Log:
+- User reported: can't pass under roofs, can't enter escuela, maps need more details
+- VLM analyzed screenshots: confirmed roofs blocking movement, buildings without doors, empty scenes
+
+Bug Fixes:
+1. Roofs blocking movement: Root cause — `horizontalBlocked` treated roof obstacles (kind='roof') same as walls. When player walked under a roof (feetY=0, roof top=3.8), the check `feetY < o.top - 0.15` was true, blocking horizontal movement. Fix: added `isRoof` field to ObstacleBox type. Roofs now NEVER block horizontal movement (`if (o.isRoof) continue`). Players can walk under roofs and stand on them from above. VLM confirmed: "no overhead obstructions, view completely clear".
+2. Escuela entrance: the 60×60 roof was blocking the door. With the roof fix, players can now enter freely.
+
+Map Details (via subagent):
+- Escuela redesigned: 4 classrooms with interior walls (door gaps), 16 desks, 3 blackboards, 8 colored lockers, basketball court with hoops, trash cans, internal stairs
+- Barrio redesigned: 8 enterable houses with colored roofs, 5-floor central tower, 4 cars, street lamps, fences, crates, water fountain
+
+Verification:
+- Lint: clean ✅
+- Servers stable ✅
+- Socket connects ✅
+- 2 players in coop room ✅
+- Player at 100 HP ✅
+- VLM: "no overhead obstructions" ✅
+- No console errors ✅

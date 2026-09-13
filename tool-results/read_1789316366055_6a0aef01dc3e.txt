@@ -1,0 +1,592 @@
+     1→     1→import type { Skin, Weapon } from './types'
+     2→     2→
+     3→     3→export const SKINS: Skin[] = [
+     4→     4→  { id: 'red',    name: 'Rojo',    color: '#e74c3c', accent: '#a93226' },
+     5→     5→  { id: 'blue',   name: 'Azul',    color: '#3498db', accent: '#21618c' },
+     6→     6→  { id: 'green',  name: 'Verde',   color: '#27ae60', accent: '#196f3d' },
+     7→     7→  { id: 'orange', name: 'Naranja', color: '#e67e22', accent: '#b9770e' },
+     8→     8→  { id: 'purple', name: 'Morado',  color: '#9b59b6', accent: '#6c3483' },
+     9→     9→  { id: 'teal',   name: 'Cian',    color: '#1abc9c', accent: '#117864' },
+    10→    10→  { id: 'pink',   name: 'Rosa',    color: '#e84393', accent: '#a72165' },
+    11→    11→  { id: 'yellow', name: 'Amarillo',color: '#f1c40f', accent: '#b7950b' },
+    12→    12→]
+    13→    13→
+    14→    14→export const WEAPONS: Record<string, Weapon> = {
+    15→    15→  pistol:  { id: 'pistol',  name: 'Pistola',  damage: 18, fireRate: 330, magazine: 12, reload: 1200, spread: 0.012, auto: false, range: 80, pellets: 1 },
+    16→    16→  smg:     { id: 'smg',     name: 'SMG',      damage: 12, fireRate: 90,  magazine: 30, reload: 1500, spread: 0.035, auto: true,  range: 60, pellets: 1 },
+    17→    17→  rifle:   { id: 'rifle',   name: 'Rifle',    damage: 26, fireRate: 170, magazine: 20, reload: 1800, spread: 0.018, auto: true,  range: 95, pellets: 1 },
+    18→    18→  shotgun: { id: 'shotgun', name: 'Escopeta', damage: 11, fireRate: 720, magazine: 6,  reload: 2100, spread: 0.13,  auto: false, range: 32, pellets: 7 },
+    19→    19→}
+    20→    20→
+    21→    21→export const WEAPON_ORDER = ['pistol', 'smg', 'rifle', 'shotgun']
+    22→    22→
+    23→    23→export const ARENA_SIZE = 160
+    24→    24→export const PLAYER_MAX_HP = 100
+    25→    25→export const PLAYER_MAX_SHIELD = 50
+    26→    26→export const MOB_MAX_HP = 60
+    27→    27→
+    28→    28→export type GameMode = '1v1' | '2v2' | 'team' | 'ffa' | 'coop' | 'mixed'
+    29→    29→export type Team = 'blue' | 'red' | 'none'
+    30→    30→
+    31→    31→export const TEAMS: Record<Team, { id: Team; name: string; color: string; accent: string }> = {
+    32→    32→  blue:  { id: 'blue',  name: 'Azul',  color: '#3498db', accent: '#21618c' },
+    33→    33→  red:   { id: 'red',   name: 'Rojo',  color: '#e74c3c', accent: '#a93226' },
+    34→    34→  none:  { id: 'none',  name: '—',     color: '#5d6d7e', accent: '#2c3e50' },
+    35→    35→}
+    36→    36→
+    37→    37→/* ============================ ITEMS ============================ */
+    38→    38→export type ItemType = 'ammo' | 'heal' | 'shield'
+    39→    39→export interface ItemDef { id: ItemType; name: string; color: string; icon: string }
+    40→    40→export const ITEMS: Record<ItemType, ItemDef> = {
+    41→    41→  ammo:   { id: 'ammo',   name: 'Cartucho',  color: '#f1c40f', icon: 'ammo' },
+    42→    42→  heal:   { id: 'heal',   name: 'Cruz',      color: '#e74c3c', icon: 'heal' },
+    43→    43→  shield: { id: 'shield', name: 'Bebida',    color: '#1abc9c', icon: 'shield' },
+    44→    44→}
+    45→    45→
+    46→    46→/* ============================ KILLSTREAKS ============================ */
+    47→    47→export interface KillstreakDef { id: string; name: string; streak: number; desc: string; icon: string }
+    48→    48→export const KILLSTREAKS: KillstreakDef[] = [
+    49→    49→  { id: 'drone',  name: 'Dron',     streak: 3,  desc: 'Dron aliado que ataca enemigos',   icon: 'drone' },
+    50→    50→  { id: 'bomb',   name: 'Bomba',    streak: 5,  desc: 'Bombardeo de zona',                 icon: 'bomb' },
+    51→    51→  { id: 'aura',   name: 'Ráfaga',   streak: 7,  desc: 'Velocidad + recarga instantánea',   icon: 'aura' },
+    52→    52→]
+    53→    53→export function streakAt(streak: number): KillstreakDef | null {
+    54→    54→  let best: KillstreakDef | null = null
+    55→    55→  for (const k of KILLSTREAKS) if (streak >= k.streak && (!best || k.streak > best.streak)) best = k
+    56→    56→  return best
+    57→    57→}
+    58→    58→
+    59→    59→/* ============================ MAPS ============================ */
+    60→    60→export interface MapObstacle {
+    61→    61→  x: number; z: number; w: number; h: number; d: number
+    62→    62→  climbable: boolean
+    63→    63→  color: number
+    64→    64→  kind: 'box' | 'cyl' | 'ramp' | 'wall' | 'stair' | 'water' | 'roof'
+    65→    65→  rotation?: number  // y-rotation in radians
+    66→    66→  noCollide?: boolean  // if true, no collision (for roofs you can stand on via stairs)
+    67→    67→  y?: number  // vertical offset from ground (default 0 = on the floor)
+    68→    68→}
+    69→    69→export interface GameMap {
+    70→    70→  id: string
+    71→    71→  name: string
+    72→    72→  theme: string
+    73→    73→  ground: number      // floor color
+    74→    74→  fog: number         // fog color
+    75→    75→  accent: number      // wall/trim color
+    76→    76→  obstacles: MapObstacle[]
+    77→    77→  spawns: [number, number][]  // x,z
+    78→    78→  waterLevel?: number  // y-height of water plane (optional)
+    79→    79→}
+    80→    80→
+    81→    81→const G_PAPER = 0xf5f1e8
+    82→    82→const G_SAND  = 0xf0e6d2
+    83→    83→const G_GRASS = 0xeaf3e0
+    84→    84→const G_STONE = 0xe8e4df
+    85→    85→const G_SNOW  = 0xf7fafc
+    86→    86→const G_LAVA  = 0xf6e3d8
+    87→    87→
+    88→    88→const C_WOOD = 0xe8d5b7
+    89→    89→const C_STONE = 0xd5c4a0
+    90→    90→const C_DARK = 0xcdb98a
+    91→    91→const C_PILLAR = 0xb8a47a
+    92→    92→const C_RED = 0xe0a3a0
+    93→    93→const C_BLUE = 0xa3c8e0
+    94→    94→
+    95→    95→// helper to build obstacle
+    96→    96→const ob = (x: number, z: number, w: number, h: number, d: number, climbable = true, color = C_WOOD, kind: 'box'|'cyl'|'ramp'|'wall'|'stair'|'water'|'roof' = 'box', rotation = 0, noCollide = false, y = 0): MapObstacle => ({ x, z, w, h, d, climbable, color, kind, rotation, noCollide, y })
+    97→    97→
+    98→    98→// Build a house: 4 walls with a door gap on one side, windows, optional roof
+    99→    99→// Returns array of obstacles (wall segments)
+   100→   100→function buildHouse(cx: number, cz: number, w: number, d: number, h: number, color: number, roofColor: number, doorSide: 'N'|'S'|'E'|'W' = 'S'): MapObstacle[] {
+   101→   101→  const walls: MapObstacle[] = []
+   102→   102→  const wallT = 0.3
+   103→   103→  const doorW = 1.5
+   104→   104→  const doorH = 2.2  // door height
+   105→   105→  const winH = 1.0
+   106→   106→  // North wall (z = cz - d/2)
+   107→   107→  if (doorSide !== 'N') {
+   108→   108→    walls.push(ob(cx, cz - d/2, w, h, wallT, false, color, 'wall'))
+   109→   109→  } else {
+   110→   110→    walls.push(ob(cx - w/4 - doorW/4, cz - d/2, w/2 - doorW/2, h, wallT, false, color, 'wall'))
+   111→   111→    walls.push(ob(cx + w/4 + doorW/4, cz - d/2, w/2 - doorW/2, h, wallT, false, color, 'wall'))
+   112→   112→    // window above door (positioned at doorH, no collision)
+   113→   113→    walls.push(ob(cx, cz - d/2, doorW, h - doorH, wallT, false, color, 'wall', 0, true, doorH))
+   114→   114→  }
+   115→   115→  // South wall (z = cz + d/2)
+   116→   116→  if (doorSide !== 'S') {
+   117→   117→    walls.push(ob(cx, cz + d/2, w, h, wallT, false, color, 'wall'))
+   118→   118→  } else {
+   119→   119→    walls.push(ob(cx - w/4 - doorW/4, cz + d/2, w/2 - doorW/2, h, wallT, false, color, 'wall'))
+   120→   120→    walls.push(ob(cx + w/4 + doorW/4, cz + d/2, w/2 - doorW/2, h, wallT, false, color, 'wall'))
+   121→   121→    walls.push(ob(cx, cz + d/2, doorW, h - doorH, wallT, false, color, 'wall', 0, true, doorH))
+   122→   122→  }
+   123→   123→  // East wall (x = cx + w/2)
+   124→   124→  if (doorSide !== 'E') {
+   125→   125→    walls.push(ob(cx + w/2, cz, wallT, h, d, false, color, 'wall'))
+   126→   126→  } else {
+   127→   127→    walls.push(ob(cx + w/2, cz - d/4 - doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall'))
+   128→   128→    walls.push(ob(cx + w/2, cz + d/4 + doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall'))
+   129→   129→  }
+   130→   130→  // West wall (x = cx - w/2)
+   131→   131→  if (doorSide !== 'W') {
+   132→   132→    walls.push(ob(cx - w/2, cz, wallT, h, d, false, color, 'wall'))
+   133→   133→  } else {
+   134→   134→    walls.push(ob(cx - w/2, cz - d/4 - doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall'))
+   135→   135→    walls.push(ob(cx - w/2, cz + d/4 + doorW/4, wallT, h, d/2 - doorW/2, false, color, 'wall'))
+   136→   136→  }
+   137→   137→  // Roof at top of walls (player can stand on it)
+   138→   138→  walls.push(ob(cx, cz, w + 0.6, 0.3, d + 0.6, true, roofColor, 'roof', 0, false, h))
+   139→   139→  return walls
+   140→   140→}
+   141→   141→
+   142→   142→// Build stairs: a series of steps going up, each at increasing height
+   143→   143→function buildStairs(cx: number, cz: number, steps: number, dir: 'N'|'S'|'E'|'W', color: number): MapObstacle[] {
+   144→   144→  const result: MapObstacle[] = []
+   145→   145→  const stepH = 0.6, stepD = 0.7, stepW = 2.5
+   146→   146→  for (let i = 0; i < steps; i++) {
+   147→   147→    let x = cx, z = cz
+   148→   148→    if (dir === 'N') z = cz - i * stepD
+   149→   149→    if (dir === 'S') z = cz + i * stepD
+   150→   150→    if (dir === 'E') x = cx + i * stepD
+   151→   151→    if (dir === 'W') x = cx - i * stepD
+   152→   152→    // each step is positioned at y = i * stepH (stacking upward)
+   153→   153→    result.push(ob(x, z, stepW, stepH, stepD, true, color, 'stair', 0, false, i * stepH))
+   154→   154→  }
+   155→   155→  return result
+   156→   156→}
+   157→   157→
+   158→   158→// Build a tree (trunk + foliage on top)
+   159→   159→function buildTree(cx: number, cz: number, scale: number = 1): MapObstacle[] {
+   160→   160→  const trunkH = 3 * scale
+   161→   161→  const foliageH = 2.5 * scale
+   162→   162→  return [
+   163→   163→    // trunk at ground level
+   164→   164→    ob(cx, cz, 0.4 * scale, trunkH, 0.4 * scale, false, 0x7a5230, 'cyl'),
+   165→   165→    // foliage on top of trunk
+   166→   166→    ob(cx, cz, 2.5 * scale, foliageH, 2.5 * scale, true, 0x27ae60, 'box', 0, false, trunkH),
+   167→   167→  ]
+   168→   168→}
+   169→   169→
+   170→   170→// Build a car (body + cabin on top)
+   171→   171→function buildCar(cx: number, cz: number, color: number, rotation: number = 0): MapObstacle[] {
+   172→   172→  return [
+   173→   173→    ob(cx, cz, 2, 0.8, 4, true, color, 'box', rotation),           // body at ground
+   174→   174→    ob(cx, cz, 1.8, 0.6, 2, false, 0x2c3e50, 'box', rotation, false, 0.8), // cabin on top
+   175→   175→  ]
+   176→   176→}
+   177→   177→
+   178→   178→// Build a multi-floor tower: enterable, with internal stairs starting from floor 1
+   179→   179→function buildTower(cx: number, cz: number, w: number, d: number, floors: number, color: number, roofColor: number): MapObstacle[] {
+   180→   180→  const result: MapObstacle[] = []
+   181→   181→  const floorH = 3.0
+   182→   182→  const wallT = 0.3
+   183→   183→  const doorW = 1.5
+   184→   184→  const totalH = floors * floorH
+   185→   185→  // Outer walls (full height) — North, East, West
+   186→   186→  result.push(ob(cx, cz - d/2, w, totalH, wallT, false, color, 'wall'))
+   187→   187→  result.push(ob(cx + w/2, cz, wallT, totalH, d, false, color, 'wall'))
+   188→   188→  result.push(ob(cx - w/2, cz, wallT, totalH, d, false, color, 'wall'))
+   189→   189→  // South wall with door gap at ground floor only (upper floors have full wall + window)
+   190→   190→  // Ground floor door
+   191→   191→  result.push(ob(cx - w/4 - doorW/4, cz + d/2, w/2 - doorW/2, floorH - 0.1, wallT, false, color, 'wall', 0, false, 0))
+   192→   192→  result.push(ob(cx + w/4 + doorW/4, cz + d/2, w/2 - doorW/2, floorH - 0.1, wallT, false, color, 'wall', 0, false, 0))
+   193→   193→  // Upper floor walls (full, with windows)
+   194→   194→  for (let f = 1; f < floors; f++) {
+   195→   195→    const fy = f * floorH
+   196→   196→    result.push(ob(cx, cz + d/2, w, floorH - 0.1, wallT, false, color, 'wall', 0, false, fy))
+   197→   197→  }
+   198→   198→  // Floor platforms for upper floors (walkable, thin slabs — no horizontal blocking)
+   199→   199→  for (let f = 1; f < floors; f++) {
+   200→   200→    const fy = f * floorH
+   201→   201→    // platform with a gap for stairs (stair opening on one side)
+   202→   202→    result.push(ob(cx + w/4, cz, w/2 - wallT, 0.2, d - wallT * 2, true, color, 'roof', 0, false, fy))
+   203→   203→  }
+   204→   204→  // Stairs: start from floor 1 (ground) going up to each floor
+   205→   205→  // Place stairs against the north wall, going up
+   206→   206→  for (let f = 0; f < floors - 1; f++) {
+   207→   207→    const fy = f * floorH
+   208→   208→    // 4 steps per floor (stepH=0.6, so 4 steps = 2.4 height, close to floorH=3.0)
+   209→   209→    // stairs positioned at north side of tower, going from south to north (upward)
+   210→   210→    result.push(...buildStairs(cx, cz - d/4, 5, 'N', 0x8a7a5a).map(s => ({ ...s, y: (s.y || 0) + fy })))
+   211→   211→  }
+   212→   212→  // Roof at top
+   213→   213→  result.push(ob(cx, cz, w + 0.6, 0.3, d + 0.6, true, roofColor, 'roof', 0, false, totalH))
+   214→   214→  return result
+   215→   215→}
+   216→   216→
+   217→   217→// 16 themed maps
+   218→   218→export const MAPS: GameMap[] = [
+   219→   219→  {
+   220→   220→    id: 'arena', name: 'Arena Doodle', theme: 'Clásica', ground: G_PAPER, fog: 0xfdfbf7, accent: 0xe8e4df,
+   221→   221→    obstacles: [
+   222→   222→      ob(0, 0, 3, 4, 3, true, C_STONE),
+   223→   223→      ob(-35, -25, 4, 3, 4, true, C_WOOD),
+   224→   224→      ob(30, 20, 5, 2.5, 3, true, C_WOOD),
+   225→   225→      ob(-45, 35, 2.5, 3.5, 2.5, true, C_PILLAR, 'cyl'),
+   226→   226→      ob(45, -40, 4, 3, 4, true, C_WOOD),
+   227→   227→      ob(20, -15, 1.6, 3.2, 1.6, false, C_PILLAR, 'cyl'),
+   228→   228→      ob(-20, 15, 1.6, 3.2, 1.6, false, C_PILLAR, 'cyl'),
+   229→   229→      ob(-10, -50, 6, 2, 2, true, C_STONE),
+   230→   230→      ob(40, 45, 2, 2, 6, true, C_STONE),
+   231→   231→    ],
+   232→   232→    spawns: [[0,-22],[0,22],[22,0],[-22,0],[16,-16],[-16,16]],
+   233→   233→  },
+   234→   234→  {
+   235→   235→    id: 'patios', name: 'Patios', theme: 'Cuadrantes', ground: G_SAND, fog: 0xf6efde, accent: 0xe0d5b8,
+   236→   236→    obstacles: [
+   237→   237→      ob(-25,-25, 3,3,3, true, C_WOOD), ob(25,-25, 3,3,3, true, C_WOOD),
+   238→   238→      ob(-25,25, 3,3,3, true, C_WOOD),  ob(25,25, 3,3,3, true, C_WOOD),
+   239→   239→      ob(0,-45, 8,2,2, true, C_STONE), ob(0,45, 8,2,2, true, C_STONE),
+   240→   240→      ob(-45,0, 2,2,8, true, C_STONE), ob(45,0, 2,2,8, true, C_STONE),
+   241→   241→      ob(0,0, 2,4,2, true, C_PILLAR),
+   242→   242→    ],
+   243→   243→    spawns: [[-50,-50],[50,50],[20,-20],[-20,20],[0,-60],[0,60]],
+   244→   244→  },
+   245→   245→  {
+   246→   246→    id: 'bunkers', name: 'Bunkers', theme: 'Trincheras', ground: G_STONE, fog: 0xeae6e0, accent: 0xcfc8bc,
+   247→   247→    obstacles: [
+   248→   248→      ob(-40,-20, 12,2,2, true, C_STONE), ob(40,20, 12,2,2, true, C_STONE),
+   249→   249→      ob(-20,20, 2,2,12, true, C_STONE), ob(20,-20, 2,2,12, true, C_STONE),
+   250→   250→      ob(0,-50, 18,3,2, true, C_DARK), ob(0,50, 18,3,2, true, C_DARK),
+   251→   251→      ob(-55,0, 2,3,10, true, C_DARK), ob(55,0, 2,3,10, true, C_DARK),
+   252→   252→      ob(0,0, 4,3.5,4, true, C_WOOD),
+   253→   253→    ],
+   254→   254→    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
+   255→   255→  },
+   256→   256→  {
+   257→   257→    id: 'torres', name: 'Torres', theme: 'Pilares', ground: G_STONE, fog: 0xeae6e0, accent: 0xcfc8bc,
+   258→   258→    obstacles: [
+   259→   259→      ob(-35,-35, 3,5,3, true, C_PILLAR,'cyl'), ob(35,-35, 3,5,3, true, C_PILLAR,'cyl'),
+   260→   260→      ob(-35,35, 3,5,3, true, C_PILLAR,'cyl'),  ob(35,35, 3,5,3, true, C_PILLAR,'cyl'),
+   261→   261→      ob(0,0, 4,6,4, true, C_PILLAR),
+   262→   262→      ob(-55,0, 2,3,2, true, C_WOOD), ob(55,0, 2,3,2, true, C_WOOD),
+   263→   263→      ob(0,-55, 2,3,2, true, C_WOOD), ob(0,55, 2,3,2, true, C_WOOD),
+   264→   264→    ],
+   265→   265→    spawns: [[0,-60],[0,60],[60,0],[-60,0],[-50,-50],[50,50]],
+   266→   266→  },
+   267→   267→  {
+   268→   268→    id: 'crucero', name: 'Crucero', theme: 'Cruz', ground: G_PAPER, fog: 0xfdfbf7, accent: 0xe8e4df,
+   269→   269→    obstacles: [
+   270→   270→      ob(0,-30, 4,3,16, true, C_WOOD), ob(0,30, 4,3,16, true, C_WOOD),
+   271→   271→      ob(-30,0, 16,3,4, true, C_WOOD), ob(30,0, 16,3,4, true, C_WOOD),
+   272→   272→      ob(0,0, 3,5,3, true, C_STONE),
+   273→   273→      ob(-50,-50, 3,2,3, true, C_DARK), ob(50,-50, 3,2,3, true, C_DARK),
+   274→   274→      ob(-50,50, 3,2,3, true, C_DARK), ob(50,50, 3,2,3, true, C_DARK),
+   275→   275→    ],
+   276→   276→    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
+   277→   277→  },
+   278→   278→  {
+   279→   279→    id: 'espinas', name: 'Espinas', theme: 'Zig-zag', ground: G_SAND, fog: 0xf6efde, accent: 0xe0d5b8,
+   280→   280→    obstacles: [
+   281→   281→      ob(-45,-40, 2,3,8, true, C_STONE), ob(-23,-20, 8,3,2, true, C_STONE),
+   282→   282→      ob(0,0, 2,3,8, true, C_STONE), ob(23,20, 8,3,2, true, C_STONE),
+   283→   283→      ob(45,40, 2,3,8, true, C_STONE),
+   284→   284→      ob(-23,20, 2,3,8, true, C_WOOD), ob(23,-20, 2,3,8, true, C_WOOD),
+   285→   285→      ob(0,-50, 6,2,2, true, C_DARK), ob(0,50, 6,2,2, true, C_DARK),
+   286→   286→    ],
+   287→   287→    spawns: [[-60,-60],[60,60],[-60,60],[60,-60]],
+   288→   288→  },
+   289→   289→  {
+   290→   290→    id: 'fortaleza', name: 'Fortaleza', theme: 'Murallas', ground: G_STONE, fog: 0xeae6e0, accent: 0xcfc8bc,
+   291→   291→    obstacles: [
+   292→   292→      ob(0,-50, 30,3,2, true, C_DARK), ob(0,50, 30,3,2, true, C_DARK),
+   293→   293→      ob(-50,0, 2,3,30, true, C_DARK), ob(50,0, 2,3,30, true, C_DARK),
+   294→   294→      ob(-25,-25, 3,4,3, true, C_STONE), ob(25,-25, 3,4,3, true, C_STONE),
+   295→   295→      ob(-25,25, 3,4,3, true, C_STONE), ob(25,25, 3,4,3, true, C_STONE),
+   296→   296→      ob(0,0, 5,3,5, true, C_WOOD),
+   297→   297→    ],
+   298→   298→    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
+   299→   299→  },
+   300→   300→  {
+   301→   301→    id: 'laberinto', name: 'Laberinto', theme: 'Maze', ground: G_GRASS, fog: 0xeef5e6, accent: 0xcfdcc0,
+   302→   302→    obstacles: [
+   303→   303→      ob(-30,-30, 2,3,12, true, C_WOOD), ob(0,-15, 12,3,2, true, C_WOOD),
+   304→   304→      ob(30,0, 2,3,12, true, C_WOOD), ob(-15,30, 12,3,2, true, C_WOOD),
+   305→   305→      ob(-45,15, 6,3,2, true, C_STONE), ob(15,-45, 2,3,6, true, C_STONE),
+   306→   306→      ob(45,-15, 6,3,2, true, C_STONE), ob(-15,45, 2,3,6, true, C_STONE),
+   307→   307→      ob(0,0, 2,2,2, false, C_DARK),
+   308→   308→    ],
+   309→   309→    spawns: [[-60,-60],[60,60],[60,-60],[-60,60],[0,-60],[0,60]],
+   310→   310→  },
+   311→   311→  {
+   312→   312→    id: 'puentes', name: 'Puentes', theme: 'Rampas', ground: G_SAND, fog: 0xf6efde, accent: 0xe0d5b8,
+   313→   313→    obstacles: [
+   314→   314→      ob(0,-25, 4,2,12, true, C_WOOD), ob(0,25, 4,2,12, true, C_WOOD),
+   315→   315→      ob(-30,0, 12,2,4, true, C_WOOD), ob(30,0, 12,2,4, true, C_WOOD),
+   316→   316→      ob(-45,-45, 4,4,4, true, C_STONE,'ramp'), ob(45,45, 4,4,4, true, C_STONE,'ramp'),
+   317→   317→      ob(45,-45, 4,4,4, true, C_STONE,'ramp'), ob(-45,45, 4,4,4, true, C_STONE,'ramp'),
+   318→   318→      ob(0,0, 3,5,3, true, C_PILLAR),
+   319→   319→    ],
+   320→   320→    spawns: [[0,-60],[0,60],[60,0],[-60,0]],
+   321→   321→  },
+   322→   322→  {
+   323→   323→    id: 'crater', name: 'Cráter', theme: 'Anillo', ground: G_LAVA, fog: 0xf6e3d8, accent: 0xe0c8bc,
+   324→   324→    obstacles: [
+   325→   325→      ob(0,0, 6,1.5,6, true, C_RED),
+   326→   326→      ob(-30,0, 2,3,2, true, C_STONE), ob(30,0, 2,3,2, true, C_STONE),
+   327→   327→      ob(0,-30, 2,3,2, true, C_STONE), ob(0,30, 2,3,2, true, C_STONE),
+   328→   328→      ob(-45,-45, 3,3,3, true, C_DARK), ob(45,-45, 3,3,3, true, C_DARK),
+   329→   329→      ob(-45,45, 3,3,3, true, C_DARK), ob(45,45, 3,3,3, true, C_DARK),
+   330→   330→      ob(0,-55, 8,2,2, true, C_STONE), ob(0,55, 8,2,2, true, C_STONE),
+   331→   331→    ],
+   332→   332→    spawns: [[0,-60],[0,60],[60,0],[-60,0],[-55,-55],[55,55]],
+   333→   333→  },
+   334→   334→  {
+   335→   335→    id: 'zigzag', name: 'Zigzag', theme: 'Dientes', ground: G_PAPER, fog: 0xfdfbf7, accent: 0xe8e4df,
+   336→   336→    obstacles: [
+   337→   337→      ob(-40,-30, 3,3,3, true, C_WOOD), ob(-20,30, 3,3,3, true, C_WOOD),
+   338→   338→      ob(0,-30, 3,3,3, true, C_WOOD), ob(20,30, 3,3,3, true, C_WOOD),
+   339→   339→      ob(40,-30, 3,3,3, true, C_WOOD),
+   340→   340→      ob(-30,0, 2,4,2, true, C_PILLAR,'cyl'), ob(30,0, 2,4,2, true, C_PILLAR,'cyl'),
+   341→   341→      ob(0,0, 4,5,4, true, C_STONE),
+   342→   342→    ],
+   343→   343→    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
+   344→   344→  },
+   345→   345→  {
+   346→   346→    id: 'diamante', name: 'Diamante', theme: 'Rombo', ground: G_SNOW, fog: 0xf7fafc, accent: 0xdfe7ec,
+   347→   347→    obstacles: [
+   348→   348→      ob(0,-35, 4,3,4, true, C_BLUE), ob(35,0, 4,3,4, true, C_BLUE),
+   349→   349→      ob(0,35, 4,3,4, true, C_BLUE), ob(-35,0, 4,3,4, true, C_BLUE),
+   350→   350→      ob(0,0, 5,5,5, true, C_STONE),
+   351→   351→      ob(-50,-50, 3,2,3, true, C_WOOD), ob(50,-50, 3,2,3, true, C_WOOD),
+   352→   352→      ob(-50,50, 3,2,3, true, C_WOOD), ob(50,50, 3,2,3, true, C_WOOD),
+   353→   353→    ],
+   354→   354→    spawns: [[0,-60],[0,60],[60,0],[-60,0]],
+   355→   355→  },
+   356→   356→  {
+   357→   357→    id: 'colmena', name: 'Colmena', theme: 'Celdas', ground: G_GRASS, fog: 0xeef5e6, accent: 0xcfdcc0,
+   358→   358→    obstacles: [
+   359→   359→      ob(-30,-30, 4,3,4, true, C_WOOD), ob(0,-30, 4,3,4, true, C_WOOD), ob(30,-30, 4,3,4, true, C_WOOD),
+   360→   360→      ob(-30,0, 4,3,4, true, C_WOOD), ob(30,0, 4,3,4, true, C_WOOD),
+   361→   361→      ob(-30,30, 4,3,4, true, C_WOOD), ob(0,30, 4,3,4, true, C_WOOD), ob(30,30, 4,3,4, true, C_WOOD),
+   362→   362→      ob(0,0, 4,2,4, true, C_STONE),
+   363→   363→    ],
+   364→   364→    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-24,-24],[24,24]],
+   365→   365→  },
+   366→   366→  {
+   367→   367→    id: 'ruinas', name: 'Ruinas', theme: 'Escombros', ground: G_STONE, fog: 0xeae6e0, accent: 0xcfc8bc,
+   368→   368→    obstacles: [
+   369→   369→      ob(-40,-35, 6,2,3, true, C_DARK), ob(-35,30, 4,3,4, true, C_STONE),
+   370→   370→      ob(30,-40, 5,2.5,4, true, C_WOOD), ob(40,30, 3,3,5, true, C_DARK),
+   371→   371→      ob(0,-15, 2,4,2, true, C_PILLAR,'cyl'), ob(0,20, 2,4,2, true, C_PILLAR,'cyl'),
+   372→   372→      ob(-15,0, 3,1.5,3, true, C_STONE), ob(15,0, 3,1.5,3, true, C_STONE),
+   373→   373→      ob(0,0, 8,1,8, true, C_RED),
+   374→   374→    ],
+   375→   375→    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]],
+   376→   376→  },
+   377→   377→  {
+   378→   378→    id: 'estadio', name: 'Estadio', theme: 'Graderías', ground: G_GRASS, fog: 0xeef5e6, accent: 0xcfdcc0,
+   379→   379→    obstacles: [
+   380→   380→      ob(0,-55, 44,4,2, true, C_STONE), ob(0,55, 44,4,2, true, C_STONE),
+   381→   381→      ob(-55,0, 2,4,44, true, C_STONE), ob(55,0, 2,4,44, true, C_STONE),
+   382→   382→      ob(0,-40, 30,2,2, true, C_WOOD), ob(0,40, 30,2,2, true, C_WOOD),
+   383→   383→      ob(-40,0, 2,2,16, true, C_WOOD), ob(40,0, 2,2,16, true, C_WOOD),
+   384→   384→      ob(0,0, 4,3,4, true, C_DARK),
+   385→   385→    ],
+   386→   386→    spawns: [[0,-18],[0,18],[-18,0],[18,0]],
+   387→   387→  },
+   388→   388→  {
+   389→   389→    id: 'nucleo', name: 'Núcleo', theme: 'Anillo central', ground: G_LAVA, fog: 0xf6e3d8, accent: 0xe0c8bc,
+   390→   390→    obstacles: [
+   391→   391→      ob(0,0, 8,1.5,8, true, C_RED),
+   392→   392→      ob(-25,0, 2,4,2, true, C_PILLAR,'cyl'), ob(25,0, 2,4,2, true, C_PILLAR,'cyl'),
+   393→   393→      ob(0,-25, 2,4,2, true, C_PILLAR,'cyl'), ob(0,25, 2,4,2, true, C_PILLAR,'cyl'),
+   394→   394→      ob(-40,-40, 4,3,4, true, C_STONE), ob(40,-40, 4,3,4, true, C_STONE),
+   395→   395→      ob(-40,40, 4,3,4, true, C_STONE), ob(40,40, 4,3,4, true, C_STONE),
+   396→   396→      ob(0,-55, 10,2,2, true, C_WOOD), ob(0,55, 10,2,2, true, C_WOOD),
+   397→   397→    ],
+   398→   398→    spawns: [[0,-60],[0,60],[60,0],[-60,0]],
+   399→   399→  },
+   400→   400→  // ===== DETAILED MAPS — Roblox/Fortnite/CoD inspired =====
+   401→   401→  {
+   402→   402→    id: 'barrio', name: 'Barrio', theme: 'Conjunto residencial', ground: 0xb0b8c0, fog: 0xc8d0d8, accent: 0x8a92a0,
+   403→   403→    obstacles: [
+   404→   404→      // 8 enterable houses with doors + windows + roofs (bigger neighborhood)
+   405→   405→      ...buildHouse(-50, -40, 6, 6, 3.5, 0xe8d5b7, 0xc0392b, 'S'),
+   406→   406→      ...buildHouse(-20, -40, 6, 6, 3.5, 0xd5c4a0, 0x2980b9, 'S'),
+   407→   407→      ...buildHouse(20, -40, 6, 6, 3.5, 0xcdb98a, 0x27ae60, 'S'),
+   408→   408→      ...buildHouse(50, -40, 6, 6, 3.5, 0xe8d5b7, 0xf1c40f, 'S'),
+   409→   409→      ...buildHouse(-50, 40, 6, 6, 3.5, 0xd5c4a0, 0x8e44ad, 'N'),
+   410→   410→      ...buildHouse(-20, 40, 6, 6, 3.5, 0xe8d5b7, 0xe67e22, 'N'),
+   411→   411→      ...buildHouse(20, 40, 6, 6, 3.5, 0xcdb98a, 0x1abc9c, 'N'),
+   412→   412→      ...buildHouse(50, 40, 6, 6, 3.5, 0xe8d5b7, 0xe74c3c, 'N'),
+   413→   413→      // 5-floor tower in center (enterable, with internal stairs)
+   414→   414→      ...buildTower(0, 0, 8, 8, 5, 0xa0a8b0, 0x2c3e50),
+   415→   415→      // trash cans next to houses (for climbing to roof)
+   416→   416→      ob(-43, -30, 1, 1.2, 1, true, 0x555555), ob(-13, -30, 1, 1.2, 1, true, 0x555555),
+   417→   417→      ob(28, -30, 1, 1.2, 1, true, 0x555555), ob(58, -30, 1, 1.2, 1, true, 0x555555),
+   418→   418→      ob(-43, 30, 1, 1.2, 1, true, 0x555555), ob(-13, 30, 1, 1.2, 1, true, 0x555555),
+   419→   419→      ob(28, 30, 1, 1.2, 1, true, 0x555555), ob(58, 30, 1, 1.2, 1, true, 0x555555),
+   420→   420→      // cars on the street
+   421→   421→      ...buildCar(-35, 0, 0xe74c3c, 0), ...buildCar(35, 0, 0x3498db, 0),
+   422→   422→      ...buildCar(0, -20, 0x27ae60, Math.PI/2), ...buildCar(0, 20, 0xf1c40f, Math.PI/2),
+   423→   423→      // street lamps
+   424→   424→      ob(-30, -10, 0.2, 3, 0.2, false, 0x2c3e50, 'cyl'), ob(30, 10, 0.2, 3, 0.2, false, 0x2c3e50, 'cyl'),
+   425→   425→      // crates for climbing
+   426→   426→      ob(-15, -10, 1.5, 1.5, 1.5, true, 0xe8d5b7), ob(15, 10, 1.5, 1.5, 1.5, true, 0xe8d5b7),
+   427→   427→      // low fences between houses
+   428→   428→      ob(-35, -40, 0.3, 1.5, 4, false, 0x8a92a0, 'wall'), ob(35, -40, 0.3, 1.5, 4, false, 0x8a92a0, 'wall'),
+   429→   429→      ob(-35, 40, 0.3, 1.5, 4, false, 0x8a92a0, 'wall'), ob(35, 40, 0.3, 1.5, 4, false, 0x8a92a0, 'wall'),
+   430→   430→      // central water fountain (decorative)
+   431→   431→      ob(0, -10, 2, 0.4, 2, true, 0x3498db, 'water', 0, true),
+   432→   432→    ],
+   433→   433→    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-24,-24],[24,24]],
+   434→   434→  },
+   435→   435→  {
+   436→   436→    id: 'escuela', name: 'Escuela', theme: 'Escuela con salones', ground: 0xd5d8de, fog: 0xe0e3e8, accent: 0xa0a8b0,
+   437→   437→    obstacles: [
+   438→   438→      // Main school building — 60x60, height 6 (bigger for the larger arena)
+   439→   439→      ...buildHouse(0, 0, 60, 60, 6, 0xe8e0d0, 0xc0392b, 'S'),
+   440→   440→      // (interior dividers removed — they blocked movement inside)
+   441→   441→      // Desks in 4 classrooms (16 desks filling the bigger space)
+   442→   442→      ...[-22, -15, 15, 22].flatMap(x => [-22, -15, 15, 22].map(z => ob(x, z, 1.5, 0.8, 1, true, 0xe8d5b7, 'box'))),
+   443→   443→      // Blackboards on 3 walls (south blackboard removed — it blocked the door)
+   444→   444→      ob(-28, 0, 0.3, 2, 4, false, 0x1a1a1a, 'wall'),  // west blackboard
+   445→   445→      ob(28, 0, 0.3, 2, 4, false, 0x1a1a1a, 'wall'),   // east blackboard
+   446→   446→      ob(0, -28, 4, 2, 0.3, false, 0x1a1a1a, 'wall'),  // north blackboard
+   447→   447→      // Lockers along east/west walls (moved away from south door)
+   448→   448→      ob(-28, -22, 0.8, 2.5, 1, true, 0x3498db, 'box'), ob(-28, -15, 0.8, 2.5, 1, true, 0xe74c3c, 'box'),
+   449→   449→      ob(28, -22, 0.8, 2.5, 1, true, 0x27ae60, 'box'), ob(28, -15, 0.8, 2.5, 1, true, 0xf1c40f, 'box'),
+   450→   450→      ob(-28, 15, 0.8, 2.5, 1, true, 0x9b59b6, 'box'), ob(-28, 22, 0.8, 2.5, 1, true, 0xe67e22, 'box'),
+   451→   451→      ob(28, 15, 0.8, 2.5, 1, true, 0x1abc9c, 'box'), ob(28, 22, 0.8, 2.5, 1, true, 0x3498db, 'box'),
+   452→   452→      // Basketball court elements (outside building, in courtyard) — scaled by 2.5
+   453→   453→      ob(0, -45, 0.3, 3, 0.3, false, 0xe74c3c, 'box'),  // hoop pole
+   454→   454→      ob(0, -45, 1.5, 0.1, 0.8, false, 0xe74c3c, 'box'),  // backboard
+   455→   455→      ob(0, 45, 0.3, 3, 0.3, false, 0x3498db, 'box'),
+   456→   456→      ob(0, 45, 1.5, 0.1, 0.8, false, 0x3498db, 'box'),
+   457→   457→      // Trash cans (moved to sides, away from door path at z=+30)
+   458→   458→      ob(-20, -10, 1, 1.2, 1, true, 0x555555, 'box'), ob(20, -10, 1, 1.2, 1, true, 0x555555, 'box'),
+   459→   459→      // Stairs to second floor (roof access) — scaled position
+   460→   460→      ...buildStairs(-25, 5, 6, 'E', 0xd5c4a0),
+   461→   461→    ],
+   462→   462→    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
+   463→   463→  },
+   464→   464→  {
+   465→   465→    id: 'oficinas', name: 'Oficinas', theme: 'Edificio corporativo', ground: 0xc8ccd0, fog: 0xd0d4d8, accent: 0x9098a0,
+   466→   466→    obstacles: [
+   467→   467→      // 8 office buildings (enterable) — scaled for bigger arena
+   468→   468→      ...buildHouse(-45, -30, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
+   469→   469→      ...buildHouse(-15, -30, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
+   470→   470→      ...buildHouse(15, -30, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
+   471→   471→      ...buildHouse(45, -30, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
+   472→   472→      ...buildHouse(-45, 30, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
+   473→   473→      ...buildHouse(-15, 30, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
+   474→   474→      ...buildHouse(15, 30, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
+   475→   475→      ...buildHouse(45, 30, 6, 6, 4, 0xd5c4a0, 0x2c3e50, 'N'),
+   476→   476→      // 5-floor office tower in center
+   477→   477→      ...buildTower(0, 0, 7, 7, 5, 0x9098a0, 0x2c3e50),
+   478→   478→      // Glass partitions
+   479→   479→      ob(-25, 0, 0.3, 2, 8, true, 0xb8d4e3, 'wall'), ob(25, 0, 0.3, 2, 8, true, 0xb8d4e3, 'wall'),
+   480→   480→      // Trash cans for climbing
+   481→   481→      ob(-35, -20, 1, 1.2, 1, true, 0x555555), ob(-5, -20, 1, 1.2, 1, true, 0x555555),
+   482→   482→      ob(25, -20, 1, 1.2, 1, true, 0x555555), ob(35, 20, 1, 1.2, 1, true, 0x555555),
+   483→   483→      // Office desks
+   484→   484→      ob(-35, 0, 3, 0.8, 1.5, true, 0xe8d5b7, 'box'), ob(35, 0, 3, 0.8, 1.5, true, 0xe8d5b7, 'box'),
+   485→   485→      // Ramps to second level
+   486→   486→      ob(-10, -15, 2, 1, 4, true, 0xd5c4a0, 'ramp'), ob(10, 15, 2, 1, 4, true, 0xd5c4a0, 'ramp'),
+   487→   487→      // Bridges connecting buildings
+   488→   488→      ob(0, -30, 12, 0.3, 2, true, 0x8a92a0, 'roof', 0, false, 4),
+   489→   489→      ob(0, 30, 12, 0.3, 2, true, 0x8a92a0, 'roof', 0, false, 4),
+   490→   490→    ],
+   491→   491→    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
+   492→   492→  },
+   493→   493→  {
+   494→   494→    id: 'bosque', name: 'Bosque', theme: 'Bosque con río', ground: 0x4a7a3a, fog: 0x6a9a5a, accent: 0x3a5a2a,
+   495→   495→    waterLevel: 0.3,
+   496→   496→    obstacles: [
+   497→   497→      // Detailed trees with trunk + foliage
+   498→   498→      ...buildTree(-30, -30, 1.5), ...buildTree(30, -30, 1.5),
+   499→   499→      ...buildTree(-30, 30, 1.5), ...buildTree(30, 30, 1.5),
+   500→   500→      ...buildTree(0, -45, 2), ...buildTree(0, 45, 2),
+   501→   501→      ...buildTree(-45, 0, 1.2), ...buildTree(45, 0, 1.2),
+   502→   502→      // River (water plane, shallow — sink slightly)
+   503→   503→      ob(0, 0, 8, 0.3, 24, false, 0x3498db, 'water', 0, true),
+   504→   504→      // Rocks for climbing to tree tops
+   505→   505→      ob(-23, -23, 2, 2, 2, true, 0x95a5a6, 'box'), ob(23, -23, 2, 2, 2, true, 0x95a5a6, 'box'),
+   506→   506→      ob(-23, 23, 2, 2, 2, true, 0x7f8c8d, 'box'), ob(23, 23, 2, 2, 2, true, 0x7f8c8d, 'box'),
+   507→   507→      // Fallen logs (low cover, climbable)
+   508→   508→      ob(-13, -13, 5, 1, 1, true, 0x7a5230, 'box'), ob(13, 13, 5, 1, 1, true, 0x7a5230, 'box'),
+   509→   509→      // Boulders (large rocks)
+   510→   510→      ob(-45, -10, 3, 2.5, 3, true, 0x95a5a6, 'box'), ob(45, 10, 3, 2.5, 3, true, 0x7f8c8d, 'box'),
+   511→   511→      // Bridge across river
+   512→   512→      ob(0, 0, 3, 0.5, 6, true, 0x7a5230, 'box'),
+   513→   513→      // Bushes (low, non-climbable)
+   514→   514→      ob(-20, 0, 3, 0.8, 2, false, 0x27ae60, 'box'), ob(20, 0, 3, 0.8, 2, false, 0x27ae60, 'box'),
+   515→   515→      // Tree stump (climbable)
+   516→   516→      ob(-38, 15, 1.5, 1, 1.5, true, 0x7a5230, 'box'), ob(38, -15, 1.5, 1, 1.5, true, 0x7a5230, 'box'),
+   517→   517→    ],
+   518→   518→    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]],
+   519→   519→  },
+   520→   520→  {
+   521→   521→    id: 'paisaje', name: 'Paisaje', theme: 'Río y montañas', ground: 0x5a8a4a, fog: 0x7aa85a, accent: 0x4a6a3a,
+   522→   522→    waterLevel: 0.3,
+   523→   523→    obstacles: [
+   524→   524→      // Large rocks (climbable via smaller rocks)
+   525→   525→      ob(-35, -25, 4, 4, 4, true, 0x95a5a6, 'box'), ob(35, 25, 4, 4, 4, true, 0x7f8c8d, 'box'),
+   526→   526→      ob(35, -25, 4, 4, 4, true, 0x95a5a6, 'box'), ob(-35, 25, 4, 4, 4, true, 0x7f8c8d, 'box'),
+   527→   527→      // Small rocks for climbing
+   528→   528→      ob(-25, -18, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'), ob(25, 18, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+   529→   529→      ob(25, -18, 1.5, 1.5, 1.5, true, 0x95a5a6, 'box'), ob(-25, 18, 1.5, 1.5, 1.5, true, 0x7f8c8d, 'box'),
+   530→   530→      // River (water plane)
+   531→   531→      ob(0, 0, 6, 0.3, 24, false, 0x3498db, 'water', 0, true),
+   532→   532→      // River banks (low walls)
+   533→   533→      ob(-9, 0, 0.5, 1, 24, false, 0x8a7a5a, 'wall'), ob(9, 0, 0.5, 1, 24, false, 0x8a7a5a, 'wall'),
+   534→   534→      // Trees on banks
+   535→   535→      ...buildTree(-45, -35, 1.3), ...buildTree(45, 35, 1.3),
+   536→   536→      ...buildTree(-45, 35, 1.3), ...buildTree(45, -35, 1.3),
+   537→   537→      // Bridge across river
+   538→   538→      ob(0, 0, 3, 0.5, 8, true, 0x7a5230, 'box'),
+   539→   539→      // Hills (climbable mounds)
+   540→   540→      ob(0, -50, 6, 2, 4, true, 0x6a9a5a, 'box'), ob(0, 50, 6, 2, 4, true, 0x6a9a5a, 'box'),
+   541→   541→      // Tower with stairs (vantage point)
+   542→   542→      ob(-50, 0, 3, 6, 3, true, 0x95a5a6, 'box'),
+   543→   543→      ...buildStairs(-43, 0, 6, 'W', 0x7f8c8d),
+   544→   544→    ],
+   545→   545→    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
+   546→   546→  },
+   547→   547→]
+   548→   548→
+   549→   549→export function getMap(id: string): GameMap {
+   550→   550→  return MAPS.find(m => m.id === id) ?? MAPS[0]
+   551→   551→}
+   552→   552→
+   553→   553→export function getSkin(id: string): Skin {
+   554→   554→  return SKINS.find(s => s.id === id) ?? SKINS[0]
+   555→   555→}
+   556→   556→export function getWeapon(id: string): Weapon {
+   557→   557→  return WEAPONS[id] ?? WEAPONS.pistol
+   558→   558→}
+   559→   559→export function getTeam(id: string) {
+   560→   560→  return TEAMS[(id as Team)] ?? TEAMS.none
+   561→   561→}
+   562→   562→
+   563→   563→// Mode helpers (mirror server)
+   564→   564→export function isPvPMode(mode: GameMode): boolean { return mode === '1v1' || mode === '2v2' || mode === 'team' || mode === 'ffa' }
+   565→   565→export function isPvEMode(mode: GameMode): boolean { return mode === 'coop' || mode === 'mixed' }
+   566→   566→export function hasMobs(mode: GameMode): boolean { return mode === 'coop' || mode === 'mixed' }
+   567→   567→export function maxPlayersForMode(mode: GameMode): number {
+   568→   568→  if (mode === '1v1') return 2
+   569→   569→  if (mode === '2v2') return 4
+   570→   570→  if (mode === 'ffa') return 8
+   571→   571→  return 12
+   572→   572→}
+   573→   573→export const MODE_INFO: Record<GameMode, { name: string; desc: string; icon: string; team: boolean }> = {
+   574→   574→  '1v1':   { name: '1 vs 1',      desc: 'Azul vs Rojo, 1 cada uno',  icon: '⚔️', team: true },
+   575→   575→  '2v2':   { name: '2 vs 2',      desc: 'Azul vs Rojo, 2 cada uno',  icon: '⚔️', team: true },
+   576→   576→  'team':  { name: 'Equipos',     desc: 'Azul vs Rojo, hasta 6',     icon: '🛡️', team: true },
+   577→   577→  'ffa':   { name: 'Todos x todos', desc: 'Sin equipos, todos contra todos', icon: '💀', team: false },
+   578→   578→  'coop':  { name: 'Cooperativo', desc: 'Jugadores vs Mobs',          icon: '🤝', team: false },
+   579→   579→  'mixed': { name: 'Mixto',       desc: 'Jugadores vs Mobs + vs otros', icon: '🔥', team: false },
+   580→   580→}
+   581→   581→
+   582→   582→// PvE difficulty scaling per level
+   583→   583→export function pveLevelConfig(level: number) {
+   584→   584→  return {
+   585→   585→    mobCount: Math.min(14, 4 + Math.floor(level * 1.4)),
+   586→   586→    mobHp: MOB_MAX_HP + (level - 1) * 18,
+   587→   587→    mobSpeed: Math.min(6.5, 3.4 + (level - 1) * 0.28),
+   588→   588→    mobDamage: 9 + (level - 1) * 2,
+   589→   589→    mapId: MAPS[(level - 1) % MAPS.length].id,
+   590→   590→  }
+   591→   591→}
+   592→   592→

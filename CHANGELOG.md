@@ -239,3 +239,38 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/).
 - VLM: "arena feels spacious and open, consistent with 160x160 scale" ✅
 - VLM: rated 7/10 ✅
 - Sin errores en consola ✅
+
+---
+
+## [v0.10.0] — 2026-09-13 — Techos no bloquean + mapas más detallados
+
+### Corregido
+- **Techos bloqueando movimiento**: los obstáculos tipo `roof` bloqueaban horizontalmente aunque estaban arriba del jugador
+  - Causa: `horizontalBlocked` trataba los techos como obstáculos normales (feetY < top → bloquear)
+  - Solución: añadido campo `isRoof` a ObstacleBox. Los techos ahora NUNCA bloquean movimiento horizontal — puedes caminar debajo de ellos y pararte encima desde arriba
+  - VLM confirmó: "no overhead obstructions, view completely clear"
+- **No poder entrar a la escuela**: el techo del edificio (60×60) bloqueaba la entrada
+  - Solución: con el fix de techos, ahora puedes entrar libremente por la puerta
+
+### Agregado
+- **Mapa Escuela rediseñado** con más detalles:
+  - 4 salones con paredes interiores (con huecos de puerta)
+  - 16 pupitres en cuadrícula 4×4
+  - 3 pizarrones en paredes (sin bloquear puertas)
+  - 8 casilleros de colores en paredes laterales
+  - Cancha de basketball con postes y tableros
+  - Botes de basura, escaleras internas
+- **Mapa Barrio rediseñado** con más detalles:
+  - 8 casas entrables con puertas, ventanas y techos de colores
+  - Torre central de 5 pisos con escaleras internas
+  - 4 coches, lámparas de calle, vallas, cajas
+  - Fuente de agua central
+
+### Pruebas
+- Lint: limpio ✅
+- Servidores estables ✅
+- Socket conecta ("Conectado") ✅
+- 2 jugadores en sala cooperativa ✅
+- Jugador a 100 HP ✅
+- VLM: "no overhead obstructions, view completely clear" ✅
+- Sin errores en consola ✅

@@ -255,7 +255,7 @@ type ItemEnt = { id: string; type: string; group: THREE.Group; pos: THREE.Vector
 type Tracer = { line: THREE.Line; born: number; ttl: number }
 type Particle = { mesh: THREE.Mesh; vel: THREE.Vector3; born: number; ttl: number }
 type DroneEnt = { group: THREE.Group; targetPos: THREE.Vector3; targetYaw: number; active: boolean; spin: number }
-type ObstacleBox = { box: THREE.Box3; top: number; climbable: boolean; x: number; z: number; hw: number; hd: number }
+type ObstacleBox = { box: THREE.Box3; top: number; climbable: boolean; x: number; z: number; hw: number; hd: number; isRoof?: boolean }
 
 /* ---------- doodle cloud (decorative) ---------- */
 function makeCloud(): THREE.Group {
@@ -548,7 +548,7 @@ export default function GameCanvas() {
         if (!c.noCollide) {
           const box = new THREE.Box3().setFromObject(mesh)
           box.expandByScalar(PLAYER_RADIUS * 0.5)
-          obstacles.push({ box, top: yOff + c.h, climbable: c.climbable, x: c.x, z: c.z, hw: c.w/2, hd: c.d/2 })
+          obstacles.push({ box, top: yOff + c.h, climbable: c.climbable, x: c.x, z: c.z, hw: c.w/2, hd: c.d/2, isRoof: c.kind === 'roof' })
         }
       }
       // procedural cover blocks (small, climbable) to densify the arena
@@ -1067,11 +1067,11 @@ export default function GameCanvas() {
       const p = new THREE.Vector3(x, feetY + 0.1, z)
       for (let i = 0; i < obstacles.length; i++) {
         const o = obstacles[i]
-        // skip thin roofs/floors — they only block from below (landing), not horizontally
-        // a roof/floor is thin (h < 0.5) and positioned above ground
+        // roofs NEVER block horizontal movement — you can walk under them and stand on them from above
+        if (o.isRoof) continue
+        // skip thin slabs (floor platforms) unless body intersects
         const oBottom = o.top - (o.box.max.y - o.box.min.y)
         if (o.box.max.y - o.box.min.y < 0.6) {
-          // thin slab: only block horizontally if player's body intersects its vertical range
           if (feetY >= o.top - 0.1 || headY <= oBottom + 0.1) continue
         }
         if (!o.climbable) {
@@ -1080,7 +1080,6 @@ export default function GameCanvas() {
         }
         // climbable: only block if player's body intersects box vertically (feet below top)
         if (feetY < o.top - 0.15) {
-          // check XZ overlap (expanded)
           if (Math.abs(x - o.x) < o.hw + PLAYER_RADIUS && Math.abs(z - o.z) < o.hd + PLAYER_RADIUS) return true
         }
       }
