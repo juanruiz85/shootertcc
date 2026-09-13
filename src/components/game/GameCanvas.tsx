@@ -290,9 +290,9 @@ export default function GameCanvas() {
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(PAPER)
-    scene.fog = new THREE.Fog(PAPER, 55, 120)
+    scene.fog = new THREE.Fog(PAPER, 80, 200)
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 200)
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 400)
     camera.position.set(0, EYE_HEIGHT, 0)
     camera.rotation.order = 'YXZ'
     scene.add(camera)
@@ -308,10 +308,10 @@ export default function GameCanvas() {
     dir.shadow.mapSize.height = 2048
     dir.shadow.camera.near = 1
     dir.shadow.camera.far = 150
-    dir.shadow.camera.left = -45
-    dir.shadow.camera.right = 45
-    dir.shadow.camera.top = 45
-    dir.shadow.camera.bottom = -45
+    dir.shadow.camera.left = -90
+    dir.shadow.camera.right = 90
+    dir.shadow.camera.top = 90
+    dir.shadow.camera.bottom = -90
     dir.shadow.bias = -0.0008
     dir.shadow.normalBias = 0.02
     scene.add(dir)
@@ -349,7 +349,7 @@ export default function GameCanvas() {
       const map = getMap(mapId)
       // background/fog colors
       scene.background = new THREE.Color(map.fog)
-      scene.fog = new THREE.Fog(map.fog, 55, 120)
+      scene.fog = new THREE.Fog(map.fog, 80, 200)
       renderer.setClearColor(map.fog, 1)
       skyMat.color.setHex(map.fog)
 
@@ -798,7 +798,7 @@ export default function GameCanvas() {
         case 'KeyS': case 'ArrowDown': moveState.b = true; break
         case 'KeyA': case 'ArrowLeft': moveState.l = true; break
         case 'KeyD': case 'ArrowRight': moveState.r = true; break
-        case 'Space': if (local.onGround && local.alive) { local.vel.y = JUMP_V; local.onGround = false; sfx.jump() } break
+        case 'Space': if (local.onGround && local.alive) { local.vel.y = JUMP_V; local.onGround = false; local.onBoxTop = -1; sfx.jump() } break
         case 'ShiftLeft': case 'ShiftRight': moveState.sprint = true; break
         case 'KeyR': startReload(); break
         case 'Digit1': switchWeapon('pistol'); break
@@ -1063,9 +1063,17 @@ export default function GameCanvas() {
     // ---------- collision (with climbable tops) ----------
     function horizontalBlocked(x: number, z: number, feetY: number): boolean {
       if (Math.abs(x) > boundLim || Math.abs(z) > boundLim) return true
+      const headY = feetY + 1.8  // player head height
       const p = new THREE.Vector3(x, feetY + 0.1, z)
       for (let i = 0; i < obstacles.length; i++) {
         const o = obstacles[i]
+        // skip thin roofs/floors — they only block from below (landing), not horizontally
+        // a roof/floor is thin (h < 0.5) and positioned above ground
+        const oBottom = o.top - (o.box.max.y - o.box.min.y)
+        if (o.box.max.y - o.box.min.y < 0.6) {
+          // thin slab: only block horizontally if player's body intersects its vertical range
+          if (feetY >= o.top - 0.1 || headY <= oBottom + 0.1) continue
+        }
         if (!o.climbable) {
           if (o.box.containsPoint(p)) return true
           continue
@@ -1155,13 +1163,12 @@ export default function GameCanvas() {
       const onBox = standingOnBox(local.pos.x, local.pos.z, feetY)
       if (local.vel.y <= 0 && onBox && prevFeet >= onBox.top - 0.1) {
         local.pos.y = onBox.top + EYE_HEIGHT; local.vel.y = 0; local.onGround = true; local.onBoxTop = onBox.idx; landed = true
-      } else if (local.onBoxTop >= 0) {
-        // walked off the box?
+      } else if (local.onBoxTop >= 0 && local.vel.y <= 0) {
+        // still on box (only snap when falling, not when jumping up)
         const o = obstacles[local.onBoxTop]
         if (o && (Math.abs(local.pos.x - o.x) > o.hw + PLAYER_RADIUS*0.6 || Math.abs(local.pos.z - o.z) > o.hd + PLAYER_RADIUS*0.6)) {
           local.onBoxTop = -1; local.onGround = false
         } else if (!landed) {
-          // still on box
           local.pos.y = o.top + EYE_HEIGHT; local.vel.y = 0; local.onGround = true; landed = true
         }
       }

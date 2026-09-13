@@ -20,7 +20,7 @@ export const WEAPONS: Record<string, Weapon> = {
 
 export const WEAPON_ORDER = ['pistol', 'smg', 'rifle', 'shotgun']
 
-export const ARENA_SIZE = 64
+export const ARENA_SIZE = 160
 export const PLAYER_MAX_HP = 100
 export const PLAYER_MAX_SHIELD = 50
 export const MOB_MAX_HP = 60
@@ -175,37 +175,39 @@ function buildCar(cx: number, cz: number, color: number, rotation: number = 0): 
   ]
 }
 
-// Build a multi-floor tower: enterable, with internal stairs
-// floors = number of stories, each floor has walls with a door + stairs inside
+// Build a multi-floor tower: enterable, with internal stairs starting from floor 1
 function buildTower(cx: number, cz: number, w: number, d: number, floors: number, color: number, roofColor: number): MapObstacle[] {
   const result: MapObstacle[] = []
-  const floorH = 3.0  // height per floor
+  const floorH = 3.0
   const wallT = 0.3
   const doorW = 1.5
   const totalH = floors * floorH
-  // Outer walls (full height, with door gap on south side at ground floor only)
-  // North wall (full)
+  // Outer walls (full height) — North, East, West
   result.push(ob(cx, cz - d/2, w, totalH, wallT, false, color, 'wall'))
-  // East wall (full)
   result.push(ob(cx + w/2, cz, wallT, totalH, d, false, color, 'wall'))
-  // West wall (full)
   result.push(ob(cx - w/2, cz, wallT, totalH, d, false, color, 'wall'))
-  // South wall with door gaps at each floor
-  for (let f = 0; f < floors; f++) {
+  // South wall with door gap at ground floor only (upper floors have full wall + window)
+  // Ground floor door
+  result.push(ob(cx - w/4 - doorW/4, cz + d/2, w/2 - doorW/2, floorH - 0.1, wallT, false, color, 'wall', 0, false, 0))
+  result.push(ob(cx + w/4 + doorW/4, cz + d/2, w/2 - doorW/2, floorH - 0.1, wallT, false, color, 'wall', 0, false, 0))
+  // Upper floor walls (full, with windows)
+  for (let f = 1; f < floors; f++) {
     const fy = f * floorH
-    // wall segments on either side of door
-    result.push(ob(cx - w/4 - doorW/4, cz + d/2, w/2 - doorW/2, floorH - 0.1, wallT, false, color, 'wall', 0, false, fy))
-    result.push(ob(cx + w/4 + doorW/4, cz + d/2, w/2 - doorW/2, floorH - 0.1, wallT, false, color, 'wall', 0, false, fy))
-    // window above door
-    result.push(ob(cx, cz + d/2, doorW, 0.8, wallT, false, color, 'wall', 0, true, fy + 2.0))
-    // floor platform (roof type, walkable) for upper floors
-    if (f > 0) {
-      result.push(ob(cx, cz, w - wallT * 2, 0.2, d - wallT * 2, true, color, 'roof', 0, false, fy))
-      // stairs inside (going up to next floor)
-      if (f < floors) {
-        result.push(...buildStairs(cx - w/4, cz, 4, 'N', 0x8a7a5a).map(s => ({ ...s, y: (s.y || 0) + fy })))
-      }
-    }
+    result.push(ob(cx, cz + d/2, w, floorH - 0.1, wallT, false, color, 'wall', 0, false, fy))
+  }
+  // Floor platforms for upper floors (walkable, thin slabs — no horizontal blocking)
+  for (let f = 1; f < floors; f++) {
+    const fy = f * floorH
+    // platform with a gap for stairs (stair opening on one side)
+    result.push(ob(cx + w/4, cz, w/2 - wallT, 0.2, d - wallT * 2, true, color, 'roof', 0, false, fy))
+  }
+  // Stairs: start from floor 1 (ground) going up to each floor
+  // Place stairs against the north wall, going up
+  for (let f = 0; f < floors - 1; f++) {
+    const fy = f * floorH
+    // 4 steps per floor (stepH=0.6, so 4 steps = 2.4 height, close to floorH=3.0)
+    // stairs positioned at north side of tower, going from south to north (upward)
+    result.push(...buildStairs(cx, cz - d/4, 5, 'N', 0x8a7a5a).map(s => ({ ...s, y: (s.y || 0) + fy })))
   }
   // Roof at top
   result.push(ob(cx, cz, w + 0.6, 0.3, d + 0.6, true, roofColor, 'roof', 0, false, totalH))
@@ -238,7 +240,7 @@ export const MAPS: GameMap[] = [
       ob(-18,0, 2,2,8, true, C_STONE), ob(18,0, 2,2,8, true, C_STONE),
       ob(0,0, 2,4,2, true, C_PILLAR),
     ],
-    spawns: [[-20,-20],[20,20],[20,-20],[-20,20],[0,-24],[0,24]],
+    spawns: [[-50,-50],[50,50],[20,-20],[-20,20],[0,-60],[0,60]],
   },
   {
     id: 'bunkers', name: 'Bunkers', theme: 'Trincheras', ground: G_STONE, fog: 0xeae6e0, accent: 0xcfc8bc,
@@ -249,7 +251,7 @@ export const MAPS: GameMap[] = [
       ob(-22,0, 2,3,10, true, C_DARK), ob(22,0, 2,3,10, true, C_DARK),
       ob(0,0, 4,3.5,4, true, C_WOOD),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]],
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
   },
   {
     id: 'torres', name: 'Torres', theme: 'Pilares', ground: G_STONE, fog: 0xeae6e0, accent: 0xcfc8bc,
@@ -260,7 +262,7 @@ export const MAPS: GameMap[] = [
       ob(-22,0, 2,3,2, true, C_WOOD), ob(22,0, 2,3,2, true, C_WOOD),
       ob(0,-22, 2,3,2, true, C_WOOD), ob(0,22, 2,3,2, true, C_WOOD),
     ],
-    spawns: [[0,-24],[0,24],[24,0],[-24,0],[-20,-20],[20,20]],
+    spawns: [[0,-60],[0,60],[60,0],[-60,0],[-50,-50],[50,50]],
   },
   {
     id: 'crucero', name: 'Crucero', theme: 'Cruz', ground: G_PAPER, fog: 0xfdfbf7, accent: 0xe8e4df,
@@ -271,7 +273,7 @@ export const MAPS: GameMap[] = [
       ob(-20,-20, 3,2,3, true, C_DARK), ob(20,-20, 3,2,3, true, C_DARK),
       ob(-20,20, 3,2,3, true, C_DARK), ob(20,20, 3,2,3, true, C_DARK),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]],
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
   },
   {
     id: 'espinas', name: 'Espinas', theme: 'Zig-zag', ground: G_SAND, fog: 0xf6efde, accent: 0xe0d5b8,
@@ -282,7 +284,7 @@ export const MAPS: GameMap[] = [
       ob(-9,8, 2,3,8, true, C_WOOD), ob(9,-8, 2,3,8, true, C_WOOD),
       ob(0,-20, 6,2,2, true, C_DARK), ob(0,20, 6,2,2, true, C_DARK),
     ],
-    spawns: [[-24,-24],[24,24],[-24,24],[24,-24]],
+    spawns: [[-60,-60],[60,60],[-60,60],[60,-60]],
   },
   {
     id: 'fortaleza', name: 'Fortaleza', theme: 'Murallas', ground: G_STONE, fog: 0xeae6e0, accent: 0xcfc8bc,
@@ -293,7 +295,7 @@ export const MAPS: GameMap[] = [
       ob(-10,10, 3,4,3, true, C_STONE), ob(10,10, 3,4,3, true, C_STONE),
       ob(0,0, 5,3,5, true, C_WOOD),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]],
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
   },
   {
     id: 'laberinto', name: 'Laberinto', theme: 'Maze', ground: G_GRASS, fog: 0xeef5e6, accent: 0xcfdcc0,
@@ -304,7 +306,7 @@ export const MAPS: GameMap[] = [
       ob(18,-6, 6,3,2, true, C_STONE), ob(-6,18, 2,3,6, true, C_STONE),
       ob(0,0, 2,2,2, false, C_DARK),
     ],
-    spawns: [[-24,-24],[24,24],[24,-24],[-24,24],[0,-24],[0,24]],
+    spawns: [[-60,-60],[60,60],[60,-60],[-60,60],[0,-60],[0,60]],
   },
   {
     id: 'puentes', name: 'Puentes', theme: 'Rampas', ground: G_SAND, fog: 0xf6efde, accent: 0xe0d5b8,
@@ -315,7 +317,7 @@ export const MAPS: GameMap[] = [
       ob(18,-18, 4,4,4, true, C_STONE,'ramp'), ob(-18,18, 4,4,4, true, C_STONE,'ramp'),
       ob(0,0, 3,5,3, true, C_PILLAR),
     ],
-    spawns: [[0,-24],[0,24],[24,0],[-24,0]],
+    spawns: [[0,-60],[0,60],[60,0],[-60,0]],
   },
   {
     id: 'crater', name: 'Cráter', theme: 'Anillo', ground: G_LAVA, fog: 0xf6e3d8, accent: 0xe0c8bc,
@@ -327,7 +329,7 @@ export const MAPS: GameMap[] = [
       ob(-18,18, 3,3,3, true, C_DARK), ob(18,18, 3,3,3, true, C_DARK),
       ob(0,-22, 8,2,2, true, C_STONE), ob(0,22, 8,2,2, true, C_STONE),
     ],
-    spawns: [[0,-24],[0,24],[24,0],[-24,0],[-22,-22],[22,22]],
+    spawns: [[0,-60],[0,60],[60,0],[-60,0],[-55,-55],[55,55]],
   },
   {
     id: 'zigzag', name: 'Zigzag', theme: 'Dientes', ground: G_PAPER, fog: 0xfdfbf7, accent: 0xe8e4df,
@@ -338,7 +340,7 @@ export const MAPS: GameMap[] = [
       ob(-12,0, 2,4,2, true, C_PILLAR,'cyl'), ob(12,0, 2,4,2, true, C_PILLAR,'cyl'),
       ob(0,0, 4,5,4, true, C_STONE),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]],
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
   },
   {
     id: 'diamante', name: 'Diamante', theme: 'Rombo', ground: G_SNOW, fog: 0xf7fafc, accent: 0xdfe7ec,
@@ -349,7 +351,7 @@ export const MAPS: GameMap[] = [
       ob(-20,-20, 3,2,3, true, C_WOOD), ob(20,-20, 3,2,3, true, C_WOOD),
       ob(-20,20, 3,2,3, true, C_WOOD), ob(20,20, 3,2,3, true, C_WOOD),
     ],
-    spawns: [[0,-24],[0,24],[24,0],[-24,0]],
+    spawns: [[0,-60],[0,60],[60,0],[-60,0]],
   },
   {
     id: 'colmena', name: 'Colmena', theme: 'Celdas', ground: G_GRASS, fog: 0xeef5e6, accent: 0xcfdcc0,
@@ -359,7 +361,7 @@ export const MAPS: GameMap[] = [
       ob(-12,12, 4,3,4, true, C_WOOD), ob(0,12, 4,3,4, true, C_WOOD), ob(12,12, 4,3,4, true, C_WOOD),
       ob(0,0, 4,2,4, true, C_STONE),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-24,-24],[24,24]],
+    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-24,-24],[24,24]],
   },
   {
     id: 'ruinas', name: 'Ruinas', theme: 'Escombros', ground: G_STONE, fog: 0xeae6e0, accent: 0xcfc8bc,
@@ -370,7 +372,7 @@ export const MAPS: GameMap[] = [
       ob(-6,0, 3,1.5,3, true, C_STONE), ob(6,0, 3,1.5,3, true, C_STONE),
       ob(0,0, 8,1,8, true, C_RED),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-22,-22],[22,22]],
+    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]],
   },
   {
     id: 'estadio', name: 'Estadio', theme: 'Graderías', ground: G_GRASS, fog: 0xeef5e6, accent: 0xcfdcc0,
@@ -393,7 +395,7 @@ export const MAPS: GameMap[] = [
       ob(-16,16, 4,3,4, true, C_STONE), ob(16,16, 4,3,4, true, C_STONE),
       ob(0,-22, 10,2,2, true, C_WOOD), ob(0,22, 10,2,2, true, C_WOOD),
     ],
-    spawns: [[0,-24],[0,24],[24,0],[-24,0]],
+    spawns: [[0,-60],[0,60],[60,0],[-60,0]],
   },
   // ===== DETAILED MAPS — Roblox/Fortnite/CoD inspired =====
   {
@@ -428,7 +430,7 @@ export const MAPS: GameMap[] = [
       // central water fountain (decorative)
       ob(0, -4, 2, 0.4, 2, true, 0x3498db, 'water', 0, true),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-24,-24],[24,24]],
+    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-24,-24],[24,24]],
   },
   {
     id: 'escuela', name: 'Escuela', theme: 'Escuela con salones', ground: 0xd5d8de, fog: 0xe0e3e8, accent: 0xa0a8b0,
@@ -461,7 +463,7 @@ export const MAPS: GameMap[] = [
       // Stairs to second floor (roof access)
       ...buildStairs(-13, 0, 6, 'E', 0xd5c4a0),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]],
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
   },
   {
     id: 'oficinas', name: 'Oficinas', theme: 'Edificio corporativo', ground: 0xc8ccd0, fog: 0xd0d4d8, accent: 0x9098a0,
@@ -490,7 +492,7 @@ export const MAPS: GameMap[] = [
       ob(0, -12, 12, 0.3, 2, true, 0x8a92a0, 'roof', 0, false, 4),
       ob(0, 12, 12, 0.3, 2, true, 0x8a92a0, 'roof', 0, false, 4),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]],
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
   },
   {
     id: 'bosque', name: 'Bosque', theme: 'Bosque con río', ground: 0x4a7a3a, fog: 0x6a9a5a, accent: 0x3a5a2a,
@@ -517,7 +519,7 @@ export const MAPS: GameMap[] = [
       // Tree stump (climbable)
       ob(-15, 6, 1.5, 1, 1.5, true, 0x7a5230, 'box'), ob(15, -6, 1.5, 1, 1.5, true, 0x7a5230, 'box'),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-22,-22],[22,22]],
+    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]],
   },
   {
     id: 'paisaje', name: 'Paisaje', theme: 'Río y montañas', ground: 0x5a8a4a, fog: 0x7aa85a, accent: 0x4a6a3a,
@@ -544,7 +546,7 @@ export const MAPS: GameMap[] = [
       ob(-20, 0, 3, 6, 3, true, 0x95a5a6, 'box'),
       ...buildStairs(-17, 0, 6, 'W', 0x7f8c8d),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]],
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]],
   },
 ]
 

@@ -890,3 +890,80 @@ Verification:
 - Player at 88 HP (alive, not stuck) ✅
 - No console errors ✅
 - Jump height increased (can now jump between blocks and up structures)
+
+---
+
+## Task a-server — Mirror client's 3 critical fixes to game-server (ARENA_SIZE 5x, buildTower stairs, spawns)
+
+**Agent**: a-server (server-side mirror of client fixes)
+**File**: `/home/z/my-project/mini-services/game-server/index.ts`
+
+### Changes made
+
+1. **HALF constant (arena half-size)**
+   - `const HALF = 32` → `const HALF = 80`
+   - Mirrors client `ARENA_SIZE` going from 64 → 160 (HALF = ARENA_SIZE/2 = 80).
+   - Maps are now 5x larger in area.
+
+2. **buildTower function (full rewrite)**
+   - Replaced the old buildTower body (which placed door gaps + lintels at *every* floor
+     and only built stairs/floor platforms for `f > 0`) with the new version that:
+     - Builds 3 full-height outer walls (N, E, W) and a South wall with a door gap at
+       ground floor only.
+     - Builds full upper-floor walls starting from floor 1 (`f = 1`).
+     - Builds walkable thin floor-slab platforms for upper floors.
+     - Builds stairs starting from floor 1 (ground level, `f = 0`) going up to each
+       floor — previously stairs started at floor 2, leaving the ground floor with no
+       stair access.
+     - Builds the roof at top.
+   - Stair position changed from `(cx - w/4, cz)` to `(cx, cz - d/4)` and stair count
+     from 4 to 5 to match the client.
+
+3. **Spawns arrays (4 patterns replaced, exact-match only)**
+   - `[[0,-24],[0,24],[-24,0],[24,0]]` → `[[0,-60],[0,60],[-60,0],[60,0]]`
+     (7 maps: bunkers, crucero, fortaleza, zigzag, escuela, oficinas, paisaje)
+   - `[[0,-24],[0,24],[-24,0],[24,0],[-22,-22],[22,22]]` → `[[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]]`
+     (2 maps: ruinas, bosque)
+   - `[[0,-24],[0,24],[-24,0],[24,0],[-24,-24],[24,24]]` → `[[0,-60],[0,60],[-60,0],[60,0],[-60,-60],[60,60]]`
+     (2 maps: colmena, barrio)
+   - Pattern `[[0,-24],[0,24],[-24,0],[24,0],[-20,-20],[20,20]]` was listed in the task
+     but does not appear verbatim in the server file (the patios map has the same
+     coordinates but in a different order: `[24,0],[-24,0]` instead of `[-24,0],[24,0]`).
+     Per the "Do NOT change anything else" instruction, it was left unchanged.
+
+   Total: 11 spawns arrays updated to use the new larger arena coordinates.
+
+### What was NOT changed (per instructions)
+- Mode logic, helpers (`ob`, `buildHouse`, `buildStairs`, `buildCar`, `buildTree`),
+  other map obstacles, and other spawn arrays (different orderings or different numbers
+  like `[-18,0],[18,0]` or `[-22,0],[22,0]`) were left untouched.
+
+### Verification
+- `bun run lint`: clean ✅ (no errors, no warnings)
+- Dev server logs show normal Next.js activity, no game-server errors.
+
+---
+Task ID: 13
+Agent: main (user request)
+Task: Fix entering houses, jumping on blocks, stairs from floor 1, 5x bigger maps
+
+Work Log:
+- User reported: can't enter houses, stairs don't start from floor 1, can't jump when on blocks, make maps 5x bigger
+
+Bug Fixes:
+1. Can't enter houses: Root cause — `horizontalBlocked` treated thin roofs (h=0.3) as full walls. When walking toward a house door, the roof at y=3.5 blocked horizontal movement (feetY=0 < top=3.5). Fix: obstacles with height < 0.6 (thin slabs) now only block horizontally if the player's body (feet to head) intersects their vertical range. Roofs/floors above the player's head no longer block.
+
+2. Can't jump on blocks: Root cause — when standing on a box (`onBoxTop >= 0`), the code set `local.vel.y = 0` EVERY frame (line 1165). When player pressed Space (vel.y = JUMP_V), the next frame's "still on box" logic immediately reset vel.y to 0 before the jump could take effect. Fix: the "still on box" snap now only runs when `local.vel.y <= 0` (falling). When jumping (vel.y > 0), the player is released. Also, pressing Space now resets `onBoxTop = -1` to fully release.
+
+3. Stairs not from floor 1: `buildTower` only added stairs for `f > 0` (upper floors), and positioned them at `fy` (floor height). No stairs on ground floor. Fix: completely rewrote `buildTower` — stairs now start at f=0 (ground) going up to each floor, positioned at north side of tower. Floor platforms have a gap for stair access.
+
+New Features:
+1. Maps 5x bigger: ARENA_SIZE 64 → 160. Updated: spawns (±24 → ±60), fog (55-120 → 80-200), camera far (200 → 400), shadow frustum (45 → 90). Server HALF updated 32 → 80.
+
+Verification:
+- Lint: clean ✅
+- Servers stable ✅
+- Socket connects ✅
+- Player at 100 HP (alive, can jump and enter houses) ✅
+- VLM: "scene more open, consistent with larger map" ✅
+- No console errors ✅

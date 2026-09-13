@@ -175,3 +175,36 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/).
 - VLM: sin objetos invertidos ✅
 - Jugador a 88 HP (vivo, no atascado) ✅
 - Sin errores en consola ✅
+
+---
+
+## [v0.8.0] — 2026-09-13 — Entrar a construcciones + saltar entre bloques + mapa 5x más grande
+
+### Corregido
+- **No poder entrar a las casas**: el techo (losa delgada) bloqueaba horizontalmente la entrada
+  - Causa: `horizontalBlocked` trataba los techos como paredes completas
+  - Solución: los obstáculos delgados (h < 0.6) ahora solo bloquean si el cuerpo del jugador interseca su rango vertical
+  - Ahora puedes pasar por debajo de techos/losas para entrar a las casas
+- **No poder saltar cuando estás sobre bloques**: la velocidad vertical se reseteaba cada frame
+  - Causa: la lógica "todavía en caja" (`onBoxTop >= 0`) ejecutaba `local.vel.y = 0` cada frame, anulando el salto
+  - Solución: solo snap a la caja cuando `vel.y <= 0` (cayendo), no cuando se intenta saltar (vel.y > 0)
+  - Al presionar Espacio, `onBoxTop` se reinicia a -1 para liberar al jugador
+- **Escaleras no empezaban desde el primer piso**: `buildTower` solo añadía escaleras en pisos superiores (f > 0)
+  - Solución: las escaleras ahora empiezan en el piso 1 (f=0) y van hasta el último piso
+
+### Agregado
+- **Mapas 5x más grandes**: ARENA_SIZE 64 → 160 (160×160 unidades)
+  - Spawns actualizados a ±60 (antes ±24)
+  - Niebla ajustada (80-200, antes 55-120)
+  - Cámara far plane 200 → 400
+  - Shadow camera frustum 90×90 (antes 45×45)
+  - `buildTower` rediseñado: escaleras desde piso 1, plataformas con hueco para escaleras, puerta solo en planta baja
+
+### Pruebas
+- Lint: limpio ✅
+- Servidores estables ✅
+- Socket conecta ✅
+- Jugador a 100 HP (vivo, puede saltar y entrar a casas) ✅
+- VLM: "scene more open with significant empty space, consistent with larger map" ✅
+- VLM: rated 6/10 (scale increased, could use more props for size) ✅
+- Sin errores en consola ✅

@@ -9,7 +9,7 @@ import { Server } from 'socket.io'
 
 // ----------------------- Constants -----------------------
 const PORT = 3003
-const HALF = 32 // arena half-size
+const HALF = 80 // arena half-size
 const WALL = 2
 const PLAYER_MAX_HP = 100
 const PLAYER_MAX_SHIELD = 50
@@ -95,20 +95,33 @@ function buildCar(cx: number, cz: number, color: number, rotation: number = 0): 
 
 function buildTower(cx: number, cz: number, w: number, d: number, floors: number, color: number, roofColor: number): MapObstacle[] {
   const result: MapObstacle[] = []
-  const floorH = 3.0, wallT = 0.3, doorW = 1.5, totalH = floors * floorH
+  const floorH = 3.0
+  const wallT = 0.3
+  const doorW = 1.5
+  const totalH = floors * floorH
+  // Outer walls (full height) — North, East, West
   result.push(ob(cx, cz - d/2, w, totalH, wallT, false, color, 'wall'))
   result.push(ob(cx + w/2, cz, wallT, totalH, d, false, color, 'wall'))
   result.push(ob(cx - w/2, cz, wallT, totalH, d, false, color, 'wall'))
-  for (let f = 0; f < floors; f++) {
+  // South wall with door gap at ground floor only
+  result.push(ob(cx - w/4 - doorW/4, cz + d/2, w/2 - doorW/2, floorH - 0.1, wallT, false, color, 'wall', 0, false, 0))
+  result.push(ob(cx + w/4 + doorW/4, cz + d/2, w/2 - doorW/2, floorH - 0.1, wallT, false, color, 'wall', 0, false, 0))
+  // Upper floor walls (full)
+  for (let f = 1; f < floors; f++) {
     const fy = f * floorH
-    result.push(ob(cx - w/4 - doorW/4, cz + d/2, w/2 - doorW/2, floorH - 0.1, wallT, false, color, 'wall', 0, false, fy))
-    result.push(ob(cx + w/4 + doorW/4, cz + d/2, w/2 - doorW/2, floorH - 0.1, wallT, false, color, 'wall', 0, false, fy))
-    result.push(ob(cx, cz + d/2, doorW, 0.8, wallT, false, color, 'wall', 0, true, fy + 2.0))
-    if (f > 0) {
-      result.push(ob(cx, cz, w - wallT * 2, 0.2, d - wallT * 2, true, color, 'roof', 0, false, fy))
-      result.push(...buildStairs(cx - w/4, cz, 4, 'N', 0x8a7a5a).map(s => ({ ...s, y: (s.y || 0) + fy })))
-    }
+    result.push(ob(cx, cz + d/2, w, floorH - 0.1, wallT, false, color, 'wall', 0, false, fy))
   }
+  // Floor platforms for upper floors (walkable, thin slabs)
+  for (let f = 1; f < floors; f++) {
+    const fy = f * floorH
+    result.push(ob(cx + w/4, cz, w/2 - wallT, 0.2, d - wallT * 2, true, color, 'roof', 0, false, fy))
+  }
+  // Stairs: start from floor 1 (ground) going up to each floor
+  for (let f = 0; f < floors - 1; f++) {
+    const fy = f * floorH
+    result.push(...buildStairs(cx, cz - d/4, 5, 'N', 0x8a7a5a).map(s => ({ ...s, y: (s.y || 0) + fy })))
+  }
+  // Roof at top
   result.push(ob(cx, cz, w + 0.6, 0.3, d + 0.6, true, roofColor, 'roof', 0, false, totalH))
   return result
 }
@@ -139,7 +152,7 @@ const MAPS: GameMap[] = [
       ob(-22,0,2,3,10,true,0xcdb98a), ob(22,0,2,3,10,true,0xcdb98a),
       ob(0,0,4,3.5,4,true,0xe8d5b7),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]] },
   { id: 'torres', name: 'Torres', theme: 'Pilares', ground: 0xe8e4df, fog: 0xeae6e0, accent: 0xcfc8bc,
     obstacles: [
       ob(-14,-14,3,5,3,true,0xb8a47a,'cyl'), ob(14,-14,3,5,3,true,0xb8a47a,'cyl'),
@@ -157,7 +170,7 @@ const MAPS: GameMap[] = [
       ob(-20,-20,3,2,3,true,0xcdb98a), ob(20,-20,3,2,3,true,0xcdb98a),
       ob(-20,20,3,2,3,true,0xcdb98a), ob(20,20,3,2,3,true,0xcdb98a),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]] },
   { id: 'espinas', name: 'Espinas', theme: 'Zig-zag', ground: 0xf0e6d2, fog: 0xf6efde, accent: 0xe0d5b8,
     obstacles: [
       ob(-18,-16,2,3,8,true,0xd5c4a0), ob(-9,-8,8,3,2,true,0xd5c4a0),
@@ -175,7 +188,7 @@ const MAPS: GameMap[] = [
       ob(-10,10,3,4,3,true,0xd5c4a0), ob(10,10,3,4,3,true,0xd5c4a0),
       ob(0,0,5,3,5,true,0xe8d5b7),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]] },
   { id: 'laberinto', name: 'Laberinto', theme: 'Maze', ground: 0xeaf3e0, fog: 0xeef5e6, accent: 0xcfdcc0,
     obstacles: [
       ob(-12,-12,2,3,12,true,0xe8d5b7), ob(0,-6,12,3,2,true,0xe8d5b7),
@@ -212,7 +225,7 @@ const MAPS: GameMap[] = [
       ob(-12,0,2,4,2,true,0xb8a47a,'cyl'), ob(12,0,2,4,2,true,0xb8a47a,'cyl'),
       ob(0,0,4,5,4,true,0xd5c4a0),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]] },
   { id: 'diamante', name: 'Diamante', theme: 'Rombo', ground: 0xf7fafc, fog: 0xf7fafc, accent: 0xdfe7ec,
     obstacles: [
       ob(0,-14,4,3,4,true,0xa3c8e0), ob(14,0,4,3,4,true,0xa3c8e0),
@@ -229,7 +242,7 @@ const MAPS: GameMap[] = [
       ob(-12,12,4,3,4,true,0xe8d5b7), ob(0,12,4,3,4,true,0xe8d5b7), ob(12,12,4,3,4,true,0xe8d5b7),
       ob(0,0,4,2,4,true,0xd5c4a0),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-24,-24],[24,24]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-60,-60],[60,60]] },
   { id: 'ruinas', name: 'Ruinas', theme: 'Escombros', ground: 0xe8e4df, fog: 0xeae6e0, accent: 0xcfc8bc,
     obstacles: [
       ob(-16,-14,6,2,3,true,0xcdb98a), ob(-14,12,4,3,4,true,0xd5c4a0),
@@ -238,7 +251,7 @@ const MAPS: GameMap[] = [
       ob(-6,0,3,1.5,3,true,0xd5c4a0), ob(6,0,3,1.5,3,true,0xd5c4a0),
       ob(0,0,8,1,8,true,0xe0a3a0),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-22,-22],[22,22]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]] },
   { id: 'estadio', name: 'Estadio', theme: 'Graderías', ground: 0xeaf3e0, fog: 0xeef5e6, accent: 0xcfdcc0,
     obstacles: [
       ob(0,-22,44,4,2,true,0xd5c4a0), ob(0,22,44,4,2,true,0xd5c4a0),
@@ -281,7 +294,7 @@ const MAPS: GameMap[] = [
       ob(-14, 16, 0.3, 1.5, 4, false, 0x8a92a0, 'wall'), ob(14, 16, 0.3, 1.5, 4, false, 0x8a92a0, 'wall'),
       ob(0, -4, 2, 0.4, 2, true, 0x3498db, 'water', 0, true),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-24,-24],[24,24]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-60,-60],[60,60]] },
   { id: 'escuela', name: 'Escuela', theme: 'Escuela con salones', ground: 0xd5d8de, fog: 0xe0e3e8, accent: 0xa0a8b0,
     obstacles: [
       ...buildHouse(0, 0, 30, 30, 5, 0xe8e0d0, 0xc0392b, 'S'),
@@ -303,7 +316,7 @@ const MAPS: GameMap[] = [
       ob(-10, 0, 1, 1.2, 1, true, 0x555555, 'box'), ob(10, 0, 1, 1.2, 1, true, 0x555555, 'box'),
       ...buildStairs(-13, 0, 6, 'E', 0xd5c4a0),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]] },
   { id: 'oficinas', name: 'Oficinas', theme: 'Edificio corporativo', ground: 0xc8ccd0, fog: 0xd0d4d8, accent: 0x9098a0,
     obstacles: [
       ...buildHouse(-18, -12, 6, 6, 4, 0xa3c8e0, 0x2c3e50, 'S'),
@@ -323,7 +336,7 @@ const MAPS: GameMap[] = [
       ob(0, -12, 12, 0.3, 2, true, 0x8a92a0, 'roof', 0, false, 4),
       ob(0, 12, 12, 0.3, 2, true, 0x8a92a0, 'roof', 0, false, 4),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]] },
   { id: 'bosque', name: 'Bosque', theme: 'Bosque con río', ground: 0x4a7a3a, fog: 0x6a9a5a, accent: 0x3a5a2a, waterLevel: 0.3,
     obstacles: [
       ...buildTree(-12, -12, 1.5), ...buildTree(12, -12, 1.5),
@@ -339,7 +352,7 @@ const MAPS: GameMap[] = [
       ob(-8, 0, 3, 0.8, 2, false, 0x27ae60, 'box'), ob(8, 0, 3, 0.8, 2, false, 0x27ae60, 'box'),
       ob(-15, 6, 1.5, 1, 1.5, true, 0x7a5230, 'box'), ob(15, -6, 1.5, 1, 1.5, true, 0x7a5230, 'box'),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0],[-22,-22],[22,22]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0],[-55,-55],[55,55]] },
   { id: 'paisaje', name: 'Paisaje', theme: 'Río y montañas', ground: 0x5a8a4a, fog: 0x7aa85a, accent: 0x4a6a3a, waterLevel: 0.3,
     obstacles: [
       ob(-14, -10, 4, 4, 4, true, 0x95a5a6, 'box'), ob(14, 10, 4, 4, 4, true, 0x7f8c8d, 'box'),
@@ -355,7 +368,7 @@ const MAPS: GameMap[] = [
       ob(-20, 0, 3, 6, 3, true, 0x95a5a6, 'box'),
       ...buildStairs(-17, 0, 6, 'W', 0x7f8c8d),
     ],
-    spawns: [[0,-24],[0,24],[-24,0],[24,0]] },
+    spawns: [[0,-60],[0,60],[-60,0],[60,0]] },
 ]
 
 function getMap(id: string): GameMap { return MAPS.find(m => m.id === id) ?? MAPS[0] }
