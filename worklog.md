@@ -1770,3 +1770,92 @@ weapon slots; sniper zooms to FOV 30 and shows a full-screen scope overlay
 ### Agent context
 
 - Full work record: `/home/z/my-project/agent-ctx/i-weapons-game-client-and-server.md`
+
+---
+
+## Task k-server — Sync oficinas map furniture (PISO 1-6) to client
+
+**Date:** 2025
+**Task ID:** `k-server`
+**Agent:** game-server-updater
+**Files touched:** `mini-services/game-server/index.ts`
+
+### Summary
+
+The client's `oficinas` map furniture was rewritten to move all piso 1-5
+furniture away from stair corners so stairs are no longer blocked. The
+server's copy of the same furniture definitions (used for server-side
+collision detection) was out of sync. This task copied the client's PISO 1
+through PISO 6 sections **exactly** from
+`src/lib/game/constants.ts` into `mini-services/game-server/index.ts`,
+replacing the previous piso 1-6 furniture blocks.
+
+The `ob()` helper function signature is identical on both sides
+(`(x, z, w, h, d, climbable, color, kind, rotation, noCollide, y)`) and
+no other helper functions or surrounding code (exterior walls, staircases,
+roof, exterior props) were touched.
+
+### Changes applied (server side, all in oficinas map `obstacles` builder)
+
+1. **PISO 1 (LOBBY)** — every `ob(...)` call now has explicit `, 0, false, 0`
+   trailing args so the y-position is explicit at `y=0`. Comment header
+   added: `// All furniture at y=0 (ground floor)`. Furniture positions
+   unchanged (reception desk at (0,12), sofa at (-12,8), plants at
+   (±16,-12), security desk at (0,17), trash bins at (-5,-5) & (5,5)).
+
+2. **PISO 2 (OFICINAS)** — desk loop rewritten from index-based to explicit
+   list `[[-12,-10],[12,-10],[-12,10],[12,10]]` (moves desks away from
+   stair corners at x=±14). Filing cabinets moved from a 4-unit loop at
+   x=4..16 (mid-floor) to three explicit cabinets at `x=-18` along the
+   west wall (z=0, ±5), away from stairs at x=-14. Water cooler and
+   printer moved from `x=16` to `x=18` (closer to the east wall).
+
+3. **PISO 3 (SALAS DE REUNIONES)** — partition walls rewritten from a
+   single long cross shape to **4 short pieces** centered around (0,0):
+   - Horizontal divider at z=0 split into left piece (x=-8, w=12) and
+     right piece (x=8, w=12) — leaves a 4-unit gap at center and stops
+     at x=±14 so stair corners at (±14, ∓10.5) remain clear.
+   - Vertical divider at x=0 split into top half (z=-8, d=12) and bottom
+     half (z=8, d=12) — same idea, clear of z=±14 stair positions.
+   - Meeting tables moved from `[[-12,-12],[12,-12],[-12,12],[12,12]]`
+     to `[[-10,-10],[10,-10],[-10,10],[10,10]]` to avoid stair corners.
+   - Projector height adjusted from `f3 + 3` to `f3 + 2.8` (ceiling
+     hanging) and comment clarified.
+
+4. **PISO 4 (CUBÍCULOS)** — cubicle grid range changed from `±12` (4×4
+   grid hitting stair corners) to `±8` (3×3 grid in center only). Same
+   furniture per cubicle (N partition, W partition, desk, monitor,
+   chair). Comments clarified to note "avoid stair corners at ±14".
+
+5. **PISO 5 (SERVIDORES)** — server rack loop rewritten from index-based
+   to explicit list `[[-10,-8],[0,-8],[10,-8],[-10,8],[0,8],[10,8]]`
+   (same 6 positions but now explicit). Cooling units moved from
+   `(±15, 15)` to `(±18, 14)` (against the wall, away from stairs at
+   x=±14). UPS batteries moved from `(±15, -15)` to `(±18, -14)`
+   (same reason).
+
+6. **PISO 6 (TERRAZA)** — code unchanged but comments brought in sync
+   with client ("Railings around perimeter", "Jacuzzi (water)",
+   "Bar counter", "bottle on bar", "BBQ grill", "hot coals"). All
+   `ob(...)` calls identical to before.
+
+### What was NOT changed
+
+- `ob()` function definition (line 61)
+- All other helper functions (`buildCar`, `buildTree`, `buildStaircase`,
+  `buildFloor`, `getHolePos`)
+- Exterior walls, floor platforms, staircase construction
+- ROOF and EXTERIOR sections
+- Bosque map, Plaza map, and any other game-server code
+
+### Verification
+
+- `cd /home/z/my-project && bun run lint` → exit 0, no errors / no
+  warnings.
+- `bun build mini-services/game-server/index.ts --target bun` → bundles
+  successfully (no syntax errors, all helpers resolve).
+- Next.js dev server (`dev.log`) continues serving `GET / 200` cleanly.
+
+### Agent context
+
+- Full work record: `/home/z/my-project/agent-ctx/k-server-game-server-updater.md`

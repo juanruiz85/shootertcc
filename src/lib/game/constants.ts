@@ -729,89 +729,99 @@ export const MAPS: GameMap[] = [
       }
 
       // ════════ PISO 1 (y=0..4): LOBBY ════════
-      r.push(ob(0, 12, 6, 1, 1.5, true, cDesk, 'box')) // reception desk
-      r.push(ob(0, 12.8, 4, 0.3, 0.5, false, cPC, 'box', 0, false, 1)) // PC on desk
-      r.push(ob(-8, 12, 1, 0.5, 1, true, cChair, 'box')) // chairs
-      r.push(ob(8, 12, 1, 0.5, 1, true, cChair, 'box'))
-      r.push(ob(-12, 8, 4, 0.8, 1.5, true, 0x8e44ad, 'box')) // sofa
-      r.push(ob(-12, 11, 2, 0.5, 1, true, cDesk, 'box')) // coffee table
-      r.push(ob(-16, -12, 1, 1.5, 1, false, 0x27ae60, 'cyl')) // plants
-      r.push(ob(16, -12, 1, 1.5, 1, false, 0x27ae60, 'cyl'))
-      r.push(ob(0, 17, 3, 1, 1, true, cDark, 'box')) // security desk
-      r.push(ob(-5, -5, 0.8, 1, 0.8, true, 0x555555, 'box')) // trash
-      r.push(ob(5, 5, 0.8, 1, 0.8, true, 0x555555, 'box'))
+      // All furniture at y=0 (ground floor)
+      r.push(ob(0, 12, 6, 1, 1.5, true, cDesk, 'box', 0, false, 0)) // reception desk
+      r.push(ob(0, 12.8, 4, 0.3, 0.5, false, cPC, 'box', 0, false, 1)) // PC on desk (y=1, on top of desk h=1)
+      r.push(ob(-8, 12, 1, 0.5, 1, true, cChair, 'box', 0, false, 0)) // chairs
+      r.push(ob(8, 12, 1, 0.5, 1, true, cChair, 'box', 0, false, 0))
+      r.push(ob(-12, 8, 4, 0.8, 1.5, true, 0x8e44ad, 'box', 0, false, 0)) // sofa
+      r.push(ob(-12, 11, 2, 0.5, 1, true, cDesk, 'box', 0, false, 0)) // coffee table
+      r.push(ob(-16, -12, 1, 1.5, 1, false, 0x27ae60, 'cyl', 0, false, 0)) // plants
+      r.push(ob(16, -12, 1, 1.5, 1, false, 0x27ae60, 'cyl', 0, false, 0))
+      r.push(ob(0, 17, 3, 1, 1, true, cDark, 'box', 0, false, 0)) // security desk
+      r.push(ob(-5, -5, 0.8, 1, 0.8, true, 0x555555, 'box', 0, false, 0)) // trash
+      r.push(ob(5, 5, 0.8, 1, 0.8, true, 0x555555, 'box', 0, false, 0))
 
       // ════════ PISO 2 (y=4..8): OFICINAS ABIERTAS ════════
+      // All furniture at y=4 (on top of floor platform at y=4)
       const f2 = FH
-      for (let i = 0; i < 4; i++) {
-        const dx = -12 + i * 8, dz = -10 + (i % 2) * 16
-        r.push(ob(dx, dz, 3, 0.8, 1.5, true, cDesk, 'box', 0, false, f2))
-        r.push(ob(dx, dz - 0.5, 1.5, 0.4, 0.5, false, cPC, 'box', 0, false, f2 + 0.8))
-        r.push(ob(dx, dz + 1.5, 1, 0.5, 1, true, cChair, 'box', 0, false, f2))
+      // Desks along north and south walls (away from stair areas at corners)
+      for (const [dx, dz] of [[-12, -10], [12, -10], [-12, 10], [12, 10]] as const) {
+        r.push(ob(dx, dz, 3, 0.8, 1.5, true, cDesk, 'box', 0, false, f2)) // desk at floor level
+        r.push(ob(dx, dz - 0.5, 1.5, 0.4, 0.5, false, cPC, 'box', 0, false, f2 + 0.8)) // monitor on desk
+        r.push(ob(dx, dz + 1.5, 1, 0.5, 1, true, cChair, 'box', 0, false, f2)) // chair at floor level
       }
-      for (let i = 0; i < 4; i++) {
-        const dx = 4 + i * 4
-        r.push(ob(dx, 0, 1, 2, 1, true, cDark, 'box', 0, false, f2)) // filing cabinets
-      }
-      r.push(ob(16, -8, 0.8, 1.5, 0.8, true, 0x3498db, 'box', 0, false, f2)) // water cooler
-      r.push(ob(16, 8, 1.5, 1, 1, true, cDark, 'box', 0, false, f2)) // printer
+      // Filing cabinets along west wall (away from stairs at x=-14)
+      r.push(ob(-18, 0, 1, 2, 1, true, cDark, 'box', 0, false, f2))
+      r.push(ob(-18, 5, 1, 2, 1, true, cDark, 'box', 0, false, f2))
+      r.push(ob(-18, -5, 1, 2, 1, true, cDark, 'box', 0, false, f2))
+      // Water cooler near east wall
+      r.push(ob(18, -8, 0.8, 1.5, 0.8, true, 0x3498db, 'box', 0, false, f2))
+      // Printer near east wall
+      r.push(ob(18, 8, 1.5, 1, 1, true, cDark, 'box', 0, false, f2))
 
       // ════════ PISO 3 (y=8..12): SALAS DE REUNIONES ════════
       const f3 = 2 * FH
-      // Partition walls with door gaps (cross shape, gap in center of each arm)
-      r.push(ob(0, -D/4 - 2, W - wallT*2 - 4, FH - 0.5, wallT, false, cWall, 'wall', 0, false, f3)) // NW→NE horizontal
-      r.push(ob(0, D/4 + 2, W - wallT*2 - 4, FH - 0.5, wallT, false, cWall, 'wall', 0, false, f3)) // SW→SE horizontal
-      r.push(ob(-W/4 - 2, 0, wallT, FH - 0.5, D - wallT*2 - 4, false, cWall, 'wall', 0, false, f3)) // N→S vertical left
-      r.push(ob(W/4 + 2, 0, wallT, FH - 0.5, D - wallT*2 - 4, false, cWall, 'wall', 0, false, f3)) // N→S vertical right
-      // Meeting tables in 4 quadrants
-      for (const [tx, tz] of [[-12, -12], [12, -12], [-12, 12], [12, 12]] as const) {
-        r.push(ob(tx, tz, 4, 0.8, 2, true, cDesk, 'box', 0, false, f3))
-        r.push(ob(tx, tz - 2.5, 1, 0.5, 1, true, cChair, 'box', 0, false, f3))
+      // Partition walls — AVOID stair areas! Stairs 1→2 emerge at (14, -10.5) and stairs 2→3 start at (14, 14)
+      // Only put partition walls in center, away from corners where stairs are
+      // Horizontal divider at z=0 (but with gaps at x=±14 for stair clearance)
+      r.push(ob(-8, 0, 12, FH - 0.5, wallT, false, cWall, 'wall', 0, false, f3)) // left of center
+      r.push(ob(8, 0, 12, FH - 0.5, wallT, false, cWall, 'wall', 0, false, f3)) // right of center
+      // Vertical divider at x=0 (with gap at z=±14 for stair clearance)
+      r.push(ob(0, -8, wallT, FH - 0.5, 12, false, cWall, 'wall', 0, false, f3)) // top half
+      r.push(ob(0, 8, wallT, FH - 0.5, 12, false, cWall, 'wall', 0, false, f3)) // bottom half
+      // Meeting tables in 4 quadrants (away from stair corners)
+      for (const [tx, tz] of [[-10, -10], [10, -10], [-10, 10], [10, 10]] as const) {
+        r.push(ob(tx, tz, 4, 0.8, 2, true, cDesk, 'box', 0, false, f3)) // table at floor level
+        r.push(ob(tx, tz - 2.5, 1, 0.5, 1, true, cChair, 'box', 0, false, f3)) // chairs at floor level
         r.push(ob(tx, tz + 2.5, 1, 0.5, 1, true, cChair, 'box', 0, false, f3))
         r.push(ob(tx - 2.5, tz, 1, 0.5, 1, true, cChair, 'box', 0, false, f3))
         r.push(ob(tx + 2.5, tz, 1, 0.5, 1, true, cChair, 'box', 0, false, f3))
-        r.push(ob(tx, tz, 1, 0.3, 1, false, cDark, 'box', 0, false, f3 + 3)) // projector
+        r.push(ob(tx, tz, 1, 0.3, 1, false, cDark, 'box', 0, false, f3 + 2.8)) // projector (hanging from ceiling)
       }
 
       // ════════ PISO 4 (y=12..16): CUBÍCULOS ════════
       const f4 = 3 * FH
-      for (let cx = -12; cx <= 12; cx += 8) {
-        for (let cz = -12; cz <= 12; cz += 8) {
-          r.push(ob(cx + 1.5, cz, 0.15, 1.5, 2.5, false, 0xc8ccd0, 'wall', 0, false, f4)) // partition N
-          r.push(ob(cx, cz + 1.5, 2.5, 1.5, 0.15, false, 0xc8ccd0, 'wall', 0, false, f4)) // partition W
-          r.push(ob(cx, cz, 2, 0.8, 1, true, cDesk, 'box', 0, false, f4)) // desk
-          r.push(ob(cx, cz - 0.4, 1, 0.3, 0.4, false, cPC, 'box', 0, false, f4 + 0.8)) // monitor
-          r.push(ob(cx, cz + 1.5, 0.8, 0.5, 0.8, true, cChair, 'box', 0, false, f4)) // chair
+      // Cubicles in center area only (avoid stair corners at ±14)
+      for (let cx = -8; cx <= 8; cx += 8) {
+        for (let cz = -8; cz <= 8; cz += 8) {
+          r.push(ob(cx + 1.5, cz, 0.15, 1.5, 2.5, false, 0xc8ccd0, 'wall', 0, false, f4)) // partition at floor level
+          r.push(ob(cx, cz + 1.5, 2.5, 1.5, 0.15, false, 0xc8ccd0, 'wall', 0, false, f4)) // partition at floor level
+          r.push(ob(cx, cz, 2, 0.8, 1, true, cDesk, 'box', 0, false, f4)) // desk at floor level
+          r.push(ob(cx, cz - 0.4, 1, 0.3, 0.4, false, cPC, 'box', 0, false, f4 + 0.8)) // monitor on desk
+          r.push(ob(cx, cz + 1.5, 0.8, 0.5, 0.8, true, cChair, 'box', 0, false, f4)) // chair at floor level
         }
       }
 
       // ════════ PISO 5 (y=16..20): SERVIDORES ════════
       const f5 = 4 * FH
-      for (let i = 0; i < 6; i++) {
-        const sx = -12 + (i % 3) * 8, sz = -8 + Math.floor(i / 3) * 16
-        r.push(ob(sx, sz, 1.5, 3, 1, true, 0x2c3e50, 'box', 0, false, f5))
-        r.push(ob(sx, sz, 1.2, 2.8, 0.8, false, 0x1a1a1a, 'box', 0, false, f5 + 0.1))
-        r.push(ob(sx, sz, 1.3, 0.1, 0.9, false, 0x27ae60, 'box', 0, false, f5 + 1))
-        r.push(ob(sx, sz, 1.3, 0.1, 0.9, false, 0xe74c3c, 'box', 0, false, f5 + 1.5))
+      // Server racks in center rows (avoid stair corners)
+      for (const [sx, sz] of [[-10, -8], [0, -8], [10, -8], [-10, 8], [0, 8], [10, 8]] as const) {
+        r.push(ob(sx, sz, 1.5, 3, 1, true, 0x2c3e50, 'box', 0, false, f5)) // rack at floor level
+        r.push(ob(sx, sz, 1.2, 2.8, 0.8, false, 0x1a1a1a, 'box', 0, false, f5 + 0.1)) // rack interior
+        r.push(ob(sx, sz, 1.3, 0.1, 0.9, false, 0x27ae60, 'box', 0, false, f5 + 1)) // green LED
+        r.push(ob(sx, sz, 1.3, 0.1, 0.9, false, 0xe74c3c, 'box', 0, false, f5 + 1.5)) // red LED
       }
-      r.push(ob(-15, 15, 2, 1.5, 2, true, 0x95a5a6, 'box', 0, false, f5)) // cooling
-      r.push(ob(15, 15, 2, 1.5, 2, true, 0x95a5a6, 'box', 0, false, f5))
-      r.push(ob(-15, -15, 2, 1.5, 1, true, cDark, 'box', 0, false, f5)) // UPS
-      r.push(ob(15, -15, 2, 1.5, 1, true, cDark, 'box', 0, false, f5))
+      // Cooling units near walls (away from stairs)
+      r.push(ob(-18, 14, 2, 1.5, 2, true, 0x95a5a6, 'box', 0, false, f5))
+      r.push(ob(18, 14, 2, 1.5, 2, true, 0x95a5a6, 'box', 0, false, f5))
+      // UPS batteries near walls
+      r.push(ob(-18, -14, 2, 1.5, 1, true, cDark, 'box', 0, false, f5))
+      r.push(ob(18, -14, 2, 1.5, 1, true, cDark, 'box', 0, false, f5))
 
       // ════════ PISO 6 (y=20..24): TERRAZA ════════
       const f6 = 5 * FH
-      // Railings
+      // Railings around perimeter
       r.push(ob(0, D/2 - 1, W - 2, 1.2, 0.15, false, cWall, 'wall', 0, false, f6))
       r.push(ob(0, -D/2 + 1, W - 2, 1.2, 0.15, false, cWall, 'wall', 0, false, f6))
       r.push(ob(W/2 - 1, 0, 0.15, 1.2, D - 2, false, cWall, 'wall', 0, false, f6))
       r.push(ob(-W/2 + 1, 0, 0.15, 1.2, D - 2, false, cWall, 'wall', 0, false, f6))
-      // Jacuzzi
+      // Jacuzzi (water)
       r.push(ob(-10, -10, 4, 0.8, 4, false, 0x2980b9, 'water', 0, true, f6))
-      // Bar
+      // Bar counter
       r.push(ob(10, -10, 5, 1.2, 1.5, true, cDesk, 'box', 0, false, f6))
-      r.push(ob(12, -10, 0.5, 0.3, 0.5, false, 0x27ae60, 'box', 0, false, f6 + 1.2))
-      r.push(ob(8, -10, 0.5, 0.3, 0.5, false, 0xe74c3c, 'box', 0, false, f6 + 1.2))
+      r.push(ob(12, -10, 0.5, 0.3, 0.5, false, 0x27ae60, 'box', 0, false, f6 + 1.2)) // bottle on bar
+      r.push(ob(8, -10, 0.5, 0.3, 0.5, false, 0xe74c3c, 'box', 0, false, f6 + 1.2)) // bottle on bar
       // Lounge chairs
       r.push(ob(10, 10, 1.5, 0.6, 2, true, 0xe67e22, 'box', 0, false, f6))
       r.push(ob(13, 10, 1.5, 0.6, 2, true, 0xe67e22, 'box', 0, false, f6))
@@ -823,9 +833,9 @@ export const MAPS: GameMap[] = [
       r.push(ob(0, 5, 2, 0.8, 2, true, cDesk, 'box', 0, false, f6))
       r.push(ob(0, 5, 0.2, 2.5, 0.2, false, 0xe74c3c, 'box', 0, false, f6 + 0.8))
       r.push(ob(0, 5, 3, 0.1, 3, false, 0xe74c3c, 'box', 0, true, f6 + 3))
-      // BBQ
+      // BBQ grill
       r.push(ob(-12, 8, 1.5, 1, 1.5, true, 0x2c3e50, 'box', 0, false, f6))
-      r.push(ob(-12, 8, 1, 0.2, 1, false, 0xe74c3c, 'box', 0, false, f6 + 1))
+      r.push(ob(-12, 8, 1, 0.2, 1, false, 0xe74c3c, 'box', 0, false, f6 + 1)) // hot coals
 
       // ════════ ROOF ════════
       r.push(ob(0, 0, W + 0.6, 0.3, D + 0.6, true, 0x2c3e50, 'roof', 0, false, TOT))
