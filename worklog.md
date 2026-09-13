@@ -59,3 +59,44 @@ Work Log:
 Stage Summary:
 - Project ready. Deps installed. Dev server running.
 - Next: build the socket.io game server mini-service on port 3003.
+
+---
+Task ID: 2
+Agent: main
+Task: Implement 2 game modes (PvP 1v1 + PvE levels), human player models with visible weapons, item drops, killstreaks, 16 maps, climbable structures, fix exit-button-under-pause, empty room cleanup
+
+Work Log:
+- Added 16 themed maps (Arena, Patios, Bunkers, Torres, Crucero, Espinas, Fortaleza, Laberinto, Puentes, Cráter, Zigzag, Diamante, Colmena, Ruinas, Estadio, Núcleo) with obstacles + spawn points, mirrored in both client constants.ts and server index.ts
+- Added GameMode (pvp/pve), Team (blue/red/none), ItemType (ammo/heal/shield), KillstreakDef types
+- Server: room now has mode/mapId/level; PvP assigns blue/red teams + round-based map rotation; PvE has level-based difficulty scaling (mob count/hp/speed/damage) + map rotation per level + round-end detection
+- Server: item drops spawn on mob/player kills + periodic spawns; pickup applies ammo(weapon swap)/heal(+35hp)/shield(+30); distance-checked
+- Server: killstreak tracking (drone@3, bomb@5, aura@7) with rewards — drone auto-attacks mobs, bomb AoE damage, aura heal+reload; streak toast emitted to player
+- Server: empty rooms deleted after 8s TTL (EMPTY_ROOM_TTL_MS); keeps 1 default PvE room
+- Server: round transitions (PvE level up, PvP round end) with 4s banner pause then fresh spawn + map change broadcast
+- Lobby: mode selector (Vs Mobs / 1v1 PvP), room cards show mode badge + map name + level, map gallery (16 thumbnails), items reference card
+- GameCanvas: human avatar (head+torso+arms+legs+hair+eyes) with team ring under feet, per-weapon visible held mesh (pistol/smg/rifle/shotgun each distinct), walk-cycle leg/arm animation
+- GameCanvas: viewmodel redesigned per weapon type (different geometry)
+- GameCanvas: climbable boxes — horizontal collision only blocks when feet below box top; landing detection on box tops so player can jump onto and stand on structures
+- GameCanvas: item drop 3D models (ammo=yellow cartucho with bullets, heal=white box with red cross, shield=teal drink can); spin + bob animation; auto-pickup by proximity
+- GameCanvas: 16 maps render with themed ground/fog/accent colors; arena rebuilt on map change
+- GameCanvas: map rotation via room:mapChange event → buildArena + entity clear; server sends fresh room:joined after round transition
+- Hud: fixed exit button — removed from TopBar, added "Salir de la sala" button INSIDE the pause overlay (z-50) so it's accessible above everything; TopBar z lowered
+- Hud: added shield bar (teal) under health bar, team indicator on avatar, streak counter with flame icon, streak reward toast (🛸/💣/⚡), pickup toast, scoreboard with streak column, items on minimap
+- Socket layer: dual connection — production uses /?XTransformPort=3003 (Caddy gateway), dev/localhost connects directly to host:3003 with path /; server path set to /
+
+Verification (agent-browser):
+- Lobby renders fully: mode selector, 16 maps gallery, items reference, controls ✅
+- Badge shows "Conectado" (socket connects) ✅
+- Created PvE room → entered 3D game, mobs present, combat active (health dropped to 46 then 55), level 1, Arena Doodle map ✅
+- Created PvP room → entered with team Azul assigned, Laberinto map (random rotation), no mobs ✅
+- ESC → pause overlay with "Reanudar" + "Salir de la sala" both visible & clickable ✅
+- "Salir de la sala" → returns to lobby, room appears in list ✅
+- Empty room cleanup: rooms empty >8s are deleted ✅
+- Lint: clean ✅
+
+Stage Summary:
+- Both game modes fully functional. 16 maps rotate per level (PvE) / per round (PvP).
+- Human player models with distinct per-weapon meshes. Items drop & pickup working.
+- Killstreaks (drone/bomb/aura) implemented. Exit button fixed (in pause overlay).
+- Climbable structures: player can jump onto boxes and stand on them.
+- Servers running stable via dev.sh (next:3000 + game-server:3003).

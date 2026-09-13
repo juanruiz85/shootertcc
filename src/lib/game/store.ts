@@ -1,49 +1,64 @@
 'use client'
 
 import { create } from 'zustand'
-import type { KillFeedEntry, PlayerPublic, MobPublic, RoomSummary } from './types'
+import type {
+  KillFeedEntry, PlayerPublic, MobPublic, RoomSummary, ItemPublic, Vec3,
+  GameMode, Team, StreakReward,
+} from './types'
 
-// HUD-facing store. The Three.js game loop writes here; React HUD reads.
 export type HudState = {
   connected: boolean
   roomName: string
+  roomMode: GameMode
+  roomMapId: string
+  roomLevel: number
   myId: string
   myName: string
   mySkin: string
+  myTeam: Team
   health: number
+  shield: number
   maxHealth: number
+  maxShield: number
   weapon: string
   ammo: number
   magazine: number
   reloading: boolean
-  reloadProgress: number // 0..1
+  reloadProgress: number
   alive: boolean
-  respawnIn: number // seconds
+  respawnIn: number
   score: number
   kills: number
   deaths: number
-  players: PlayerPublic[] // roster (scoreboard)
+  streak: number
+  bestStreak: number
+  players: PlayerPublic[]
   mobs: MobPublic[]
+  items: ItemPublic[]
   rooms: RoomSummary[]
   killFeed: KillFeedEntry[]
-  hitMarker: number // timestamp of last hit confirmed
-  damageFlash: number // timestamp of last damage taken
+  hitMarker: number
+  damageFlash: number
   lastHitBy: string | null
   showScoreboard: boolean
   paused: boolean
   pointerLocked: boolean
-  // high-frequency snapshots (written by game loop, read by minimap)
+  // high-frequency snapshots
   yawSnapshot: number
-  myPosSnapshot: [number, number, number] | null
-  // pointer-lock resume function registered by GameCanvas
+  myPosSnapshot: Vec3 | null
+  // streak reward toast
+  streakReward: StreakReward | null
+  streakRewardAt: number
+  // pickup toast
+  pickupToast: { type: string; name: string; at: number } | null
+  // pointer-lock resume
   requestResume: (() => void) | null
   // setters
   set: (partial: Partial<HudState>) => void
   addKillFeed: (e: KillFeedEntry) => void
   setPlayers: (p: PlayerPublic[]) => void
-  upsertPlayer: (p: PlayerPublic) => void
-  removePlayer: (id: string) => void
   setMobs: (m: MobPublic[]) => void
+  setItems: (i: ItemPublic[]) => void
   setRooms: (r: RoomSummary[]) => void
   reset: () => void
 }
@@ -51,11 +66,17 @@ export type HudState = {
 const initial = {
   connected: false,
   roomName: '',
+  roomMode: 'pve' as GameMode,
+  roomMapId: 'arena',
+  roomLevel: 1,
   myId: '',
   myName: '',
   mySkin: 'red',
+  myTeam: 'none' as Team,
   health: 100,
+  shield: 0,
   maxHealth: 100,
+  maxShield: 50,
   weapon: 'pistol',
   ammo: 12,
   magazine: 12,
@@ -66,8 +87,11 @@ const initial = {
   score: 0,
   kills: 0,
   deaths: 0,
+  streak: 0,
+  bestStreak: 0,
   players: [] as PlayerPublic[],
   mobs: [] as MobPublic[],
+  items: [] as ItemPublic[],
   rooms: [] as RoomSummary[],
   killFeed: [] as KillFeedEntry[],
   hitMarker: 0,
@@ -78,6 +102,9 @@ const initial = {
   pointerLocked: false,
   yawSnapshot: 0,
   myPosSnapshot: null,
+  streakReward: null,
+  streakRewardAt: 0,
+  pickupToast: null,
   requestResume: null,
 }
 
@@ -87,17 +114,8 @@ export const useGameStore = create<HudState>((set) => ({
   addKillFeed: (e) =>
     set((s) => ({ killFeed: [e, ...s.killFeed].slice(0, 6) })),
   setPlayers: (p) => set({ players: p }),
-  upsertPlayer: (p) =>
-    set((s) => {
-      const i = s.players.findIndex((x) => x.id === p.id)
-      if (i === -1) return { players: [...s.players, p] }
-      const next = s.players.slice()
-      next[i] = { ...next[i], ...p }
-      return { players: next }
-    }),
-  removePlayer: (id) =>
-    set((s) => ({ players: s.players.filter((x) => x.id !== id) })),
   setMobs: (m) => set({ mobs: m }),
+  setItems: (i) => set({ items: i }),
   setRooms: (r) => set({ rooms: r }),
-  reset: () => set({ ...initial }),
+  reset: () => set({ ...initial, requestResume: useGameStore.getState().requestResume, connected: useGameStore.getState().connected }),
 }))

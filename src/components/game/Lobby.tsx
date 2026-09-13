@@ -2,21 +2,22 @@
 
 import { useEffect, useState } from 'react'
 import { useGameStore } from '@/lib/game/store'
-import { SKINS, WEAPONS, WEAPON_ORDER } from '@/lib/game/constants'
+import { SKINS, WEAPONS, WEAPON_ORDER, MAPS, getMap } from '@/lib/game/constants'
 import { net, attachHandlers } from '@/lib/socket'
+import type { GameMode } from '@/lib/game/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
-  Crosshair, Users, Skull, Swords, RefreshCw, Plus, LogIn, Wifi, WifiOff, Gamepad2,
+  Crosshair, Users, Skull, Swords, RefreshCw, Plus, LogIn, Wifi, WifiOff,
+  Gamepad2, Zap, Map as MapIcon, Layers, Bot,
 } from 'lucide-react'
 
 export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
   const rooms = useGameStore((s) => s.rooms)
   const connected = useGameStore((s) => s.connected)
-  const set = useGameStore((s) => s.set)
   const setRooms = useGameStore((s) => s.setRooms)
 
   const [name, setName] = useState(() => {
@@ -27,30 +28,27 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
     if (typeof localStorage !== 'undefined') return localStorage.getItem('ds_skin') || 'red'
     return 'red'
   })
+  const [mode, setMode] = useState<GameMode>('pve')
   const [newRoom, setNewRoom] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
-  // attach socket handlers for lobby events
   useEffect(() => {
     const off = attachHandlers({
       onLobbyState: (d) => setRooms(d.rooms),
       onLobbyReady: () => {},
       onRoomError: (d) => setError(d.message),
       onRoomJoined: () => {
-        // persist
         localStorage.setItem('ds_name', name)
         localStorage.setItem('ds_skin', skin)
         onEnterGame()
       },
     })
-    // kick off handshake
     net.lobbyHello(name || 'Jugador', skin)
     const t = setInterval(() => net.lobbyRefresh(), 5000)
     return () => { off(); clearInterval(t) }
   }, [name, skin, onEnterGame, setRooms])
 
-  // keep server informed of name/skin changes (so join uses latest)
   useEffect(() => {
     if (connected) net.lobbyHello(name || 'Jugador', skin)
   }, [name, skin, connected])
@@ -58,7 +56,8 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
   const doCreate = () => {
     setError(null)
     if (!name.trim()) { setError('Elige un nombre primero'); return }
-    net.createRoom(newRoom.trim() || 'Nueva Sala')
+    const defName = mode === 'pvp' ? 'Duelo 1v1' : 'Supervivencia'
+    net.createRoom(newRoom.trim() || defName, mode)
   }
   const doJoin = (id: string) => {
     setError(null)
@@ -83,7 +82,7 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
             <h1 className="font-doodle text-2xl sm:text-3xl font-black tracking-tight leading-none">
               Doodle Shooter
             </h1>
-            <p className="text-xs text-black/60 -mt-0.5">Multijugador · Arena</p>
+            <p className="text-xs text-black/60 -mt-0.5">Multijugador · 16 mapas · 2 modos</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -100,7 +99,7 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
       </header>
 
       <main className="flex-1 px-4 sm:px-8 py-6 grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 max-w-7xl w-full mx-auto">
-        {/* LEFT: identity + create */}
+        {/* LEFT */}
         <div className="space-y-4">
           <Card className="doodle-card">
             <CardHeader className="pb-2">
@@ -144,6 +143,36 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
                   ))}
                 </div>
               </div>
+              {/* mode selector */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wide text-black/60">Modo de juego</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setMode('pve')}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      mode === 'pve'
+                        ? 'border-black bg-[#fef3f8] shadow-[3px_3px_0_0_#000] -translate-x-0.5 -translate-y-0.5'
+                        : 'border-black/30 hover:border-black/70 bg-white'
+                    }`}
+                  >
+                    <Bot className="w-5 h-5 mb-1" />
+                    <p className="font-doodle font-bold text-base leading-none">Vs Mobs</p>
+                    <p className="text-[11px] text-black/55 mt-0.5">Niveles que suben</p>
+                  </button>
+                  <button
+                    onClick={() => setMode('pvp')}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      mode === 'pvp'
+                        ? 'border-black bg-[#fef3f8] shadow-[3px_3px_0_0_#000] -translate-x-0.5 -translate-y-0.5'
+                        : 'border-black/30 hover:border-black/70 bg-white'
+                    }`}
+                  >
+                    <Swords className="w-5 h-5 mb-1" />
+                    <p className="font-doodle font-bold text-base leading-none">1v1 PvP</p>
+                    <p className="text-[11px] text-black/55 mt-0.5">Azul vs Rojo</p>
+                  </button>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -162,13 +191,18 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
                 maxLength={28}
                 onKeyDown={(e) => e.key === 'Enter' && doCreate()}
               />
+              <div className="flex items-center gap-2 text-xs">
+                <Badge variant="outline" className="border-2 border-black/70 gap-1">
+                  {mode === 'pvp' ? <Swords className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
+                  {mode === 'pvp' ? 'PvP 1v1' : 'PvE Niveles'}
+                </Badge>
+              </div>
               <Button onClick={doCreate} className="doodle-btn w-full" size="lg">
                 <Plus className="w-4 h-4 mr-1" /> Crear y entrar
               </Button>
             </CardContent>
           </Card>
 
-          {/* controls reference */}
           <Card className="doodle-card">
             <CardHeader className="pb-2">
               <CardTitle className="font-doodle text-xl flex items-center gap-2">
@@ -187,7 +221,6 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
             </CardContent>
           </Card>
 
-          {/* weapons reference */}
           <Card className="doodle-card">
             <CardHeader className="pb-2">
               <CardTitle className="font-doodle text-xl flex items-center gap-2">
@@ -213,9 +246,23 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
               })}
             </CardContent>
           </Card>
+
+          {/* Items reference */}
+          <Card className="doodle-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="font-doodle text-xl flex items-center gap-2">
+                <Layers className="w-5 h-5" /> Items
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <ItemRow color="#f1c40f" label="Cartucho" desc="Cambia de arma + munición" glyph="▮▮" />
+              <ItemRow color="#e74c3c" label="Cruz" desc="+35 de vida" glyph="✚" />
+              <ItemRow color="#1abc9c" label="Bebida" desc="+30 de escudo" glyph="▮" />
+            </CardContent>
+          </Card>
         </div>
 
-        {/* RIGHT: rooms */}
+        {/* RIGHT */}
         <div className="space-y-4">
           <Card className="doodle-card">
             <CardHeader className="pb-3 flex-row items-center justify-between">
@@ -239,49 +286,92 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
                   <p>No hay salas todavía. ¡Crea la primera!</p>
                 </div>
               ) : (
-                <ScrollArea className="h-[420px] pr-2">
+                <ScrollArea className="h-[460px] pr-2">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {rooms.map((r) => (
-                      <div
-                        key={r.id}
-                        className="doodle-card-flat p-4 flex flex-col gap-3 hover:translate-x-[-2px] hover:translate-y-[-2px] transition-transform"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-doodle text-lg font-bold leading-tight">{r.name}</p>
-                            <p className="text-xs text-black/50 font-mono">{r.id.slice(0, 10)}</p>
-                          </div>
-                          <Badge variant="outline" className="border-2 border-black/70">
-                            {r.players}/{r.max}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-black/60">
-                          <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {r.players} jug</span>
-                          <span className="flex items-center gap-1"><Skull className="w-3.5 h-3.5" /> {r.mobs} mobs</span>
-                        </div>
-                        <Button
-                          onClick={() => doJoin(r.id)}
-                          disabled={r.players >= r.max}
-                          className="doodle-btn w-full"
-                          size="sm"
+                    {rooms.map((r) => {
+                      const m = getMap(r.mapId)
+                      return (
+                        <div
+                          key={r.id}
+                          className="doodle-card-flat p-4 flex flex-col gap-3 hover:translate-x-[-2px] hover:translate-y-[-2px] transition-transform"
                         >
-                          <LogIn className="w-4 h-4 mr-1" />
-                          {r.players >= r.max ? 'Llena' : 'Entrar'}
-                        </Button>
-                      </div>
-                    ))}
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-doodle text-lg font-bold leading-tight">{r.name}</p>
+                              <p className="text-xs text-black/50 font-mono">{r.id.slice(0, 10)}</p>
+                            </div>
+                            <Badge variant="outline" className="border-2 border-black/70">
+                              {r.players}/{r.max}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap text-xs">
+                            <Badge variant="outline" className={`border-2 gap-1 ${r.mode === 'pvp' ? 'border-red-400 text-red-700 bg-red-50' : 'border-emerald-400 text-emerald-700 bg-emerald-50'}`}>
+                              {r.mode === 'pvp' ? <Swords className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
+                              {r.mode === 'pvp' ? '1v1' : 'PvE'}
+                            </Badge>
+                            <Badge variant="outline" className="border-2 border-black/60 gap-1">
+                              <MapIcon className="w-3 h-3" /> {m.name}
+                            </Badge>
+                            {r.mode === 'pve' && (
+                              <Badge variant="outline" className="border-2 border-black/60 gap-1">
+                                <Layers className="w-3 h-3" /> Nv {r.level}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-black/60">
+                            <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {r.players} jug</span>
+                            {r.mode === 'pve' && <span className="flex items-center gap-1"><Skull className="w-3.5 h-3.5" /> {r.mobs} mobs</span>}
+                          </div>
+                          <Button
+                            onClick={() => doJoin(r.id)}
+                            disabled={r.players >= r.max}
+                            className="doodle-btn w-full"
+                            size="sm"
+                          >
+                            <LogIn className="w-4 h-4 mr-1" />
+                            {r.players >= r.max ? 'Llena' : 'Entrar'}
+                          </Button>
+                        </div>
+                      )
+                    })}
                   </div>
                 </ScrollArea>
               )}
             </CardContent>
           </Card>
 
+          {/* Map gallery */}
+          <Card className="doodle-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="font-doodle text-xl flex items-center gap-2">
+                <MapIcon className="w-5 h-5" /> Mapas disponibles ({MAPS.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {MAPS.map((m) => (
+                  <div key={m.id} className="doodle-card-flat p-2 text-center">
+                    <div
+                      className="w-full h-12 rounded border-2 border-black/20 mb-1.5 flex items-center justify-center"
+                      style={{ background: `#${m.ground.toString(16).padStart(6,'0')}` }}
+                    >
+                      <Zap className="w-4 h-4 text-black/30" />
+                    </div>
+                    <p className="font-doodle text-sm font-bold leading-tight">{m.name}</p>
+                    <p className="text-[10px] text-black/50">{m.theme}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="doodle-card">
             <CardContent className="pt-4">
               <p className="text-sm text-black/60 leading-relaxed">
-                <span className="font-bold text-black/80">¿Cómo se juega?</span> Entra a una sala (o crea la tuya).
-                Elimina a otros jugadores <em>y</em> a los Doodle Mobs errantes para sumar puntos.
-                Muerte → reapareces en 3 s. ¡El que tenga más puntos domina la arena!
+                <span className="font-bold text-black/80">¿Cómo se juega?</span>{' '}
+                <b>Vs Mobs:</b> sobrevive oleadas que suben de nivel; el mapa rota cada nivel; los Doodle Mobs sueltan items.
+                <br /><b>1v1 PvP:</b> equipo Azul vs Rojo, el mapa rota cada ronda. Sube tu racha de bajas para desbloquear
+                <b> Dron (3)</b>, <b>Bomba (5)</b> y <b>Ráfaga (7)</b>.
               </p>
             </CardContent>
           </Card>
@@ -289,7 +379,7 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
       </main>
 
       <footer className="mt-auto border-t-2 border-black/80 bg-[#fdfbf7] px-4 py-3 text-center text-xs text-black/50">
-        Doodle Shooter · multijugador en tiempo real · Three.js + socket.io
+        Doodle Shooter · multijugador en tiempo real · Three.js + socket.io · 16 mapas · PvP & PvE
       </footer>
     </div>
   )
@@ -302,6 +392,23 @@ function Ctrl({ keys, desc }: { keys: string; desc: string }) {
         {keys}
       </kbd>
       <span className="text-black/70">{desc}</span>
+    </div>
+  )
+}
+
+function ItemRow({ color, label, desc, glyph }: { color: string; label: string; desc: string; glyph: string }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span
+        className="w-7 h-7 rounded-md border-2 border-black flex items-center justify-center font-black text-sm text-white"
+        style={{ background: color }}
+      >
+        {glyph}
+      </span>
+      <div className="leading-tight">
+        <p className="font-bold text-sm">{label}</p>
+        <p className="text-[11px] text-black/55">{desc}</p>
+      </div>
     </div>
   )
 }
