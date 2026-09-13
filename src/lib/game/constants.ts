@@ -645,7 +645,7 @@ export const MAPS: GameMap[] = [
 
       // ════════ HELPERS ════════
       // Build a solid floor platform with a hole at (hx, hz) for stairwell
-      const holeSize = 4 // 4×4 hole
+      const holeSize = 6 // 6×6 hole — wide enough for stairs + player clearance
       const hs = holeSize / 2
       const buildFloor = (y: number, hx: number, hz: number) => {
         const z1 = hz - hs, z2 = hz + hs, x1 = hx - hs, x2 = hx + hs

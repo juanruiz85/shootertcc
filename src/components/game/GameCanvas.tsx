@@ -1068,8 +1068,6 @@ export default function GameCanvas() {
         const o = obstacles[i]
         // roofs NEVER block horizontal movement
         if (o.isRoof) continue
-        // stairs NEVER block horizontal movement — you walk UP them via the standingOnBox landing logic
-        if (o.isStair) continue
         // compute obstacle bottom and top
         const oH = o.box.max.y - o.box.min.y
         const oBottom = o.top - oH
@@ -1078,13 +1076,16 @@ export default function GameCanvas() {
         if (oBottom >= headY - 0.05) continue
         // skip if obstacle is entirely below player's feet (standing on top)
         if (oTop <= feetY + 0.05) continue
-        // now check XZ overlap
-        if (!o.climbable) {
-          // non-climbable: use exact box check
+        // stairs: only block if player is at the same height as the step (not trying to walk UP)
+        // If player's feet are within 0.6 of the step top, don't block (allow walking up)
+        // If player's feet are well below the step top, block (can't walk through the side)
+        if (o.isStair) {
+          if (feetY >= oTop - 0.7) continue  // player is near step top, let them walk up
+          // player is well below this step — block horizontally
           if (Math.abs(x - o.x) < o.hw + PLAYER_RADIUS && Math.abs(z - o.z) < o.hd + PLAYER_RADIUS) return true
           continue
         }
-        // climbable: block if player body overlaps vertically
+        // now check XZ overlap for non-stair obstacles
         if (Math.abs(x - o.x) < o.hw + PLAYER_RADIUS && Math.abs(z - o.z) < o.hd + PLAYER_RADIUS) return true
       }
       return false
@@ -1169,19 +1170,31 @@ export default function GameCanvas() {
       const headY = feetY + 2.0  // player total height
 
       // CEILING collision: if moving up and head hits a roof/floor platform, stop
+      // BUT: don't block if player is near a staircase (allow going up stairs)
       if (local.vel.y > 0) {
+        // check if player is near any staircase
+        let nearStairs = false
         for (let i = 0; i < obstacles.length; i++) {
           const o = obstacles[i]
-          if (!o.isRoof && !o.isStair) continue  // only roofs and stairs block from below
-          const oH = o.box.max.y - o.box.min.y
-          const oBottom = o.top - oH
-          // check if player's head is hitting the bottom of this obstacle
-          if (headY >= oBottom && prevFeet + 2.0 <= oBottom + 0.1) {
-            // check XZ overlap
-            if (Math.abs(local.pos.x - o.x) < o.hw + PLAYER_RADIUS && Math.abs(local.pos.z - o.z) < o.hd + PLAYER_RADIUS) {
-              local.pos.y = oBottom - 2.0 + EYE_HEIGHT - 0.01
-              local.vel.y = 0
-              break
+          if (!o.isStair) continue
+          if (Math.abs(local.pos.x - o.x) < o.hw + 2 && Math.abs(local.pos.z - o.z) < o.hd + 2) {
+            nearStairs = true; break
+          }
+        }
+        if (!nearStairs) {
+          for (let i = 0; i < obstacles.length; i++) {
+            const o = obstacles[i]
+            if (!o.isRoof) continue  // only roofs block from below (not stairs)
+            const oH = o.box.max.y - o.box.min.y
+            const oBottom = o.top - oH
+            // check if player's head is hitting the bottom of this obstacle
+            if (headY >= oBottom && prevFeet + 2.0 <= oBottom + 0.15) {
+              // check XZ overlap
+              if (Math.abs(local.pos.x - o.x) < o.hw + PLAYER_RADIUS && Math.abs(local.pos.z - o.z) < o.hd + PLAYER_RADIUS) {
+                local.pos.y = oBottom - 2.0 + EYE_HEIGHT - 0.01
+                local.vel.y = 0
+                break
+              }
             }
           }
         }
