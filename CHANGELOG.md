@@ -377,3 +377,25 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/).
 
 ### Pruebas
 - Lint: limpio ✅ | Server sincronizado ✅ | Push GitHub ✅
+
+---
+
+## [v0.22.0] — 2026-09-13 — Escaleras con landing + verificación de muebles por piso
+
+### Corregido
+- **Escaleras no conectaban con el piso superior**: 7 escalones × 0.57 = 3.99, pero el piso estaba a 4.0. Había un hueco de 0.01.
+  - Solución: añadido **escalón de aterrizaje (landing)** a altura exacta del piso (FH - 7*stepH = 0.01) que conecta el último escalón con el piso superior
+- **Hueco de escalera desalineado**: `getHolePos` usaba `3 * stepD` (centro de 7 escalones), pero ahora son 8 escalones (7 + landing)
+  - Solución: actualizado a `3.5 * stepD` (centro de 8 escalones)
+
+### Verificación de muebles por piso
+Revisados todos los muebles de los 6 pisos del mapa Oficinas:
+- **Piso 1 (y=0)**: escritorio de recepción, sillas, sofá, mesa de café, plantas, escritorio de seguridad, botes de basura — todos a y=0 ✅
+- **Piso 2 (y=4)**: 4 escritorios con PCs y sillas, 4 archivadores, dispensador de agua, impresora — todos a y=4 ✅
+- **Piso 3 (y=8)**: paredes divisorias, 4 mesas de reunión con 4 sillas cada una, proyectores — todos a y=8 ✅
+- **Piso 4 (y=12)**: 9 cubículos con particiones, escritorios, monitores, sillas, teléfonos — todos a y=12 ✅
+- **Piso 5 (y=16)**: 6 racks de servidores con LEDs, 2 enfriadores, 2 UPS — todos a y=16 ✅
+- **Piso 6 (y=20)**: barandillas, jacuzzi, bar, sillones, plantas, mesa con sombrilla, parrilla — todos a y=20 ✅
+
+### Pruebas
+- Lint: limpio ✅ | Server sincronizado ✅ | Push GitHub ✅
