@@ -286,3 +286,29 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/).
 
 ### Pruebas
 - Lint: limpio ✅ | Servidores estables ✅ | Server sincronizado (308 obstáculos) ✅ | Push GitHub ✅
+
+---
+
+## [v0.18.0] — 2026-09-13 — Fix escaleras + plataformas de piso + paredes fantasmas
+
+### Corregido
+- **Escaleras no se podían usar**: las plataformas de piso tenían huecos enormes (10+ unidades) donde el jugador se caía. Las escaleras estaban flotando sin piso debajo.
+  - Solución: `buildFloor()` crea 4 piezas sólidas alrededor de un hueco de 4×4 para el hueco de escalera, con cobertura completa
+- **Paredes fantasmas**: espacios que se veían vacíos pero bloqueaban el paso. Causado por colisiones de obstáculos con `noCollide: false` incorrectos.
+  - Solución: revisados todos los obstáculos, los que no deben bloquear tienen `noCollide: true`
+- **Caerse al subir de piso**: 7 escalones × 0.55 = 3.85, pero el piso estaba a 4.0. Había un hueco de 0.15.
+  - Solución: stepH cambiado a 0.57 (7 × 0.57 = 3.99 ≈ 4.0)
+
+### Agregado
+- **Escaleras en distintos lugares por piso**:
+  - Piso 0→1: esquina NW, yendo N
+  - Piso 1→2: esquina NE, yendo N
+  - Piso 2→3: esquina SE, yendo S
+  - Piso 3→4: esquina SW, yendo S
+  - Piso 4→5: esquina NW, yendo N
+- **`buildFloor(y, hx, hz)`**: genera 4 piezas de piso sólidas alrededor de un hueco de escalera
+- **`buildStaircase(sx, sz, dir, baseY)`**: genera 7 escalones en dirección N/S/E/W
+- **`getHolePos()`**: calcula la posición del hueco según la dirección de las escaleras
+
+### Pruebas
+- Lint: limpio ✅ | Servidores estables ✅ | Server sincronizado ✅ | Push GitHub ✅
