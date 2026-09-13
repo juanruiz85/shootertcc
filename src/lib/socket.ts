@@ -16,7 +16,7 @@ type Handlers = {
     mobs: MobPublic[]
     items: ItemPublic[]
   }) => void
-  onRoomMapChange?: (data: { mapId: string; level: number; mode: GameMode }) => void
+  onRoomMapChange?: (data: { mapId: string; level: number; mode: GameMode; banner?: string }) => void
   onRoomError?: (data: { message: string }) => void
   onRoomPlayers?: (data: { players: PlayerPublic[] }) => void
   onPlayerJoined?: (p: PlayerPublic) => void
@@ -29,7 +29,7 @@ type Handlers = {
   onPlayerAmmo?: (data: { weapon: string; ammo: number }) => void
   onPlayerReloading?: (data: { id: string; weapon: string }) => void
   onPlayerReloadDone?: (data: { weapon: string; ammo: number }) => void
-  onPlayerDamaged?: (data: { id: string; health: number; shield?: number; by: string; headshot: boolean; mob?: boolean }) => void
+  onPlayerDamaged?: (data: { id: string; health: number; shield?: number; by: string; headshot: boolean; mob?: boolean; attackerPos?: Vec3 | null; regen?: boolean }) => void
   onPlayerKilled?: (data: { victimId: string; killerId: string; weapon: string; headshot: boolean }) => void
   onPlayerRespawned?: (data: { id: string; pos: Vec3 }) => void
   onPlayerStreak?: (data: { id: string; streak: number; reward: StreakReward | null }) => void
@@ -40,6 +40,8 @@ type Handlers = {
   onItemsState?: (data: { items: ItemPublic[] }) => void
   onItemPicked?: (data: { id: string; by: string; type: string }) => void
   onKillFeed?: (e: KillFeedEntry) => void
+  onDroneState?: (data: { ownerId: string | null; pos: Vec3 | null; expires: number; targetYaw?: number }) => void
+  onChatMessage?: (msg: { id: string; name: string; text: string; at: number }) => void
   onConnect?: () => void
   onDisconnect?: () => void
 }
@@ -101,6 +103,8 @@ export function attachHandlers(h: Handlers): () => void {
     ['items:state', (d) => h.onItemsState?.(d)],
     ['item:picked', (d) => h.onItemPicked?.(d)],
     ['killfeed', (d) => h.onKillFeed?.(d)],
+    ['drone:state', (d) => h.onDroneState?.(d)],
+    ['chat:message', (d) => h.onChatMessage?.(d)],
     ['connect', () => h.onConnect?.()],
     ['disconnect', () => h.onDisconnect?.()],
   ]
@@ -124,4 +128,5 @@ export const net = {
   reportHit: (targetId: string, damage: number, headshot: boolean, dist: number, kind: 'player' | 'mob') =>
     getSocket().emit('player:hit', { targetId, damage, headshot, dist, kind }),
   pickupItem: (itemId: string) => getSocket().emit('item:pickup', { itemId }),
+  sendChat: (text: string) => getSocket().emit('chat:send', { text }),
 }

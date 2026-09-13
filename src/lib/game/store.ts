@@ -6,6 +6,10 @@ import type {
   GameMode, Team, StreakReward,
 } from './types'
 
+export type BannerState = { text: string; sub: string; at: number } | null
+export type DamageDirState = { angle: number; at: number } | null
+export type ChatMsg = { id: string; name: string; text: string; at: number; system?: boolean }
+
 export type HudState = {
   connected: boolean
   roomName: string
@@ -51,6 +55,13 @@ export type HudState = {
   streakRewardAt: number
   // pickup toast
   pickupToast: { type: string; name: string; at: number } | null
+  // round/level transition banner
+  banner: BannerState
+  // directional damage indicator
+  damageDir: DamageDirState
+  // chat messages
+  chatMessages: ChatMsg[]
+  chatVisible: boolean
   // pointer-lock resume
   requestResume: (() => void) | null
   // setters
@@ -60,6 +71,8 @@ export type HudState = {
   setMobs: (m: MobPublic[]) => void
   setItems: (i: ItemPublic[]) => void
   setRooms: (r: RoomSummary[]) => void
+  setBanner: (b: BannerState) => void
+  addChat: (msg: ChatMsg) => void
   reset: () => void
 }
 
@@ -105,6 +118,10 @@ const initial = {
   streakReward: null,
   streakRewardAt: 0,
   pickupToast: null,
+  banner: null as BannerState,
+  damageDir: null as DamageDirState,
+  chatMessages: [] as ChatMsg[],
+  chatVisible: false,
   requestResume: null,
 }
 
@@ -117,5 +134,8 @@ export const useGameStore = create<HudState>((set) => ({
   setMobs: (m) => set({ mobs: m }),
   setItems: (i) => set({ items: i }),
   setRooms: (r) => set({ rooms: r }),
+  setBanner: (b) => set({ banner: b }),
+  addChat: (msg) =>
+    set((s) => ({ chatMessages: [...s.chatMessages, msg].slice(-8) })),
   reset: () => set({ ...initial, requestResume: useGameStore.getState().requestResume, connected: useGameStore.getState().connected }),
 }))

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { useGameStore } from '@/lib/game/store'
+import { sfx } from '@/lib/game/sound'
 import { net, attachHandlers } from '@/lib/socket'
 import {
   WEAPONS, WEAPON_ORDER, getSkin, getWeapon, getTeam,
@@ -252,6 +253,8 @@ type RemotePlayer = Avatar & {
 type Mob = { id: string; group: THREE.Group; face: THREE.Group; bodyMat: THREE.MeshLambertMaterial; targetPos: THREE.Vector3; pos: THREE.Vector3; alive: boolean; hitFlashUntil: number; bob: number }
 type ItemEnt = { id: string; type: string; group: THREE.Group; pos: THREE.Vector3; spin: number }
 type Tracer = { line: THREE.Line; born: number; ttl: number }
+type Particle = { mesh: THREE.Mesh; vel: THREE.Vector3; born: number; ttl: number }
+type DroneEnt = { group: THREE.Group; targetPos: THREE.Vector3; targetYaw: number; active: boolean; spin: number }
 type ObstacleBox = { box: THREE.Box3; top: number; climbable: boolean; x: number; z: number; hw: number; hd: number }
 
 /* ============================================================
@@ -389,6 +392,8 @@ export default function GameCanvas() {
     const mobs = new Map<string, Mob>()
     const items = new Map<string, ItemEnt>()
     const tracers: Tracer[] = []
+    const particles: Particle[] = []
+    let drone: DroneEnt | null = null
 
     const setStore = (p: Partial<ReturnType<typeof useGameStore.getState>>) => useGameStore.setState(p as any)
 
@@ -455,6 +460,7 @@ export default function GameCanvas() {
       local.lastShot = now
       local.ammo -= 1
       setStore({ ammo: local.ammo })
+      if (local.weapon === 'shotgun') sfx.shotgun(); else sfx.shoot()
       muzzleFlash.material.opacity = 1; (muzzleFlash as any)._flashUntil = now + 60
       viewmodelGroup.position.z = 0.06
       const origin = new THREE.Vector3(); camera.getWorldPosition(origin)
@@ -467,6 +473,8 @@ export default function GameCanvas() {
         dir.normalize()
         raycastAndReport(origin, dir, w)
         spawnTracer(origin, dir, w.range, INK)
+        // spawn impact particles at hit point
+        spawnImpactParticles(origin, dir, w)
       }
       net.shoot([origin.x, origin.y, origin.z], [baseDir.x, baseDir.y, baseDir.z], local.weapon)
       if (local.ammo <= 0) startReload()
@@ -491,6 +499,7 @@ export default function GameCanvas() {
       const damage = w.damage * (headshot ? (i.type === 'player' ? 2 : 1.6) : 1)
       net.reportHit(i.id, damage, headshot, hit.distance, i.type)
       setStore({ hitMarker: performance.now() })
+      sfx.hit()
     }
     function spawnTracer(origin: THREE.Vector3, dir: THREE.Vector3, range: number, color: number) {
       const end = origin.clone().add(dir.clone().multiplyScalar(range))
@@ -498,11 +507,25 @@ export default function GameCanvas() {
       scene.add(line)
       tracers.push({ line, born: performance.now(), ttl: 90 })
     }
+    function spawnImpactParticles(origin: THREE.Vector3, dir: THREE.Vector3, w: ReturnType<typeof getWeapon>) {
+      const count = w.id === 'shotgun' ? 8 : 5
+      for (let i = 0; i < count; i++) {
+        const geo = new THREE.BoxGeometry(0.06, 0.06, 0.06)
+        const mat = new THREE.MeshBasicMaterial({ color: 0xfff3b0, transparent: true, opacity: 1 })
+        const m = new THREE.Mesh(geo, mat)
+        m.position.copy(origin).add(dir.clone().multiplyScalar(1 + Math.random() * 2))
+        const vel = dir.clone().multiplyScalar(2 + Math.random() * 3)
+        vel.x += (Math.random() - 0.5) * 4; vel.y += (Math.random() - 0.5) * 4 + 2; vel.z += (Math.random() - 0.5) * 4
+        scene.add(m)
+        particles.push({ mesh: m, vel, born: performance.now(), ttl: 400 })
+      }
+    }
     function startReload() {
       const w = getWeapon(local.weapon)
       if (local.reloading || local.ammo >= w.magazine) return
       local.reloading = true; local.reloadStart = performance.now()
       setStore({ reloading: true, reloadProgress: 0 })
+      sfx.reload()
       net.reload(local.weapon)
     }
     function finishReload() {
@@ -515,6 +538,7 @@ export default function GameCanvas() {
       local.weapon = id; const w = getWeapon(id)
       local.reloading = false; local.ammo = w.magazine
       setViewmodel(id)
+      sfx.switchWeapon()
       setStore({ weapon: id, ammo: local.ammo, magazine: w.magazine, reloading: false })
     }
 
@@ -526,7 +550,7 @@ export default function GameCanvas() {
         case 'KeyS': case 'ArrowDown': moveState.b = true; break
         case 'KeyA': case 'ArrowLeft': moveState.l = true; break
         case 'KeyD': case 'ArrowRight': moveState.r = true; break
-        case 'Space': if (local.onGround && local.alive) { local.vel.y = JUMP_V; local.onGround = false } break
+        case 'Space': if (local.onGround && local.alive) { local.vel.y = JUMP_V; local.onGround = false; sfx.jump() } break
         case 'ShiftLeft': case 'ShiftRight': moveState.sprint = true; break
         case 'KeyR': startReload(); break
         case 'Digit1': switchWeapon('pistol'); break
@@ -610,9 +634,11 @@ export default function GameCanvas() {
       },
       onRoomMapChange: (data) => {
         setStore({ roomMapId: data.mapId, roomLevel: data.level, roomMode: data.mode })
+        if (data.banner) {
+          setStore({ banner: { text: data.banner, sub: data.mode === 'pve' ? `Nivel ${data.level}` : 'Próxima ronda', at: performance.now() } })
+          sfx.levelup()
+        }
         buildArena(data.mapId)
-        // reset positions: server will send room:joined with fresh state shortly after for round transitions
-        // but for safety, clear entities to avoid stale references
         for (const id of Array.from(remotes.keys())) removeRemote(id)
         clearMobs(); clearItems()
       },
@@ -648,7 +674,19 @@ export default function GameCanvas() {
         const meId = useGameStore.getState().myId
         if (d.id === meId) {
           local.health = d.health; local.shield = d.shield ?? local.shield
-          setStore({ health: d.health, shield: d.shield ?? local.shield, damageFlash: performance.now(), lastHitBy: d.by })
+          if (!d.regen) {
+            setStore({ health: d.health, shield: d.shield ?? local.shield, damageFlash: performance.now(), lastHitBy: d.by })
+            sfx.hurt()
+            // compute damage direction from attacker position
+            if (d.attackerPos) {
+              const dx = d.attackerPos[0] - local.pos.x
+              const dz = d.attackerPos[2] - local.pos.z
+              const angle = Math.atan2(dx, dz) - local.yaw
+              setStore({ damageDir: { angle, at: performance.now() } })
+            }
+          } else {
+            setStore({ health: d.health, shield: d.shield ?? local.shield })
+          }
         } else {
           const rp = remotes.get(d.id)
           if (rp) {
@@ -665,8 +703,10 @@ export default function GameCanvas() {
           local.alive = false; local.health = 0; local.streak = 0
           setStore({ alive: false, health: 0, respawnIn: 3, streak: 0 })
           local.respawnAt = performance.now() + 3000
+          sfx.death()
         } else {
           const rp = remotes.get(d.victimId); if (rp) { rp.alive = false; rp.group.visible = false }
+          sfx.kill()
         }
       },
       onPlayerRespawned: (d) => {
@@ -685,11 +725,9 @@ export default function GameCanvas() {
         if (d.id === meId && d.reward) {
           local.streak = d.streak
           setStore({ streak: d.streak, streakReward: d.reward, streakRewardAt: performance.now() })
+          sfx.streak()
         } else if (d.id === meId) {
           setStore({ streak: d.streak })
-        }
-        if (d.id !== meId && d.reward) {
-          // show in kill feed area (handled by store via toast? we just leave it)
         }
       },
       onMobState: (data) => {
@@ -720,10 +758,40 @@ export default function GameCanvas() {
         if (d.by === meId) {
           const names: Record<string,string> = { ammo: 'Cartucho', heal: 'Cruz', shield: 'Bebida' }
           setStore({ pickupToast: { type: d.type, name: names[d.type] ?? d.type, at: performance.now() } })
+          sfx.pickup()
         }
         removeItem(d.id)
       },
       onKillFeed: (e: KillFeedEntry) => useGameStore.getState().addKillFeed(e),
+      onDroneState: (d) => {
+        if (!d.ownerId || !d.pos) {
+          if (drone) { scene.remove(drone.group); drone = null }
+          return
+        }
+        if (!drone) {
+          const g = new THREE.Group()
+          // drone body
+          const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.5), doodleMat(0x2c3e50)); addEdges(body); g.add(body)
+          // propellers
+          const propMat = doodleMat(0x1a1a1a)
+          for (const [sx, sz] of [[-0.3, -0.3], [0.3, -0.3], [-0.3, 0.3], [0.3, 0.3]] as const) {
+            const arm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.04, 0.35), doodleMat(0x555555)); arm.position.set(sx*0.5, 0, sz*0.5); g.add(arm)
+            const prop = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.02, 0.06), propMat); prop.position.set(sx, 0.12, sz); g.add(prop)
+          }
+          // glowing eye
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({ color: 0x1abc9c })); eye.position.set(0, -0.1, 0.2); g.add(eye)
+          scene.add(g)
+          drone = { group: g, targetPos: new THREE.Vector3(d.pos[0], d.pos[1], d.pos[2]), targetYaw: d.targetYaw ?? 0, active: true, spin: 0 }
+        }
+        drone.targetPos.set(d.pos[0], d.pos[1], d.pos[2])
+        drone.targetYaw = d.targetYaw ?? drone.targetYaw
+        drone.active = true
+      },
+      onChatMessage: (msg) => {
+        useGameStore.getState().addChat(msg)
+        useGameStore.getState().set({ chatVisible: true })
+        setTimeout(() => { if (useGameStore.getState().chatMessages.length > 0) useGameStore.getState().set({ chatVisible: false }) }, 5000)
+      },
       onConnect: () => setStore({ connected: true }),
       onDisconnect: () => setStore({ connected: false }),
       onLobbyState: () => {}, onLobbyReady: () => {}, onRoomError: () => {},
@@ -911,6 +979,26 @@ export default function GameCanvas() {
         const t = tracers[i]; const age = now - t.born
         if (age > t.ttl) { scene.remove(t.line); t.line.geometry.dispose(); (t.line.material as THREE.Material).dispose(); tracers.splice(i,1) }
         else (t.line.material as THREE.LineBasicMaterial).opacity = 0.85 * (1 - age / t.ttl)
+      }
+      // particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; const age = now - p.born
+        if (age > p.ttl) { scene.remove(p.mesh); p.mesh.geometry.dispose(); (p.mesh.material as THREE.Material).dispose(); particles.splice(i,1) }
+        else {
+          p.vel.y -= 15 * dt
+          p.mesh.position.add(p.vel.clone().multiplyScalar(dt))
+          ;(p.mesh.material as THREE.MeshBasicMaterial).opacity = 1 - age / p.ttl
+          p.mesh.rotation.x += dt * 8; p.mesh.rotation.y += dt * 6
+        }
+      }
+      // drone lerp + spin
+      if (drone && drone.active) {
+        drone.group.position.lerp(drone.targetPos, 1 - Math.pow(0.001, dt))
+        drone.spin += dt * 20
+        // spin propellers (children 1,3,5,7 are props)
+        const props = drone.group.children.filter((c, i) => c.type === 'Mesh' && (c as THREE.Mesh).geometry instanceof THREE.BoxGeometry && (c as THREE.Mesh).position.y > 0.1)
+        for (const p of props) p.rotation.y = drone.spin
+        drone.group.position.y += Math.sin(now * 0.003) * 0.1 * dt
       }
 
       renderer.render(scene, camera)

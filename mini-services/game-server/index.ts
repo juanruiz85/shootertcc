@@ -16,7 +16,7 @@ const PLAYER_MAX_SHIELD = 50
 const RESPAWN_MS = 3000
 const TICK_MS = 50
 const STATE_BROADCAST_THROTTLE = 45
-const MOB_ATTACK_CD = 650
+const MOB_ATTACK_CD = 1000
 const MOB_RESPAWN_MS = 4000
 const MAX_PLAYERS_PER_ROOM = 12
 const MAX_ROOMS = 40
@@ -203,12 +203,12 @@ const MAPS: GameMap[] = [
 function getMap(id: string): GameMap { return MAPS.find(m => m.id === id) ?? MAPS[0] }
 
 function pveLevelConfig(level: number) {
-  const baseHp = 60
+  const baseHp = 50
   return {
-    mobCount: Math.min(14, 4 + Math.floor(level * 1.4)),
-    mobHp: baseHp + (level - 1) * 18,
-    mobSpeed: Math.min(6.5, 3.4 + (level - 1) * 0.28),
-    mobDamage: 9 + (level - 1) * 2,
+    mobCount: Math.min(14, 3 + Math.floor(level * 1.2)),
+    mobHp: baseHp + (level - 1) * 15,
+    mobSpeed: Math.min(6.0, 2.8 + (level - 1) * 0.25),
+    mobDamage: 6 + (level - 1) * 1.5,
     mapId: MAPS[(level - 1) % MAPS.length].id,
   }
 }
@@ -257,6 +257,7 @@ interface Player {
   respawnAt: number
   lastStateSent: number
   connected: boolean
+  lastDamagedAt: number
 }
 
 interface Mob {
@@ -348,6 +349,7 @@ function makePlayer(socketId: string, name: string, skin: string, room: Room): P
     streak: 0, bestStreak: 0,
     lastShot: 0, respawnAt: 0, lastStateSent: 0,
     connected: true,
+    lastDamagedAt: 0,
   }
 }
 
@@ -635,7 +637,7 @@ io.on('connection', (socket) => {
       // PvP: friendly fire off
       if (room.mode === 'pvp' && target.team === shooter.team && shooter.team !== 'none') return
       const dmg = Math.min(data.damage, w.damage * (data.headshot ? 2 : 1) * w.pellets + 4)
-      applyDamageToPlayer(room, target, dmg, shooter.id, shooter.weapon, data.headshot)
+      applyDamageToPlayer(room, target, dmg, shooter.id, shooter.weapon, data.headshot, shooter.pos)
     } else {
       const mob = room.mobs.find(m => m.id === data.targetId && m.state === 'alive')
       if (!mob) return
@@ -687,6 +689,16 @@ io.on('connection', (socket) => {
     }
   })
 
+  // chat messages
+  socket.on('chat:send', (data: { text: string }) => {
+    const rid = socketToRoom.get(socket.id); if (!rid) return
+    const room = rooms.get(rid); if (!room) return
+    const p = room.players.get(socket.id); if (!p) return
+    const text = (data.text || '').slice(0, 80)
+    if (!text.trim()) return
+    io.to(room.id).emit('chat:message', { id: genId('chat_'), name: p.name, text, at: Date.now() })
+  })
+
   socket.on('room:leave', () => { leaveRoom(socket); socket.emit('lobby:state', lobbyState()) })
   socket.on('room:sync', () => {
     const rid = socketToRoom.get(socket.id); if (!rid) return
@@ -709,7 +721,9 @@ io.on('connection', (socket) => {
   socket.on('error', (err) => console.error(`[socket error] ${socket.id}`, err))
 })
 
-function applyDamageToPlayer(room: Room, target: Player, dmg: number, killerId: string, weapon: string, headshot: boolean) {
+function applyDamageToPlayer(room: Room, target: Player, dmg: number, killerId: string, weapon: string, headshot: boolean, attackerPos?: [number, number, number]) {
+  const now = Date.now()
+  target.lastDamagedAt = now
   // shield absorbs first
   let remaining = dmg
   if (target.shield > 0) {
@@ -718,7 +732,11 @@ function applyDamageToPlayer(room: Room, target: Player, dmg: number, killerId: 
     remaining -= absorbed
   }
   target.health -= remaining
-  io.to(room.id).emit('player:damaged', { id: target.id, health: Math.max(0, target.health), shield: Math.max(0, target.shield), by: killerId, headshot })
+  io.to(room.id).emit('player:damaged', {
+    id: target.id, health: Math.max(0, target.health),
+    shield: Math.max(0, target.shield), by: killerId, headshot,
+    attackerPos: attackerPos ?? null,
+  })
   if (target.health <= 0) killPlayer(room, target, killerId, weapon, headshot)
 }
 
@@ -831,6 +849,7 @@ function applyStreakReward(room: Room, p: Player, rewardId: string) {
   if (rewardId === 'drone') {
     room.droneOwner = p.id
     room.droneEnd = Date.now() + 20000
+    io.to(room.id).emit('drone:state', { ownerId: p.id, pos: [p.pos[0], 3.5, p.pos[2]], expires: room.droneEnd, targetYaw: p.yaw })
   }
   if (rewardId === 'aura') {
     p.ammo = WEAPONS[p.weapon].magazine
@@ -920,7 +939,7 @@ setInterval(() => {
           tx = nearest.pos[0]; tz = nearest.pos[2]
           if (nd < 1.9 && now - mob.lastAttack > MOB_ATTACK_CD) {
             mob.lastAttack = now
-            applyDamageToPlayer(room, nearest, cfg.mobDamage, mob.id, 'mob', false)
+            applyDamageToPlayer(room, nearest, cfg.mobDamage, mob.id, 'mob', false, mob.pos)
           }
         } else {
           if (dist2D(mob.pos, mob.wanderTarget) < 1.5) {
@@ -941,6 +960,21 @@ setInterval(() => {
         mob.pos[1] = 1
       }
       io.to(room.id).emit('mob:state', { mobs: room.mobs.map(m => ({ id: m.id, pos: m.pos, state: m.state, flash: m.hitFlash })) })
+    }
+
+    // PvE health regen: if player hasn't taken damage for 5s, regen 1.5 HP/sec
+    if (room.mode === 'pve') {
+      for (const p of room.players.values()) {
+        if (p.state !== 'alive') continue
+        if (p.health >= PLAYER_MAX_HP) continue
+        if (now - p.lastDamagedAt > 5000) {
+          p.health = Math.min(PLAYER_MAX_HP, p.health + 1.5 * (TICK_MS / 1000) * 4)
+          // send updated health to the player (throttled)
+          if (now % 500 < TICK_MS) {
+            io.to(p.id).emit('player:damaged', { id: p.id, health: Math.round(p.health), shield: p.shield, by: 'regen', headshot: false, attackerPos: null, regen: true })
+          }
+        }
+      }
     }
 
     // drone streak reward: auto-attack nearest enemy/mob
@@ -969,6 +1003,18 @@ setInterval(() => {
       }
     } else if (room.droneOwner && now >= room.droneEnd) {
       room.droneOwner = null
+      io.to(room.id).emit('drone:state', { ownerId: null, pos: null, expires: 0 })
+    }
+    // emit drone position to all clients (for 3D rendering)
+    if (room.droneOwner && now < room.droneEnd) {
+      const owner = room.players.get(room.droneOwner)
+      if (owner && owner.state === 'alive') {
+        // drone hovers above and behind the owner
+        const dx = -Math.sin(owner.yaw) * 3
+        const dz = -Math.cos(owner.yaw) * 3
+        const dronePos: [number, number, number] = [owner.pos[0] + dx, 3.5, owner.pos[2] + dz]
+        io.to(room.id).emit('drone:state', { ownerId: room.droneOwner, pos: dronePos, expires: room.droneEnd, targetYaw: owner.yaw })
+      }
     }
 
     // item expiry

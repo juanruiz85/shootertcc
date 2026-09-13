@@ -1,8 +1,9 @@
 'use client'
 
 import { useGameStore } from '@/lib/game/store'
-import { WEAPONS, WEAPON_ORDER, getSkin, getWeapon, getTeam, ARENA_SIZE, PLAYER_MAX_HP, PLAYER_MAX_SHIELD, getMap } from '@/lib/game/constants'
-import { Crosshair, Heart, Skull, Swords, LogOut, Loader2, Zap, Shield, Flame } from 'lucide-react'
+import { WEAPONS, WEAPON_ORDER, getSkin, getWeapon, getTeam, ARENA_SIZE, PLAYER_MAX_HP, PLAYER_MAX_SHIELD, getMap, KILLSTREAKS, MAPS } from '@/lib/game/constants'
+import { net } from '@/lib/socket'
+import { Crosshair, Heart, Skull, Swords, LogOut, Loader2, Zap, Shield, Flame, MessageSquare, Send, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 /* ============================ Crosshair ============================ */
@@ -203,6 +204,8 @@ function Minimap() {
   const myId = useGameStore((s) => s.myId)
   const yaw = useGameStore((s) => s.yawSnapshot)
   const pos = useGameStore((s) => s.myPosSnapshot)
+  const mapId = useGameStore((s) => s.roomMapId)
+  const mapInfo = getMap(mapId)
   const size = 140
   const scale = size / ARENA_SIZE
   const toMap = (wx: number, wz: number) => ({ x: size/2 + wx*scale, y: size/2 + wz*scale })
@@ -213,6 +216,11 @@ function Minimap() {
         <div className="relative bg-[#fdfbf7] rounded" style={{ width: size, height: size, overflow: 'hidden' }}>
           <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(26,26,26,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(26,26,26,0.08) 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
           <div className="absolute inset-1 border-2 border-black/70 rounded" />
+          {/* obstacles */}
+          {mapInfo.obstacles.map((o, i) => {
+            const p = toMap(o.x - o.w/2, o.z - o.d/2)
+            return <div key={i} className="absolute border border-black/30 rounded-sm" style={{ left: p.x, top: p.y, width: Math.max(2, o.w*scale), height: Math.max(2, o.d*scale), background: 'rgba(26,26,26,0.12)' }} />
+          })}
           {/* items */}
           {items.map((it) => {
             const p = toMap(it.pos[0], it.pos[2])
@@ -236,7 +244,7 @@ function Minimap() {
             </div>
           )}
         </div>
-        <p className="text-[9px] uppercase tracking-wider text-black/50 text-center mt-0.5 font-bold">Mapa</p>
+        <p className="text-[9px] uppercase tracking-wider text-black/50 text-center mt-0.5 font-bold">{mapInfo.name}</p>
       </div>
     </div>
   )
@@ -363,12 +371,16 @@ function Scoreboard() {
 function RespawnOverlay() {
   const alive = useGameStore((s) => s.alive)
   const respawnIn = useGameStore((s) => s.respawnIn)
+  const pointerLocked = useGameStore((s) => s.pointerLocked)
   if (alive) return null
   return (
-    <div className="pointer-events-none fixed inset-0 z-30 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm">
-      <Skull className="w-16 h-16 text-[#fdfbf7] mb-4" />
-      <h2 className="font-doodle text-5xl font-black text-[#fdfbf7] drop-shadow-[3px_3px_0_#000]">¡Eliminado!</h2>
-      <p className="respawn-pulse font-doodle text-2xl text-[#fdfbf7] mt-2 drop-shadow-[2px_2px_0_#000]">Reaparición en {respawnIn}s…</p>
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none">
+      <div className="text-center" style={{ animation: 'hit-pop 0.5s ease-out' }}>
+        <Skull className="w-20 h-20 text-[#fdfbf7] mb-4 mx-auto drop-shadow-[3px_3px_0_#000]" />
+        <h2 className="font-doodle text-6xl font-black text-[#fdfbf7] drop-shadow-[4px_4px_0_#000]">¡Eliminado!</h2>
+        <p className="respawn-pulse font-doodle text-3xl text-[#fdfbf7] mt-3 drop-shadow-[2px_2px_0_#000]">Reaparición en {respawnIn}s…</p>
+        {!pointerLocked && <p className="font-bold text-sm text-white/70 mt-4">Haz clic en la pantalla para volver a jugar</p>}
+      </div>
     </div>
   )
 }
@@ -377,11 +389,13 @@ function RespawnOverlay() {
 function PauseOverlay({ onLeave }: { onLeave: () => void }) {
   const paused = useGameStore((s) => s.paused)
   const pointerLocked = useGameStore((s) => s.pointerLocked)
+  const alive = useGameStore((s) => s.alive)
   const requestResume = useGameStore((s) => s.requestResume)
+  // when dead, the RespawnOverlay takes priority (z-50) — don't show click-to-play
   if (paused) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/50 backdrop-blur">
-        <div className="doodle-card p-6 w-full max-w-sm text-center">
+        <div className="doodle-card p-6 w-full max-w-sm text-center" style={{ animation: 'hit-pop 0.3s ease-out' }}>
           <h2 className="font-doodle text-3xl font-black mb-1">Pausa</h2>
           <p className="text-sm text-black/60 mb-4">El cursor está liberado.</p>
           <div className="flex flex-col gap-2">
@@ -396,10 +410,10 @@ function PauseOverlay({ onLeave }: { onLeave: () => void }) {
       </div>
     )
   }
-  if (!pointerLocked) {
+  if (!pointerLocked && alive) {
     return (
-      <button className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm cursor-pointer" onClick={() => requestResume?.()}>
-        <div className="doodle-card p-6 text-center pointer-events-none">
+      <button className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 cursor-pointer" onClick={() => requestResume?.()}>
+        <div className="doodle-card p-6 text-center pointer-events-none" style={{ animation: 'hit-pop 0.3s ease-out' }}>
           <Crosshair className="w-10 h-10 mx-auto mb-2" />
           <p className="font-doodle text-2xl font-black">Haz clic para jugar</p>
           <p className="text-sm text-black/60 mt-1">WASD mover · Ratón mirar · Click disparar</p>
@@ -410,6 +424,138 @@ function PauseOverlay({ onLeave }: { onLeave: () => void }) {
   return null
 }
 
+/* ============================ Round/level transition banner ============================ */
+function BannerOverlay() {
+  const banner = useGameStore((s) => s.banner)
+  useGameStore((s) => s.myPosSnapshot) // re-render to check age
+  if (!banner) return null
+  const age = performance.now() - banner.at
+  if (age > 3500) return null
+  const opacity = age < 300 ? age / 300 : age > 3000 ? 1 - (age - 3000) / 500 : 1
+  return (
+    <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center" style={{ opacity }}>
+      <div className="text-center">
+        <div className="doodle-card px-12 py-6 inline-block" style={{ animation: 'hit-pop 0.4s ease-out' }}>
+          <Trophy className="w-10 h-10 mx-auto mb-2 text-yellow-500" />
+          <h2 className="font-doodle text-4xl font-black leading-tight">{banner.text}</h2>
+          <p className="font-bold text-lg text-black/60 mt-1">{banner.sub}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ============================ Directional damage indicator ============================ */
+function DamageDirectionIndicator() {
+  const damageDir = useGameStore((s) => s.damageDir)
+  useGameStore((s) => s.myPosSnapshot)
+  if (!damageDir) return null
+  const age = performance.now() - damageDir.at
+  if (age > 1500) return null
+  const opacity = 1 - age / 1500
+  return (
+    <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center">
+      <div
+        className="relative"
+        style={{
+          width: 120, height: 120,
+          transform: `rotate(${damageDir.angle}rad)`,
+          opacity,
+        }}
+      >
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2"
+          style={{
+            width: 0, height: 0,
+            borderLeft: '18px solid transparent',
+            borderRight: '18px solid transparent',
+            borderBottom: '28px solid #e74c3c',
+            filter: 'drop-shadow(0 0 4px rgba(231,76,60,0.8))',
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+/* ============================ Killstreak progress ============================ */
+function KillstreakProgress() {
+  const streak = useGameStore((s) => s.streak)
+  const alive = useGameStore((s) => s.alive)
+  const pointerLocked = useGameStore((s) => s.pointerLocked)
+  if (!alive || !pointerLocked || streak < 1) return null
+  // find next streak threshold
+  const next = KILLSTREAKS.find(k => k.streak > streak)
+  if (!next) return null
+  const prev = [...KILLSTREAKS].reverse().find(k => k.streak <= streak)
+  const prevVal = prev ? prev.streak : 0
+  const pct = ((streak - prevVal) / (next.streak - prevVal)) * 100
+  const icons: Record<string, string> = { drone: '🛸', bomb: '💣', aura: '⚡' }
+  return (
+    <div className="pointer-events-none fixed top-32 left-1/2 -translate-x-1/2 z-20">
+      <div className="doodle-card-flat px-4 py-2 flex items-center gap-3 min-w-[200px]">
+        <Flame className="w-5 h-5 text-orange-500" />
+        <div className="flex-1">
+          <div className="flex items-center justify-between text-xs mb-0.5">
+            <span className="font-bold">Racha {streak}</span>
+            <span className="text-black/50 flex items-center gap-1">{icons[next.icon]} {next.name} ({next.streak})</span>
+          </div>
+          <div className="h-2 rounded-full border-2 border-black bg-white overflow-hidden">
+            <div className="h-full bg-orange-500 transition-all duration-300" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ============================ Quick chat ============================ */
+function QuickChat() {
+  const pointerLocked = useGameStore((s) => s.pointerLocked)
+  const chatVisible = useGameStore((s) => s.chatVisible)
+  const chatMessages = useGameStore((s) => s.chatMessages)
+  if (!pointerLocked && !chatVisible) return null
+  const presets = [
+    { key: '1', text: '¡Hola!' },
+    { key: '2', text: '¡Cuidado!' },
+    { key: '3', text: '¡Buen tiro!' },
+    { key: '4', text: '¡Ayuda!' },
+    { key: '5', text: '¡GG!' },
+  ]
+  return (
+    <>
+      {/* chat messages display */}
+      {chatVisible && chatMessages.length > 0 && (
+        <div className="pointer-events-none fixed bottom-32 right-4 z-20 flex flex-col gap-1 max-w-[260px]">
+          {chatMessages.slice(-4).map((msg) => (
+            <div key={msg.id} className="doodle-card-flat px-2.5 py-1 text-xs">
+              <span className="font-bold">{msg.name}:</span>{' '}
+              <span>{msg.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* quick chat bar (only visible when not pointer locked, i.e. paused) */}
+      {!pointerLocked && (
+        <div className="pointer-events-auto fixed bottom-4 left-1/2 -translate-x-1/2 z-30">
+          <div className="doodle-card-flat px-3 py-2 flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-black/50" />
+            {presets.map((p) => (
+              <button
+                key={p.key}
+                onClick={() => net.sendChat(p.text)}
+                className="px-2 py-1 rounded border-2 border-black/30 hover:border-black hover:bg-[#fef3f8] text-xs font-bold transition-colors"
+              >
+                <kbd className="font-mono mr-1">{p.key}</kbd>{p.text}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 /* ============================ Hud root ============================ */
 export default function Hud({ onLeave }: { onLeave: () => void }) {
   return (
@@ -417,14 +563,18 @@ export default function Hud({ onLeave }: { onLeave: () => void }) {
       <CrosshairHUD />
       <HitMarker />
       <DamageFlash />
+      <DamageDirectionIndicator />
       <TopBar />
       <Minimap />
       <KillFeed />
       <BottomBars />
+      <KillstreakProgress />
       <Scoreboard />
       <RespawnOverlay />
+      <BannerOverlay />
       <StreakToast />
       <PickupToast />
+      <QuickChat />
       <PauseOverlay onLeave={onLeave} />
     </>
   )
