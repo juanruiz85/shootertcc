@@ -290,7 +290,7 @@ export default function GameCanvas() {
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(PAPER)
-    scene.fog = new THREE.Fog(PAPER, 40, 90)
+    scene.fog = new THREE.Fog(PAPER, 55, 120)
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 200)
     camera.position.set(0, EYE_HEIGHT, 0)
@@ -300,22 +300,24 @@ export default function GameCanvas() {
     // lights — with shadows for depth
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFShadowMap
-    scene.add(new THREE.AmbientLight(0xffffff, 0.7))
-    const dir = new THREE.DirectionalLight(0xffffff, 0.7)
-    dir.position.set(25, 45, 15)
+    scene.add(new THREE.AmbientLight(0xffffff, 0.45))
+    const dir = new THREE.DirectionalLight(0xffffff, 0.9)
+    dir.position.set(20, 50, 20)
     dir.castShadow = true
     dir.shadow.mapSize.width = 2048
     dir.shadow.mapSize.height = 2048
     dir.shadow.camera.near = 1
-    dir.shadow.camera.far = 120
-    dir.shadow.camera.left = -40
-    dir.shadow.camera.right = 40
-    dir.shadow.camera.top = 40
-    dir.shadow.camera.bottom = -40
-    dir.shadow.bias = -0.0005
+    dir.shadow.camera.far = 150
+    dir.shadow.camera.left = -45
+    dir.shadow.camera.right = 45
+    dir.shadow.camera.top = 45
+    dir.shadow.camera.bottom = -45
+    dir.shadow.bias = -0.0008
+    dir.shadow.normalBias = 0.02
     scene.add(dir)
-    const dirTarget = new THREE.Object3D(); scene.add(dirTarget); dir.target = dirTarget
-    scene.add(new THREE.HemisphereLight(0xfff7e0, 0xe8e4df, 0.45))
+    dir.target.position.set(0, 0, 0)
+    scene.add(dir.target)
+    scene.add(new THREE.HemisphereLight(0xfff7e0, 0xe8e4df, 0.35))
 
     // sky dome (gradient) — added once, updated on map change
     const skyGeo = new THREE.SphereGeometry(100, 16, 12)
@@ -347,7 +349,7 @@ export default function GameCanvas() {
       const map = getMap(mapId)
       // background/fog colors
       scene.background = new THREE.Color(map.fog)
-      scene.fog = new THREE.Fog(map.fog, 40, 90)
+      scene.fog = new THREE.Fog(map.fog, 55, 120)
       renderer.setClearColor(map.fog, 1)
       skyMat.color.setHex(map.fog)
 
@@ -362,20 +364,39 @@ export default function GameCanvas() {
         cloudGroup.add(cloud)
       }
 
-      // floor texture
+      // floor texture with doodle pattern
       const fc = document.createElement('canvas'); fc.width = 1024; fc.height = 1024
       const fctx = fc.getContext('2d')!
       const groundHex = '#' + map.ground.toString(16).padStart(6, '0')
       fctx.fillStyle = groundHex; fctx.fillRect(0, 0, 1024, 1024)
-      fctx.strokeStyle = 'rgba(26,26,26,0.08)'; fctx.lineWidth = 2
+      // grid lines
+      fctx.strokeStyle = 'rgba(26,26,26,0.06)'; fctx.lineWidth = 1.5
       for (let i = 0; i <= 1024; i += 64) {
         fctx.beginPath(); fctx.moveTo(i, 0); fctx.lineTo(i, 1024); fctx.stroke()
         fctx.beginPath(); fctx.moveTo(0, i); fctx.lineTo(1024, i); fctx.stroke()
       }
-      fctx.strokeStyle = 'rgba(231,76,60,0.12)'; fctx.lineWidth = 3
+      // doodle scribbles (red circles)
+      fctx.strokeStyle = 'rgba(231,76,60,0.1)'; fctx.lineWidth = 2.5
       for (let i = 0; i < 14; i++) {
         fctx.beginPath(); const x = Math.random()*1024, y = Math.random()*1024
         fctx.arc(x, y, 20 + Math.random()*40, 0, Math.PI*2); fctx.stroke()
+      }
+      // doodle stars
+      fctx.strokeStyle = 'rgba(241,196,15,0.15)'; fctx.lineWidth = 2
+      for (let i = 0; i < 8; i++) {
+        const x = Math.random()*1024, y = Math.random()*1024, r = 15 + Math.random()*20
+        fctx.beginPath()
+        for (let j = 0; j < 5; j++) {
+          const a = (j / 5) * Math.PI * 2 - Math.PI/2
+          const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r
+          if (j === 0) fctx.moveTo(px, py); else fctx.lineTo(px, py)
+        }
+        fctx.closePath(); fctx.stroke()
+      }
+      // small dots (paper texture feel)
+      fctx.fillStyle = 'rgba(26,26,26,0.04)'
+      for (let i = 0; i < 60; i++) {
+        fctx.beginPath(); fctx.arc(Math.random()*1024, Math.random()*1024, 1.5, 0, Math.PI*2); fctx.fill()
       }
       const floorTex = new THREE.CanvasTexture(fc)
       floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(4, 4)

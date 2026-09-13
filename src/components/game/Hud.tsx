@@ -229,7 +229,7 @@ function Minimap() {
   const me = pos ? toMap(pos[0], pos[2]) : null
   return (
     <div className="pointer-events-none fixed top-16 right-4 z-20">
-      <div className="doodle-card-flat p-1" style={{ width: size + 8, height: size + 8 }}>
+      <div className="doodle-card-flat p-1" style={{ width: size + 8 }}>
         <div className="relative bg-[#fdfbf7] rounded" style={{ width: size, height: size, overflow: 'hidden' }}>
           <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(26,26,26,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(26,26,26,0.08) 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
           <div className="absolute inset-1 border-2 border-black/70 rounded" />

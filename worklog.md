@@ -406,3 +406,47 @@ Unresolved issues / next phase recommendations:
 - Could add: boss mobs, power-ups, weather effects, texture detail on floor
 - Could improve: color palette still muted, geometry simple/blocky
 - Could add: friend invites, persistent stats, ranked mode
+
+---
+Task ID: 9
+Agent: webDevReview (cron)
+Task: Fix shadows/fog/minimap-text, improve floor texture with doodle patterns
+
+Work Log:
+- Reviewed worklog: project has diverse props, pause menu stats, death screen info, spawn fix
+- QA tested with agent-browser + VLM screenshot analysis
+- VLM identified 3 critical visual bugs: shadows not visible, fog too heavy (background like solid wall), minimap text cut off
+- Fixed all 3 bugs + improved floor texture
+
+Bug Fixes:
+1. Shadows not visible: Root cause was ambient light too strong (0.7) washing out shadows + shadow target was a separate Object3D not positioned at origin. Fixed: reduced AmbientLight to 0.45, increased DirectionalLight to 0.9, positioned shadow target at (0,0,0), added normalBias 0.02, increased shadow camera frustum to 90×90, extended far to 150. VLM confirmed: "Distinct, dark shadows beneath crates, tree, box".
+2. Fog too heavy: Fog was Fog(color, 40, 90) — too dense, making background look like a solid wall. Fixed: Fog(color, 55, 120) — starts further away, ends further. VLM confirmed: "Background walls and distant objects much clearer".
+3. Minimap text cut off: Container had fixed height (size+8=148px) which clipped the bottom text label. Fixed: removed fixed height, container auto-sizes. VLM confirmed: "ARENA DOODLE fully visible, not cut off".
+
+New Features:
+1. Enhanced floor texture: Added doodle stars (5-point, yellow), red scribble circles, and 60 small paper-texture dots on top of the grid pattern. Creates a more hand-drawn notebook feel. (Subtle from distance but visible up close.)
+
+Verification:
+- Lint: clean ✅
+- Servers stable (next:3000 + game-server:3003) ✅
+- Game loads, PvE Nivel 1 Arena Doodle ✅
+- VLM: "Distinct, dark shadows visible" ✅ (was: "no shadows")
+- VLM: "Background much clearer, less fog" ✅ (was: "background like solid wall")
+- VLM: "Minimap text ARENA DOODLE fully visible" ✅ (was: "cut off by border")
+- VLM: rated 8/10 for visual clarity improvement ✅
+- No console errors ✅
+
+Stage Summary:
+- 3 critical bug fixes (shadows, fog, minimap text) + 1 feature (floor texture)
+- Shadows now properly visible under all objects
+- Background visible further (fog reduced from 40-90 to 55-120)
+- Minimap text no longer clipped
+- Floor has doodle patterns (stars, scribbles, dots) for notebook aesthetic
+- VLM rated 8/10 improvement
+
+Unresolved issues / next phase recommendations:
+- Floor doodle patterns subtle from distance (grid dominates) — could increase pattern opacity
+- Could add: boss mobs, power-ups, weather effects
+- Could improve: color palette, geometry detail
+- Could add: friend invites, persistent stats, ranked mode
+- PCFSoftShadowMap warning still in stale browser cache
