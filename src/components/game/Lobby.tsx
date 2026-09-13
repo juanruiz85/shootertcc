@@ -75,7 +75,7 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
       {/* top bar */}
       <header className="border-b-2 border-black/80 bg-[#fdfbf7]/80 backdrop-blur px-4 sm:px-8 py-3 flex items-center justify-between sticky top-0 z-20">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-black text-[#fdfbf7] flex items-center justify-center rotate-[-3deg] shadow-[3px_3px_0_0_#000]">
+          <div className="w-10 h-10 rounded-lg bg-black text-[#fdfbf7] flex items-center justify-center wobble shadow-[3px_3px_0_0_#000]">
             <Crosshair className="w-6 h-6" />
           </div>
           <div>
@@ -293,7 +293,7 @@ export default function Lobby({ onEnterGame }: { onEnterGame: () => void }) {
                       return (
                         <div
                           key={r.id}
-                          className="doodle-card-flat p-4 flex flex-col gap-3 hover:translate-x-[-2px] hover:translate-y-[-2px] transition-transform"
+                          className="doodle-card-flat p-4 flex flex-col gap-3 hover:translate-x-[-2px] hover:translate-y-[-2px] transition-transform doodle-in"
                         >
                           <div className="flex items-start justify-between">
                             <div>

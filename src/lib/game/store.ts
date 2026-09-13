@@ -31,6 +31,8 @@ export type HudState = {
   reloadProgress: number
   alive: boolean
   respawnIn: number
+  stamina: number
+  sprinting: boolean
   score: number
   kills: number
   deaths: number
@@ -55,6 +57,8 @@ export type HudState = {
   streakRewardAt: number
   // pickup toast
   pickupToast: { type: string; name: string; at: number } | null
+  // match summary (PvP round end)
+  matchSummary: { winner: string; at: number } | null
   // round/level transition banner
   banner: BannerState
   // directional damage indicator
@@ -97,6 +101,8 @@ const initial = {
   reloadProgress: 0,
   alive: true,
   respawnIn: 0,
+  stamina: 100,
+  sprinting: false,
   score: 0,
   kills: 0,
   deaths: 0,
@@ -118,6 +124,7 @@ const initial = {
   streakReward: null,
   streakRewardAt: 0,
   pickupToast: null,
+  matchSummary: null as { winner: string; at: number } | null,
   banner: null as BannerState,
   damageDir: null as DamageDirState,
   chatMessages: [] as ChatMsg[],

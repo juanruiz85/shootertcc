@@ -124,6 +124,8 @@ function TopBar() {
 function BottomBars() {
   const health = useGameStore((s) => s.health)
   const shield = useGameStore((s) => s.shield)
+  const stamina = useGameStore((s) => s.stamina)
+  const sprinting = useGameStore((s) => s.sprinting)
   const weapon = useGameStore((s) => s.weapon)
   const ammo = useGameStore((s) => s.ammo)
   const magazine = useGameStore((s) => s.magazine)
@@ -153,6 +155,15 @@ function BottomBars() {
         </div>
         <div className="h-2 rounded-full border-2 border-black bg-white overflow-hidden">
           <div className="h-full transition-all duration-200" style={{ width: `${shPct}%`, background: '#1abc9c' }} />
+        </div>
+        <div className="flex items-center justify-between mb-1 mt-1.5">
+          <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-black/60">
+            <Zap className={`w-3.5 h-3.5 ${sprinting ? 'text-orange-500' : ''}`} /> Aguante
+          </span>
+          <span className="font-doodle text-sm font-black leading-none">{Math.ceil(stamina)}</span>
+        </div>
+        <div className="h-1.5 rounded-full border-2 border-black bg-white overflow-hidden">
+          <div className="h-full transition-all duration-100" style={{ width: `${stamina}%`, background: sprinting ? '#e67e22' : '#f1c40f' }} />
         </div>
       </div>
 
@@ -427,19 +438,40 @@ function PauseOverlay({ onLeave }: { onLeave: () => void }) {
 /* ============================ Round/level transition banner ============================ */
 function BannerOverlay() {
   const banner = useGameStore((s) => s.banner)
+  const players = useGameStore((s) => s.players)
+  const roomMode = useGameStore((s) => s.roomMode)
   useGameStore((s) => s.myPosSnapshot) // re-render to check age
   if (!banner) return null
   const age = performance.now() - banner.at
-  if (age > 3500) return null
-  const opacity = age < 300 ? age / 300 : age > 3000 ? 1 - (age - 3000) / 500 : 1
+  if (age > 4000) return null
+  const opacity = age < 300 ? age / 300 : age > 3500 ? 1 - (age - 3500) / 500 : 1
+  const sorted = [...players].sort((a, b) => b.score - a.score).slice(0, 5)
   return (
     <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center" style={{ opacity }}>
-      <div className="text-center">
-        <div className="doodle-card px-12 py-6 inline-block" style={{ animation: 'hit-pop 0.4s ease-out' }}>
-          <Trophy className="w-10 h-10 mx-auto mb-2 text-yellow-500" />
-          <h2 className="font-doodle text-4xl font-black leading-tight">{banner.text}</h2>
-          <p className="font-bold text-lg text-black/60 mt-1">{banner.sub}</p>
-        </div>
+      <div className="doodle-card px-10 py-6 text-center" style={{ animation: 'hit-pop 0.4s ease-out' }}>
+        <Trophy className="w-12 h-12 mx-auto mb-2 text-yellow-500" />
+        <h2 className="font-doodle text-4xl font-black leading-tight">{banner.text}</h2>
+        <p className="font-bold text-lg text-black/60 mt-1 mb-3">{banner.sub}</p>
+        {sorted.length > 0 && (
+          <div className="border-t-2 border-black/20 pt-3 mt-2">
+            <p className="text-xs uppercase tracking-wide text-black/50 font-bold mb-2">Marcador</p>
+            <div className="flex flex-col gap-1">
+              {sorted.map((p, i) => {
+                const sk = getSkin(p.skin)
+                const t = getTeam(p.team)
+                return (
+                  <div key={p.id} className="flex items-center gap-2 text-sm">
+                    <span className="text-xs font-mono text-black/40 w-4">{i + 1}</span>
+                    <span className="w-5 h-5 rounded border border-black flex items-center justify-center text-[10px] font-black text-[#fdfbf7]" style={{ background: t.id !== 'none' ? t.color : sk.color }}>{p.name.slice(0,1).toUpperCase()}</span>
+                    <span className="font-bold flex-1 text-left">{p.name}</span>
+                    <span className="font-mono text-xs text-black/50">{p.kills}B</span>
+                    <span className="font-doodle font-black text-base">{p.score}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

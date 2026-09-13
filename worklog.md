@@ -165,3 +165,54 @@ Unresolved issues / next phase recommendations:
 - Could add: sound effects (shooting, hits, pickups), sprint stamina bar, match summary screen, spectator mode
 - Could improve: drone visual (add laser beam to target), more item types, boss mobs in higher PvE levels
 - Could add: friend system, persistent stats across sessions, more maps
+
+---
+Task ID: 4
+Agent: webDevReview (cron)
+Task: QA testing, bug fixes (overlapping overlays, PvE difficulty), sound effects, sprint stamina, match summary, styling polish
+
+Work Log:
+- Reviewed worklog: project has 2 game modes, 16 maps, items, killstreaks, human models, health regen, directional damage, visual drone, impact particles, quick chat, obstacle minimap
+- QA tested with agent-browser + VLM screenshot analysis
+- Identified issues: overlapping overlays when dead + not pointer-locked, PvE mobs too aggressive (player dies in ~2s at level 1), excessive blur on click-to-play overlay, missing sound effects
+
+Bug Fixes:
+1. Overlapping overlays: When player was dead AND not pointer-locked, both "¡Eliminado!" (z-30) and "Haz clic para jugar" (z-40) showed simultaneously, covering the death screen. Fixed: RespawnOverlay raised to z-50, PauseOverlay now checks `alive` flag and doesn't show click-to-play when dead. Also added "Haz clic en la pantalla para volver a jugar" hint on death screen when not locked.
+2. PvE difficulty too high: Level 1 had 5 mobs × 9 damage × 650ms cooldown = ~70 DPS (player died in 1.5s). Fixed: reduced mobCount (3→4 base), mobHp (60→50), mobSpeed (3.4→2.8), mobDamage (9→6), increased MOB_ATTACK_CD (650ms→1000ms). Player now survives at 100 HP after 5s.
+3. Excessive blur: Removed `backdrop-blur-sm` from click-to-play overlay (was making game look "muddy"), kept on death/pause for focus.
+
+New Features:
+1. Sound effects (src/lib/game/sound.ts): Procedural Web Audio API synthesized sounds — no asset files needed. Sounds: shoot (square wave + noise burst), shotgun (sawtooth + noise), hit (triangle), hurt (sawtooth), death (descending sawtooth), pickup (ascending sine), reload (click), levelup (C-E-G chord), kill (double square), streak (ascending sines), jump (rising sine), switchWeapon (click). All hooked into GameCanvas event handlers.
+2. Sprint stamina system: Stamina (0-100) depletes at 35/sec when sprinting forward, regenerates at 20/sec otherwise. Sprint only works when stamina > 5 and moving forward. Stamina bar added to HUD (yellow, turns orange when sprinting). Store tracks stamina + sprinting state, updated at 10Hz.
+3. Enhanced BannerOverlay: Now shows mini-scoreboard (top 5 players) during round/level transitions, not just text. Includes team colors, kills, score. Lasts 4s with fade.
+
+Styling Improvements:
+- RespawnOverlay: Bigger skull (w-20), bigger text (text-6xl), drop-shadows, animation on appear
+- PauseOverlay: Added doodle-in animation on cards
+- Lobby: Logo has `wobble` animation (rotates -3° to 3°), room cards have `doodle-in` entrance animation
+- CSS: Added `doodle-in`, `wobble`, `pulse-glow`, `slide-in-left` keyframe animations
+- Click-to-play overlay: Removed blur for clarity, kept doodle-card with animation
+
+Verification:
+- Lint: clean ✅
+- Servers stable (next:3000 + game-server:3003) ✅
+- PvE: player survives at 100 HP after 5s (previously died instantly) ✅
+- PvP: team assigned, Fortaleza map rotation ✅
+- No console errors ✅
+- VLM: HUD "very clear", "no visual bugs or overlaps", "overall quality: High" ✅
+- Sound effects: code compiles, will play on user interaction (Web Audio requires user gesture)
+
+Stage Summary:
+- 3 bug fixes + 3 new features + multiple styling improvements
+- PvE is now balanced and playable (previously unplayable at level 1)
+- Sound effects add significant game feel (shooting, hits, deaths, pickups, level-ups)
+- Sprint stamina adds tactical depth
+- Enhanced transition banner with mini-scoreboard
+- Visual polish: animations, better death screen, clearer overlays
+
+Unresolved issues / next phase recommendations:
+- Sound effects need user gesture to start (Web Audio API restriction) — first click on canvas will enable audio
+- Could add: boss mobs in higher PvE levels, more weapon variety, power-ups
+- Could improve: drone laser beam visual, more map themes, weather effects
+- Could add: friend invites, persistent player stats, ranked mode
+- Next dev server occasionally dies between bash calls (sandbox limitation)

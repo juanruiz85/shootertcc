@@ -384,6 +384,7 @@ export default function GameCanvas() {
       reloading: false, reloadStart: 0,
       lastShot: 0, respawnAt: 0, bobT: 0,
       streak: 0,
+      stamina: 100, sprinting: false,
     }
     const moveState = { f: false, b: false, l: false, r: false, sprint: false }
     const mouse = { down: false }
@@ -853,7 +854,16 @@ export default function GameCanvas() {
         if (moveState.r) { mx += tmpRight.x; mz += tmpRight.z }
         if (moveState.l) { mx -= tmpRight.x; mz -= tmpRight.z }
         const len = Math.hypot(mx, mz)
-        const speed = (moveState.sprint ? SPRINT_SPEED : MOVE_SPEED) * (local.onGround ? 1 : AIR_CONTROL)
+        const isMoving = moveState.f || moveState.b || moveState.l || moveState.r
+        const canSprint = moveState.sprint && local.stamina > 5 && isMoving && moveState.f
+        if (canSprint) {
+          local.stamina = Math.max(0, local.stamina - 35 * dt)
+          local.sprinting = true
+        } else {
+          local.stamina = Math.min(100, local.stamina + 20 * dt)
+          local.sprinting = false
+        }
+        const speed = (canSprint ? SPRINT_SPEED : MOVE_SPEED) * (local.onGround ? 1 : AIR_CONTROL)
         if (len > 0) {
           mx = (mx/len) * speed * dt; mz = (mz/len) * speed * dt
           const feetY = local.pos.y - EYE_HEIGHT
@@ -861,8 +871,13 @@ export default function GameCanvas() {
           if (!horizontalBlocked(nx, local.pos.z, feetY)) local.pos.x = nx
           const nz = local.pos.z + mz
           if (!horizontalBlocked(local.pos.x, nz, feetY)) local.pos.z = nz
-          local.bobT += dt * (moveState.sprint ? 14 : 10)
+          local.bobT += dt * (canSprint ? 16 : 10)
         } else local.bobT *= 0.9
+        // update stamina store (throttled)
+        if (now - (animate as any)._lastStamina > 100) {
+          (animate as any)._lastStamina = now
+          setStore({ stamina: Math.round(local.stamina), sprinting: local.sprinting })
+        }
       }
 
       // gravity + ground / box-top collision
