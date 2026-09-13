@@ -312,3 +312,23 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/).
 
 ### Pruebas
 - Lint: limpio ✅ | Servidores estables ✅ | Server sincronizado ✅ | Push GitHub ✅
+
+---
+
+## [v0.19.0] — 2026-09-13 — Fix escaleras + paredes fantasmas + techos + colisión jugador
+
+### Corregido
+- **Escaleras no se podían subir**: cada escalón bloqueaba horizontalmente como una pared
+  - Solución: añadido `isStair` a ObstacleBox. Las escaleras NUNCA bloquean movimiento horizontal
+  - `standingOnBox` ahora detecta el escalón más alto con rango generoso (0.4) para transición suave
+- **Paredes fantasmas**: objetos bloqueaban a la altura de la cabeza aunque visualmente no estaban enfrente
+  - Causa: la colisión no verificaba correctamente si el cuerpo del jugador intersecaba verticalmente
+  - Solución: `horizontalBlocked` ahora verifica `oBottom < headY AND oTop > feetY` (overlap vertical real)
+  - Obstáculos no trepables usan XZ distance check (más confiable que containsPoint)
+- **Atravesar techos**: al saltar, la cabeza pasaba a través de plataformas de piso
+  - Solución: colisión de techo — cuando `vel.y > 0`, verifica si la cabeza golpea el fondo de un roof/stair
+  - Si golpea, detiene el movimiento vertical (`vel.y = 0`)
+- **Altura del jugador**: `headY` corregido de 1.8 a 2.0 (coincide con altura real del personaje)
+
+### Pruebas
+- Lint: limpio ✅ | Push GitHub ✅
