@@ -9,16 +9,20 @@ import { Button } from '@/components/ui/button'
 /* ============================ Crosshair ============================ */
 function CrosshairHUD() {
   const weapon = useGameStore((s) => s.weapon)
+  const hitMarker = useGameStore((s) => s.hitMarker)
+  useGameStore((s) => s.myPosSnapshot)
   const w = getWeapon(weapon)
   const gap = 6 + w.spread * 120
   const len = 8
+  const recentHit = hitMarker && performance.now() - hitMarker < 300
+  const color = recentHit ? '#e74c3c' : 'rgba(253,251,247,0.9)'
   const lineStyle: React.CSSProperties = {
-    position: 'absolute', background: 'rgba(253,251,247,0.9)', boxShadow: '0 0 0 1.5px #1a1a1a',
+    position: 'absolute', background: color, boxShadow: '0 0 0 1.5px #1a1a1a',
   }
   return (
     <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center">
-      <div className="relative" style={{ width: 0, height: 0 }}>
-        <div className="crosshair-dot" />
+      <div className="relative" style={{ width: 0, height: 0, transition: 'all 0.1s' }}>
+        <div className="crosshair-dot" style={recentHit ? { background: '#e74c3c' } : undefined} />
         <div style={{ ...lineStyle, width: 2.5, height: len, left: -1.25, top: -(gap + len) }} />
         <div style={{ ...lineStyle, width: 2.5, height: len, left: -1.25, top: gap }} />
         <div style={{ ...lineStyle, width: len, height: 2.5, top: -1.25, left: -(gap + len) }} />
@@ -186,8 +190,10 @@ function BottomBars() {
                 </div>
               </div>
             ) : (
-              <p className="font-doodle text-2xl font-black leading-none">
+              <p className={`font-doodle text-2xl font-black leading-none ${ammo <= 3 && ammo > 0 ? 'text-red-500' : ammo === 0 ? 'text-red-700' : ''}`}>
                 {ammo}<span className="text-sm text-black/40">/{magazine}</span>
+                {ammo === 0 && <span className="block text-[10px] font-bold text-red-600 animate-pulse">¡RECARGA!</span>}
+                {ammo > 0 && ammo <= 3 && <span className="block text-[10px] font-bold text-orange-500">Munición baja</span>}
               </p>
             )}
           </div>
@@ -589,9 +595,35 @@ function QuickChat() {
 }
 
 /* ============================ Hud root ============================ */
+/* ============================ Vignette + low health overlay ============================ */
+function VignetteOverlay() {
+  const health = useGameStore((s) => s.health)
+  const alive = useGameStore((s) => s.alive)
+  useGameStore((s) => s.myPosSnapshot)
+  const lowHp = alive && health < 30
+  return (
+    <>
+      {/* subtle vignette always on for depth */}
+      <div
+        className="pointer-events-none fixed inset-0 z-10"
+        style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.25) 100%)' }}
+      />
+      {/* pulsing red edge when low HP */}
+      {lowHp && (
+        <div
+          className="pointer-events-none fixed inset-0 z-10"
+          style={{ background: 'radial-gradient(ellipse at center, rgba(231,76,60,0) 50%, rgba(231,76,60,0.35) 100%)', animation: 'respawn-pulse 1.3s ease-in-out infinite' }}
+        />
+      )}
+    </>
+  )
+}
+
+/* ============================ Hud root ============================ */
 export default function Hud({ onLeave }: { onLeave: () => void }) {
   return (
     <>
+      <VignetteOverlay />
       <CrosshairHUD />
       <HitMarker />
       <DamageFlash />

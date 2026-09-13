@@ -216,3 +216,60 @@ Unresolved issues / next phase recommendations:
 - Could improve: drone laser beam visual, more map themes, weather effects
 - Could add: friend invites, persistent player stats, ranked mode
 - Next dev server occasionally dies between bash calls (sandbox limitation)
+
+---
+Task ID: 5
+Agent: webDevReview (cron)
+Task: Visual environment improvements (props, shadows, sky), crosshair hit feedback, low ammo indicator, vignette overlay
+
+Work Log:
+- Reviewed worklog: project stable with 2 game modes, 16 maps, sound effects, stamina, killstreaks
+- QA tested with agent-browser + VLM screenshot analysis
+- VLM identified: scene "flat and empty", lacks environmental detail, missing shadows/props
+- Identified improvement areas: 3D environment props, lighting depth, crosshair feedback, ammo indicators
+
+New Features:
+1. Decorative 3D props in arena (GameCanvas buildArena):
+   - 8 doodle trees around arena border (trunk cylinder + 2 stacked cones, green tops)
+   - 6 scattered crates (random positions, non-colliding, decorative)
+   - 4 glowing lamps at arena corners (pole + glowing sphere head + PointLight)
+   - 7 doodle clouds floating at y=18-30 (5 sphere blobs each, drift slowly via cloudGroup.rotation)
+2. Dynamic shadows: renderer.shadowMap enabled (PCFShadowMap), DirectionalLight casts shadows with 2048×2048 shadow map, 80×80 frustum. All obstacles, trees, and crates cast+receive shadows. VLM confirmed: "shadows are visible, pistol casts shadow on floor".
+3. Sky dome: SphereGeometry(100) BackSide mesh, color matches map fog. Replaces flat background.
+4. Cloud drifting: cloudGroup rotates slowly (0.01 rad/s) in animation loop for ambient movement.
+5. Crosshair hit feedback: crosshair turns red for 300ms when hitting an enemy (reads hitMarker timestamp), dot also turns red. Uses CSS transition for smooth color change.
+6. Low ammo indicator: ammo counter turns red when ≤3 rounds, shows "Munición baja" (orange) when 1-3, shows "¡RECARGA!" (red, pulsing) when 0.
+7. Vignette overlay: subtle radial darkening at screen edges (z-10) for depth. Pulsing red edge when HP < 30 (low health warning).
+
+Styling Improvements:
+- Fixed THREE.WebGLShadowMap deprecation: PCFSoftShadowMap → PCFShadowMap (Three.js 0.186)
+- Floor receives shadows (receiveShadow = true)
+- Obstacles cast + receive shadows
+- Trees/crates cast shadows
+- Crosshair dot color changes on hit
+- Vignette uses respawn-pulse animation for low-HP warning
+- Lobby already has wobble + doodle-in animations from previous round
+
+Verification:
+- Lint: clean ✅
+- Servers stable (next:3000 + game-server:3003) ✅
+- Game loads, PvE Nivel 1 Arena Doodle ✅
+- VLM: "shadows are visible" (pistol shadow on floor) ✅
+- VLM: "HUD fully visible and highly detailed" ✅
+- VLM: "minimap shows grid layout with red dots (enemies) and grey shapes (obstacles)" ✅
+- Visual quality: 6/10 (improved from "flat/empty", shadows add depth; props at edges visible when looking around)
+- No console errors (PCFSoftShadowMap deprecation fixed) ✅
+
+Stage Summary:
+- 7 new features: 3D props (trees/lamps/crates/clouds), dynamic shadows, sky dome, cloud animation, crosshair hit feedback, low ammo indicator, vignette + low-HP overlay
+- Arena now has environmental depth (shadows, props, sky) instead of flat void
+- Combat feedback improved (red crosshair on hit, ammo warnings)
+- Immersion enhanced (vignette, low-HP pulsing red edge, cloud drift)
+- VLM confirmed shadows visible and HUD detailed
+
+Unresolved issues / next phase recommendations:
+- Props placed at arena edges — visible when player looks around (not from spawn view)
+- Could add: boss mobs, more weapon variety, power-ups, weather effects
+- Could improve: texture detail on walls, more map-specific props per theme
+- Could add: friend invites, persistent stats, ranked mode
+- Next dev server stable via dev.sh

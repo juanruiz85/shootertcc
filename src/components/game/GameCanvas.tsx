@@ -257,6 +257,20 @@ type Particle = { mesh: THREE.Mesh; vel: THREE.Vector3; born: number; ttl: numbe
 type DroneEnt = { group: THREE.Group; targetPos: THREE.Vector3; targetYaw: number; active: boolean; spin: number }
 type ObstacleBox = { box: THREE.Box3; top: number; climbable: boolean; x: number; z: number; hw: number; hd: number }
 
+/* ---------- doodle cloud (decorative) ---------- */
+function makeCloud(): THREE.Group {
+  const g = new THREE.Group()
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, fog: false })
+  for (let i = 0; i < 5; i++) {
+    const r = 1.2 + Math.random() * 0.8
+    const blob = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), mat)
+    blob.position.set((Math.random() - 0.5) * 4, Math.random() * 0.6, (Math.random() - 0.5) * 2)
+    g.add(blob)
+  }
+  g.scale.set(1.5, 0.8, 1)
+  return g
+}
+
 /* ============================================================
    Component
    ============================================================ */
@@ -276,17 +290,42 @@ export default function GameCanvas() {
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(PAPER)
-    scene.fog = new THREE.Fog(PAPER, 35, 80)
+    scene.fog = new THREE.Fog(PAPER, 40, 90)
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 200)
     camera.position.set(0, EYE_HEIGHT, 0)
     camera.rotation.order = 'YXZ'
     scene.add(camera)
 
-    // lights
-    scene.add(new THREE.AmbientLight(0xffffff, 0.9))
-    const dir = new THREE.DirectionalLight(0xffffff, 0.55); dir.position.set(20, 40, 10); scene.add(dir)
-    scene.add(new THREE.HemisphereLight(0xfff7e0, 0xe8e4df, 0.4))
+    // lights — with shadows for depth
+    renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = THREE.PCFShadowMap
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7))
+    const dir = new THREE.DirectionalLight(0xffffff, 0.7)
+    dir.position.set(25, 45, 15)
+    dir.castShadow = true
+    dir.shadow.mapSize.width = 2048
+    dir.shadow.mapSize.height = 2048
+    dir.shadow.camera.near = 1
+    dir.shadow.camera.far = 120
+    dir.shadow.camera.left = -40
+    dir.shadow.camera.right = 40
+    dir.shadow.camera.top = 40
+    dir.shadow.camera.bottom = -40
+    dir.shadow.bias = -0.0005
+    scene.add(dir)
+    const dirTarget = new THREE.Object3D(); scene.add(dirTarget); dir.target = dirTarget
+    scene.add(new THREE.HemisphereLight(0xfff7e0, 0xe8e4df, 0.45))
+
+    // sky dome (gradient) — added once, updated on map change
+    const skyGeo = new THREE.SphereGeometry(100, 16, 12)
+    const skyMat = new THREE.MeshBasicMaterial({ color: PAPER, side: THREE.BackSide, fog: false })
+    const skyDome = new THREE.Mesh(skyGeo, skyMat)
+    scene.add(skyDome)
+
+    // cloud sprites group
+    const cloudGroup = new THREE.Group()
+    scene.add(cloudGroup)
 
     // arena group (rebuilt on map change)
     const arenaGroup = new THREE.Group()
@@ -308,8 +347,20 @@ export default function GameCanvas() {
       const map = getMap(mapId)
       // background/fog colors
       scene.background = new THREE.Color(map.fog)
-      scene.fog = new THREE.Fog(map.fog, 35, 80)
+      scene.fog = new THREE.Fog(map.fog, 40, 90)
       renderer.setClearColor(map.fog, 1)
+      skyMat.color.setHex(map.fog)
+
+      // rebuild clouds
+      while (cloudGroup.children.length) { const c = cloudGroup.children.pop()!; c.traverse((o:any) => { if (o.geometry) o.geometry.dispose?.(); if (o.material) o.material.dispose?.() }) }
+      for (let i = 0; i < 7; i++) {
+        const cloud = makeCloud()
+        const a = (i / 7) * Math.PI * 2 + Math.random()
+        const r = 30 + Math.random() * 25
+        cloud.position.set(Math.cos(a) * r, 18 + Math.random() * 12, Math.sin(a) * r)
+        cloud.rotation.y = Math.random() * Math.PI
+        cloudGroup.add(cloud)
+      }
 
       // floor texture
       const fc = document.createElement('canvas'); fc.width = 1024; fc.height = 1024
@@ -329,7 +380,45 @@ export default function GameCanvas() {
       const floorTex = new THREE.CanvasTexture(fc)
       floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(4, 4)
       const floor = new THREE.Mesh(new THREE.PlaneGeometry(ARENA_SIZE, ARENA_SIZE), new THREE.MeshLambertMaterial({ map: floorTex }))
-      floor.rotation.x = -Math.PI/2; arenaGroup.add(floor)
+      floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; arenaGroup.add(floor)
+
+      // decorative props: doodle trees, lamps, scattered crates
+      const propsGroup = new THREE.Group()
+      // border trees around arena
+      const treeMat = doodleMat(0x27ae60), trunkMat = doodleMat(0x7a5230)
+      const treePositions: [number, number][] = [
+        [-HALF + 2, -HALF + 2], [HALF - 2, -HALF + 2], [-HALF + 2, HALF - 2], [HALF - 2, HALF - 2],
+        [-HALF + 2, 0], [HALF - 2, 0], [0, -HALF + 2], [0, HALF - 2],
+      ]
+      for (const [tx, tz] of treePositions) {
+        const tree = new THREE.Group()
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 1.2, 6), trunkMat); trunk.position.y = 0.6; addEdges(trunk); tree.add(trunk)
+        const top = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.8, 6), treeMat); top.position.y = 1.9; addEdges(top); tree.add(top)
+        const top2 = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1.2, 6), treeMat); top2.position.y = 2.7; addEdges(top2); tree.add(top2)
+        tree.position.set(tx, 0, tz); tree.castShadow = true
+        propsGroup.add(tree)
+      }
+      // scattered small crates (non-colliding, decorative)
+      const crateMat = doodleMat(0xcdb98a)
+      for (let i = 0; i < 6; i++) {
+        const a = Math.random() * Math.PI * 2
+        const r = 8 + Math.random() * (HALF - 12)
+        const cx = Math.cos(a) * r, cz = Math.sin(a) * r
+        const crate = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), crateMat)
+        crate.position.set(cx, 0.3, cz); crate.rotation.y = Math.random() * Math.PI; addEdges(crate); crate.castShadow = true
+        propsGroup.add(crate)
+      }
+      // lamps at corners (glowing)
+      const lampMat = doodleMat(0x2c3e50), glowMat = new THREE.MeshBasicMaterial({ color: 0xfff3b0 })
+      for (const [lx, lz] of [[-HALF+1, -HALF+1], [HALF-1, -HALF+1], [-HALF+1, HALF-1], [HALF-1, HALF-1]] as const) {
+        const lamp = new THREE.Group()
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 3.5, 6), lampMat); pole.position.y = 1.75; addEdges(pole); lamp.add(pole)
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), glowMat); head.position.y = 3.5; lamp.add(head)
+        const pl = new THREE.PointLight(0xfff3b0, 0.5, 12); pl.position.y = 3.5; lamp.add(pl)
+        lamp.position.set(lx, 0, lz)
+        propsGroup.add(lamp)
+      }
+      arenaGroup.add(propsGroup)
 
       // walls
       const wallMat = doodleMat(map.accent)
@@ -344,7 +433,7 @@ export default function GameCanvas() {
         let mesh: THREE.Mesh
         if (c.kind === 'cyl') mesh = new THREE.Mesh(new THREE.CylinderGeometry(c.w/2, c.w/2, c.h, 12), doodleMat(c.color))
         else mesh = new THREE.Mesh(new THREE.BoxGeometry(c.w, c.h, c.d), doodleMat(c.color))
-        mesh.position.set(c.x, c.h/2, c.z); addEdges(mesh); arenaGroup.add(mesh)
+        mesh.position.set(c.x, c.h/2, c.z); mesh.castShadow = true; mesh.receiveShadow = true; addEdges(mesh); arenaGroup.add(mesh)
         const box = new THREE.Box3().setFromObject(mesh)
         box.expandByScalar(PLAYER_RADIUS * 0.5)
         obstacles.push({ box, top: c.h, climbable: c.climbable, x: c.x, z: c.z, hw: c.w/2, hd: c.d/2 })
@@ -1015,6 +1104,8 @@ export default function GameCanvas() {
         for (const p of props) p.rotation.y = drone.spin
         drone.group.position.y += Math.sin(now * 0.003) * 0.1 * dt
       }
+      // clouds drift slowly
+      cloudGroup.rotation.y += dt * 0.01
 
       renderer.render(scene, camera)
     }
