@@ -669,7 +669,7 @@ export const MAPS: GameMap[] = [
       }
 
       // Build stairs going UP from floor baseY, starting at (sx, sz), direction dir
-      // 7 steps × 0.57 = 3.99 ≈ 4.0 (floor height)
+      // 7 steps × 0.57 = 3.99, then a landing step at exactly floor height (4.0)
       const stepH = 0.57, stepD = 0.7, stepW = 4.0
       const buildStaircase = (sx: number, sz: number, dir: 'N'|'S'|'E'|'W', baseY: number) => {
         for (let s = 0; s < 7; s++) {
@@ -680,6 +680,13 @@ export const MAPS: GameMap[] = [
           if (dir === 'W') x = sx + s * stepD
           r.push(ob(x, z, stepW, stepH, stepD, true, 0x8a7a5a, 'stair', dir === 'E' || dir === 'W' ? Math.PI/2 : 0, false, baseY + s * stepH))
         }
+        // Landing step at exact floor height — connects stairs to upper floor
+        let lx = sx, lz = sz
+        if (dir === 'N') lz = sz + 7 * stepD
+        if (dir === 'S') lz = sz - 7 * stepD
+        if (dir === 'E') lx = sx - 7 * stepD
+        if (dir === 'W') lx = sx + 7 * stepD
+        r.push(ob(lx, lz, stepW, FH - 7 * stepH, stepD, true, 0x8a7a5a, 'stair', dir === 'E' || dir === 'W' ? Math.PI/2 : 0, false, baseY + 7 * stepH))
       }
 
       // Stair positions per floor (different corners)
@@ -690,10 +697,10 @@ export const MAPS: GameMap[] = [
         { sx: -14, sz: 14, dir: 'S' as const },  // 3→4
         { sx: -14, sz: -14, dir: 'N' as const }, // 4→5
       ]
-      // Hole position = CENTER of the staircase (midpoint between first and last step)
-      // Stairs span 7 steps × 0.7 depth = 4.9 units. Center is at step 3 (index 3) = 3*0.7 = 2.1 from start
+      // Hole position = CENTER of the staircase (8 steps total: 7 + landing)
+      // Stairs span 8 × 0.7 = 5.6 units. Center is at step 4 = 4*0.7 = 2.8 from start
       const getHolePos = (s: typeof stairs[0]) => {
-        const midOffset = 3 * stepD // center of 7-step staircase
+        const midOffset = 3.5 * stepD // center of 8-step staircase
         if (s.dir === 'N') return { hx: s.sx, hz: s.sz + midOffset }
         if (s.dir === 'S') return { hx: s.sx, hz: s.sz - midOffset }
         if (s.dir === 'E') return { hx: s.sx - midOffset, hz: s.sz }

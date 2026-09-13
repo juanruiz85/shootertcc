@@ -530,7 +530,7 @@ const MAPS: GameMap[] = [
       }
 
       // Build stairs going UP from floor baseY, starting at (sx, sz), direction dir
-      // 7 steps × 0.57 = 3.99 ≈ 4.0 (floor height)
+      // 7 steps × 0.57 = 3.99, then a landing step at exactly floor height (4.0)
       const stepH = 0.57, stepD = 0.7, stepW = 4.0
       const buildStaircase = (sx: number, sz: number, dir: 'N'|'S'|'E'|'W', baseY: number) => {
         for (let s = 0; s < 7; s++) {
@@ -541,6 +541,13 @@ const MAPS: GameMap[] = [
           if (dir === 'W') x = sx + s * stepD
           r.push(ob(x, z, stepW, stepH, stepD, true, 0x8a7a5a, 'stair', dir === 'E' || dir === 'W' ? Math.PI/2 : 0, false, baseY + s * stepH))
         }
+        // Landing step at exact floor height — connects stairs to upper floor
+        let lx = sx, lz = sz
+        if (dir === 'N') lz = sz + 7 * stepD
+        if (dir === 'S') lz = sz - 7 * stepD
+        if (dir === 'E') lx = sx - 7 * stepD
+        if (dir === 'W') lx = sx + 7 * stepD
+        r.push(ob(lx, lz, stepW, FH - 7 * stepH, stepD, true, 0x8a7a5a, 'stair', dir === 'E' || dir === 'W' ? Math.PI/2 : 0, false, baseY + 7 * stepH))
       }
 
       // Stair positions per floor (different corners)
@@ -560,7 +567,7 @@ const MAPS: GameMap[] = [
       // Top of stairs going N from (sx,sz): position = (sx, sz + 6*stepD) ≈ (sx, sz+4.2)
       // Top of stairs going S from (sx,sz): position = (sx, sz - 6*stepD) ≈ (sx, sz-4.2)
       const getHolePos = (s: typeof stairs[0]) => {
-        const midOffset = 3 * stepD
+        const midOffset = 3.5 * stepD
         if (s.dir === 'N') return { hx: s.sx, hz: s.sz + midOffset }
         if (s.dir === 'S') return { hx: s.sx, hz: s.sz - midOffset }
         if (s.dir === 'E') return { hx: s.sx - midOffset, hz: s.sz }
